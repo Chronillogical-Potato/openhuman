@@ -422,13 +422,13 @@ fn with_request_defaults(
 /// inference callers. Production and tests both inject this native interface;
 /// `temperature` is applied as the request default while an explicit per-call
 /// value still wins.
-pub fn create_chat_model_in(
+pub async fn create_chat_model_in(
     ctx: &DispatchCtx,
     role: &str,
     config: &Config,
     temperature: f64,
 ) -> anyhow::Result<Arc<dyn ChatModel<()>>> {
-    Ok(create_chat_model_with_model_id_in(ctx, role, config, temperature)?.0)
+    Ok(create_chat_model_with_model_id_in(ctx, role, config, temperature).await?.0)
 }
 
 /// Like [`create_chat_model_in`], but also returns the resolved model id.
@@ -437,22 +437,22 @@ pub fn create_chat_model_in(
 /// summarise audit) need the id the role resolved to; the plain
 /// [`create_chat_model_in`] drops it. The host model overrides of the agent
 /// `ctx` runs for win over the configured route.
-pub fn create_chat_model_with_model_id_in(
+pub async fn create_chat_model_with_model_id_in(
     ctx: &DispatchCtx,
     role: &str,
     config: &Config,
     temperature: f64,
 ) -> anyhow::Result<(Arc<dyn ChatModel<()>>, String)> {
-    let (model, model_id) = create_chat_model_with_model_id_inner(ctx, role, config)?;
+    let (model, model_id) = create_chat_model_with_model_id_inner(ctx, role, config).await?;
     Ok((with_default_temperature(model, temperature), model_id))
 }
 
-pub(super) fn create_chat_model_with_model_id_inner(
+pub(super) async fn create_chat_model_with_model_id_inner(
     ctx: &DispatchCtx,
     role: &str,
     config: &Config,
 ) -> anyhow::Result<(Arc<dyn ChatModel<()>>, String)> {
-    build_one_shot(ctx, role, None, config)
+    build_one_shot(ctx, role, None, config).await
 }
 
 /// Whether `role` resolves to the managed OpenHuman backend (vs BYOK / local /
@@ -504,7 +504,7 @@ pub async fn probe_inference_readiness(
     }
 
     log::debug!("[flows][inference-probe] role={role} verifying model construction");
-    if let Err(e) = create_chat_model_with_model_id_inner(ctx, role, config) {
+    if let Err(e) = create_chat_model_with_model_id_inner(ctx, role, config).await {
         log::debug!("[flows][inference-probe] role={role} construction failed: {e}");
         return Err(e.to_string());
     }
@@ -595,7 +595,7 @@ pub fn create_chat_model_from_string_with_model_id(
     Ok((with_default_temperature(model, temperature), model_id))
 }
 
-pub(super) fn create_chat_model_from_string_with_model_id_inner(
+pub(super) async fn create_chat_model_from_string_with_model_id_inner(
     role: &str,
     provider: &str,
     config: &Config,
@@ -607,7 +607,7 @@ pub(super) fn create_chat_model_from_string_with_model_id_inner(
     } else {
         provider
     };
-    build_one_shot(&DispatchCtx::ambient(), role, Some(provider), config)
+    build_one_shot(&DispatchCtx::ambient(), role, Some(provider), config).await
 }
 
 pub(super) fn with_default_temperature(
