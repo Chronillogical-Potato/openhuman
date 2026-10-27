@@ -26,7 +26,7 @@ fn integration_test_config(tmp: &TempDir, backend_url: &str) -> Config {
     cfg
 }
 
-fn store_test_session_token(config: &Config) {
+async fn store_test_session_token(config: &Config) {
     AuthService::from_config(config)
         .store_provider_token(
             APP_SESSION_PROVIDER,
@@ -35,6 +35,7 @@ fn store_test_session_token(config: &Config) {
             std::collections::HashMap::new(),
             true,
         )
+        .await
         .expect("store test session token");
 }
 
@@ -54,7 +55,7 @@ async fn integration_tools_for_config(cfg: &Config) -> Vec<Box<dyn Tool>> {
 async fn integration_families_register_when_enabled_and_signed_in() {
     let tmp = TempDir::new().unwrap();
     let mut cfg = integration_test_config(&tmp, "https://backend.example.test");
-    store_test_session_token(&cfg);
+    store_test_session_token(&cfg).await;
     cfg.api_url = Some("https://backend.example.test".to_string());
 
     let tools = integration_tools_for_config(&cfg).await;
@@ -85,7 +86,7 @@ async fn disabled_families_are_skipped() {
     let tmp = TempDir::new().unwrap();
     let mut cfg = integration_test_config(&tmp, "https://backend.example.test");
     cfg.integrations.stock_prices.enabled = false;
-    store_test_session_token(&cfg);
+    store_test_session_token(&cfg).await;
     let names: Vec<String> = integration_tools_for_config(&cfg)
         .await
         .iter()
@@ -99,7 +100,7 @@ async fn all_tools_executes_stock_family_against_fake_backend() {
     let backend = spawn_fake_integration_backend().await;
     let tmp = TempDir::new().unwrap();
     let cfg = integration_test_config(&tmp, &backend.base_url);
-    store_test_session_token(&cfg);
+    store_test_session_token(&cfg).await;
     let tools = integration_tools_for_config(&cfg).await;
 
     let quote = find_tool(&tools, "stock_quote")
@@ -170,7 +171,7 @@ async fn all_tools_executes_google_places_family_against_fake_backend() {
     let backend = spawn_fake_integration_backend().await;
     let tmp = TempDir::new().unwrap();
     let cfg = integration_test_config(&tmp, &backend.base_url);
-    store_test_session_token(&cfg);
+    store_test_session_token(&cfg).await;
     let tools = integration_tools_for_config(&cfg).await;
 
     let search = find_tool(&tools, "google_places_search")

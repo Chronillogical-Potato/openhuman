@@ -164,30 +164,33 @@ async fn inspection_invoke_and_in_band_401_do_not_mutate_credentials_or_publish_
     drain_session_events(&mut events);
 
     let egress = EgressLedger::none();
-    let build_inspection_model = |api_url: &str| async {
+    let build_inspection_model = |api_url: String| {
         let mut model_config = config.clone();
         model_config.api_url = Some(format!("http://{api_url}"));
-        let context = ProviderContext {
-            config: model_config.clone(),
-            egress: egress.clone(),
-            embedding: None,
-            catalog: None,
-        };
-        let request = ChatModelRequest {
-            role: "chat",
-            model_override: Some("reasoning-v1"),
-            default_model: None,
-            native_tool_calling: true,
-            thread_id: None,
-            context: &context,
-        };
-        let model = super::super::build_chat_model_for_inspection(&request)
-            .await
-            .expect("real TinyHumans inspection adapter should read the selected profile");
-        (model_config, model.model)
+        let egress = egress.clone();
+        async move {
+            let context = ProviderContext {
+                config: model_config.clone(),
+                egress,
+                embedding: None,
+                catalog: None,
+            };
+            let request = ChatModelRequest {
+                role: "chat",
+                model_override: Some("reasoning-v1"),
+                default_model: None,
+                native_tool_calling: true,
+                thread_id: None,
+                context: &context,
+            };
+            let model = super::super::build_chat_model_for_inspection(&request)
+                .await
+                .expect("real TinyHumans inspection adapter should read the selected profile");
+            (model_config, model.model)
+        }
     };
 
-    let (_invoke_config, invoke_model) = build_inspection_model(&invoke_addr).await;
+    let (_invoke_config, invoke_model) = build_inspection_model(invoke_addr.clone()).await;
     let invoke_error = invoke_model
         .invoke(&(), ModelRequest::new(vec![Message::user("probe")]))
         .await
@@ -204,7 +207,7 @@ async fn inspection_invoke_and_in_band_401_do_not_mutate_credentials_or_publish_
     assert_eq!(credential_store_snapshot(temp.path()), store_before);
     assert_no_session_expired(&mut events);
 
-    let (_stream_config, stream_model) = build_inspection_model(&stream_addr).await;
+    let (_stream_config, stream_model) = build_inspection_model(stream_addr.clone()).await;
     let stream = stream_model
         .stream(&(), ModelRequest::new(vec![Message::user("probe")]))
         .await

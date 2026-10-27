@@ -23,8 +23,8 @@ fn registry_for(tmp: &TempDir, cfg: &Config) -> Vec<Box<dyn Tool>> {
     ).await
 }
 
-#[test]
-fn repl_tools_are_registered_by_default_with_the_recovery_tool() {
+#[tokio::test]
+async fn repl_tools_are_registered_by_default_with_the_recovery_tool() {
     let tmp = TempDir::new().unwrap();
     let cfg = test_config(&tmp);
     assert!(crate::inference::tokenjuice::repl_handle_active(&cfg));
@@ -33,8 +33,8 @@ fn repl_tools_are_registered_by_default_with_the_recovery_tool() {
     assert_contains_all(&names, &[tinyjuice_bus::tools::RETRIEVE]);
 }
 
-#[test]
-fn repl_tools_are_absent_whenever_a_handle_cannot_be_produced() {
+#[tokio::test]
+async fn repl_tools_are_absent_whenever_a_handle_cannot_be_produced() {
     let tmp = TempDir::new().unwrap();
     type Flip = fn(&mut Config);
     let off: [(&str, Flip); 4] = [
@@ -64,8 +64,8 @@ fn repl_tools_are_absent_whenever_a_handle_cannot_be_produced() {
     }
 }
 
-#[test]
-fn repl_tools_belong_to_the_inference_family_and_are_read_only() {
+#[tokio::test]
+async fn repl_tools_belong_to_the_inference_family_and_are_read_only() {
     use crate::core::all::DomainGroup;
     for name in tinyjuice_bus::tools::REPL_TOOLS {
         assert_eq!(tool_group(name), DomainGroup::Inference, "{name}");
@@ -83,8 +83,8 @@ fn repl_tools_belong_to_the_inference_family_and_are_read_only() {
     }
 }
 
-#[test]
-fn juice_off_registers_no_juice_or_recovery_tools() {
+#[tokio::test]
+async fn juice_off_registers_no_juice_or_recovery_tools() {
     let tmp = TempDir::new().unwrap();
     let mut cfg = test_config(&tmp);
     cfg.components.juice = false;

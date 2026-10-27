@@ -14,8 +14,8 @@ fn registry_names_for(cfg: &Config, tmp: &TempDir) -> Vec<String> {
     tool_names(&tools)
 }
 
-#[test]
-fn composio_tools_register_in_direct_mode_without_an_app_session() {
+#[tokio::test]
+async fn composio_tools_register_in_direct_mode_without_an_app_session() {
     let tmp = TempDir::new().unwrap();
     let mut cfg = test_config(&tmp);
     cfg.composio.mode = crate::config::schema::COMPOSIO_MODE_DIRECT.into();
@@ -35,8 +35,8 @@ fn composio_tools_register_in_direct_mode_without_an_app_session() {
     );
 }
 
-#[test]
-fn composio_tools_stay_unregistered_in_backend_mode_without_an_app_session() {
+#[tokio::test]
+async fn composio_tools_stay_unregistered_in_backend_mode_without_an_app_session() {
     let tmp = TempDir::new().unwrap();
     let cfg = test_config(&tmp);
 
@@ -47,8 +47,8 @@ fn composio_tools_stay_unregistered_in_backend_mode_without_an_app_session() {
     );
 }
 
-#[test]
-fn composio_tools_register_in_backend_mode_once_a_host_registers_the_route() {
+#[tokio::test]
+async fn composio_tools_register_in_backend_mode_once_a_host_registers_the_route() {
     crate::integrations::composio::test_backend_route::register();
     let tmp = TempDir::new().unwrap();
     let cfg = test_config(&tmp);

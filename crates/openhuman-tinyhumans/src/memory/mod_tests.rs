@@ -165,6 +165,7 @@ async fn host_bearer_rejects_a_local_session_token() {
             std::collections::HashMap::new(),
             true,
         )
+        .await
         .ok();
     store_key(&config, "desktop.test.local");
     let source = HostBearer {

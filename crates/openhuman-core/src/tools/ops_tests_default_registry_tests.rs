@@ -1,6 +1,6 @@
 use super::*;
-#[test]
-fn all_tools_registers_the_memory_tool_while_memory_is_on() {
+#[tokio::test]
+async fn all_tools_registers_the_memory_tool_while_memory_is_on() {
     let tmp = TempDir::new().unwrap();
     let security = Arc::new(SecurityPolicy::default());
     let cfg = test_config(&tmp);
@@ -38,8 +38,8 @@ fn all_tools_registers_the_memory_tool_while_memory_is_on() {
 /// from that release the tools read a store nothing could write. This asserts
 /// the removal in both directions of the `channels` gate at once, replacing the
 /// present/absent pair that used to pin them.
-#[test]
-fn whatsapp_data_tools_are_gone_in_every_build() {
+#[tokio::test]
+async fn whatsapp_data_tools_are_gone_in_every_build() {
     let tmp = TempDir::new().unwrap();
     let security = Arc::new(SecurityPolicy::default());
     let browser = BrowserConfig {
@@ -71,8 +71,8 @@ fn whatsapp_data_tools_are_gone_in_every_build() {
         );
     }
 }
-#[test]
-fn every_packed_tool_name_resolves_to_a_registered_tool() {
+#[tokio::test]
+async fn every_packed_tool_name_resolves_to_a_registered_tool() {
     // A pack advertises a menu. `render_pack_filtered` skips a name it cannot
     // resolve (tools.rs "a pack may name a tool this build compiled out"), so a
     // stale entry does not error — the listing is just quietly short, and any
@@ -161,8 +161,8 @@ fn every_packed_tool_name_resolves_to_a_registered_tool() {
 // Compile-time `media` feature gate (#4804). The `media_generate_*` agent tools
 // are built by a host's registered tool source, never by the core itself, so a
 // bare core registers none of them whether or not the `media` feature is on.
-#[test]
-fn media_tools_come_only_from_a_registered_tool_source() {
+#[tokio::test]
+async fn media_tools_come_only_from_a_registered_tool_source() {
     let tmp = TempDir::new().unwrap();
     let cfg = integration_test_config(&tmp, "http://127.0.0.1:1");
     store_test_session_token(&cfg);
@@ -179,8 +179,8 @@ fn media_tools_come_only_from_a_registered_tool_source() {
 // the `documents` feature is compiled in — leaf gate, no stub facade, so the
 // disabled build must drop both from the tool list entirely.
 #[cfg(feature = "documents")]
-#[test]
-fn document_tools_registered_when_feature_on() {
+#[tokio::test]
+async fn document_tools_registered_when_feature_on() {
     let tmp = TempDir::new().unwrap();
     let security = Arc::new(SecurityPolicy::default());
     let browser = BrowserConfig {
@@ -210,8 +210,8 @@ fn document_tools_registered_when_feature_on() {
 }
 
 #[cfg(not(feature = "documents"))]
-#[test]
-fn document_tools_absent_when_feature_off() {
+#[tokio::test]
+async fn document_tools_absent_when_feature_off() {
     let tmp = TempDir::new().unwrap();
     let security = Arc::new(SecurityPolicy::default());
     let browser = BrowserConfig {
@@ -238,8 +238,8 @@ fn document_tools_absent_when_feature_off() {
     );
 }
 
-#[test]
-fn all_tools_registers_gitbooks_when_enabled() {
+#[tokio::test]
+async fn all_tools_registers_gitbooks_when_enabled() {
     let tmp = TempDir::new().unwrap();
     let security = Arc::new(SecurityPolicy::default());
     let browser = BrowserConfig::default();
@@ -326,8 +326,8 @@ fn all_tools_omits_mcp_tools_when_gate_off() {
     );
 }
 
-#[test]
-fn all_tools_skips_gitbooks_when_disabled() {
+#[tokio::test]
+async fn all_tools_skips_gitbooks_when_disabled() {
     let tmp = TempDir::new().unwrap();
     let security = Arc::new(SecurityPolicy::default());
     let browser = BrowserConfig::default();
@@ -355,8 +355,8 @@ fn all_tools_skips_gitbooks_when_disabled() {
     );
 }
 
-#[test]
-fn all_tools_default_registry_contains_expected_baseline_surface() {
+#[tokio::test]
+async fn all_tools_default_registry_contains_expected_baseline_surface() {
     let tmp = TempDir::new().unwrap();
     let security = Arc::new(SecurityPolicy::default());
     let browser = BrowserConfig {
@@ -420,8 +420,8 @@ fn all_tools_default_registry_contains_expected_baseline_surface() {
         .iter()
         .any(|name| matches!(name.as_str(), "wait" | "wait_loop")));
 }
-#[test]
-fn all_tools_default_registry_has_no_duplicate_tool_names() {
+#[tokio::test]
+async fn all_tools_default_registry_has_no_duplicate_tool_names() {
     let tmp = TempDir::new().unwrap();
     let security = Arc::new(SecurityPolicy::default());
     let browser = BrowserConfig {
@@ -448,8 +448,8 @@ fn all_tools_default_registry_has_no_duplicate_tool_names() {
         "tool registry must not contain duplicate names: {names:?}"
     );
 }
-#[test]
-fn all_tools_excludes_browser_when_disabled() {
+#[tokio::test]
+async fn all_tools_excludes_browser_when_disabled() {
     let tmp = TempDir::new().unwrap();
     let security = Arc::new(SecurityPolicy::default());
 

@@ -1,8 +1,8 @@
 use super::*;
 use crate::tools::ops::default_tools;
 
-#[test]
-fn all_tools_includes_browser_when_enabled() {
+#[tokio::test]
+async fn all_tools_includes_browser_when_enabled() {
     let tmp = TempDir::new().unwrap();
     let security = Arc::new(SecurityPolicy::default());
 
@@ -36,8 +36,8 @@ fn all_tools_includes_browser_when_enabled() {
     assert!(names.contains(&"proxy_config"));
 }
 
-#[test]
-fn computer_component_off_unregisters_desktop_and_browser_tools() {
+#[tokio::test]
+async fn computer_component_off_unregisters_desktop_and_browser_tools() {
     let tmp = TempDir::new().unwrap();
     let security = Arc::new(SecurityPolicy::default());
     let browser = BrowserConfig {
@@ -69,8 +69,8 @@ fn computer_component_off_unregisters_desktop_and_browser_tools() {
     );
 }
 
-#[test]
-fn default_tools_all_have_descriptions() {
+#[tokio::test]
+async fn default_tools_all_have_descriptions() {
     let security = Arc::new(SecurityPolicy::default());
     let tools = default_tools(security);
     for tool in &tools {
@@ -82,8 +82,8 @@ fn default_tools_all_have_descriptions() {
     }
 }
 
-#[test]
-fn default_tools_all_have_schemas() {
+#[tokio::test]
+async fn default_tools_all_have_schemas() {
     let security = Arc::new(SecurityPolicy::default());
     let tools = default_tools(security);
     for tool in &tools {
@@ -101,8 +101,8 @@ fn default_tools_all_have_schemas() {
     }
 }
 
-#[test]
-fn all_tools_registers_no_hosted_integration_families_without_a_tool_source() {
+#[tokio::test]
+async fn all_tools_registers_no_hosted_integration_families_without_a_tool_source() {
     let tmp = TempDir::new().unwrap();
     let security = Arc::new(SecurityPolicy::default());
     let browser = BrowserConfig::default();
@@ -159,8 +159,8 @@ fn all_tools_registers_no_hosted_integration_families_without_a_tool_source() {
     );
 }
 
-#[test]
-fn all_tools_registers_brave_engine_when_enabled() {
+#[tokio::test]
+async fn all_tools_registers_brave_engine_when_enabled() {
     // Search registers one tool per capability role from the TinySearch
     // catalog; a usable BYOK Brave key yields the `search` role tool
     // alongside the builtin tool set.
@@ -194,8 +194,8 @@ fn all_tools_registers_brave_engine_when_enabled() {
     );
 }
 
-#[test]
-fn all_tools_registers_querit_as_the_search_role_when_enabled() {
+#[tokio::test]
+async fn all_tools_registers_querit_as_the_search_role_when_enabled() {
     let tmp = TempDir::new().unwrap();
     let security = Arc::new(SecurityPolicy::default());
     let browser = BrowserConfig::default();
@@ -226,8 +226,8 @@ fn all_tools_registers_querit_as_the_search_role_when_enabled() {
     );
 }
 
-#[test]
-fn all_tools_omits_search_surface_when_search_is_disabled() {
+#[tokio::test]
+async fn all_tools_omits_search_surface_when_search_is_disabled() {
     let tmp = TempDir::new().unwrap();
     let security = Arc::new(SecurityPolicy::default());
     let browser = BrowserConfig::default();

@@ -39,10 +39,11 @@ fn catalog_config(tmp: &TempDir, base_url: &str) -> Config {
     crate::hosted::test_support::config(tmp, base_url)
 }
 
-fn without_session(config: &Config) {
+async fn without_session(config: &Config) {
     crate::hosted::test_support::store_session(config, "fixture-session-to-remove");
     AuthService::from_config(config)
         .remove_profile(APP_SESSION_PROVIDER, "default")
+        .await
         .expect("remove fixture session");
 }
 
@@ -173,7 +174,7 @@ async fn managed_catalog_keeps_provider_key_401_as_a_provider_error() {
         catalog_server(StatusCode::UNAUTHORIZED, "provider key rejected").await;
     let tmp = TempDir::new().unwrap();
     let config = catalog_config(&tmp, &base_url);
-    without_session(&config);
+    without_session(&config).await;
 
     let error = list_models(
         &config,
