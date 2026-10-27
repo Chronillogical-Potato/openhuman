@@ -25,6 +25,23 @@ fn a_paired_device_round_trips() {
 }
 
 #[test]
+fn module_pairing_id_is_retained_for_revoke_but_hidden_from_rpc_json() {
+    let store = docs();
+    store.insert_device("module-id", "iPhone", "pk", "hash").unwrap();
+    assert!(store.set_pairing_id("module-id", "owner-pairing-id").unwrap());
+    let device = store.get_device("module-id").unwrap().unwrap();
+    assert_eq!(device.pairing_id.as_deref(), Some("owner-pairing-id"));
+    assert!(!serde_json::to_string(&device)
+        .unwrap()
+        .contains("owner-pairing-id"));
+
+    store.revoke_device("module-id").unwrap();
+    let all = store.list_devices_for_legacy_import().unwrap();
+    assert_eq!(all.len(), 1);
+    assert!(all[0].revoked);
+}
+
+#[test]
 fn encrypted_core_identity_is_stored_for_restart_and_hidden_from_device_rpc_json() {
     let store = docs();
     store
