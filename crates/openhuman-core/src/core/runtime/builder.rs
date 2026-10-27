@@ -509,13 +509,13 @@ impl CoreRuntime {
         self.ctx.replace_latest_embedder_config(config.clone());
         crate::core::runtime::subscribers::finish_secret_preflight_credentials(
             &crate::core::runtime::DispatchCtx::new(Arc::clone(&self.ctx)),
-            config,
+            &config,
         )
         .await;
-        crate::core::runtime::services::run_legacy_migrations(config).await;
+        crate::core::runtime::services::run_legacy_migrations(&config).await;
         crate::agent::tinyagents::reaper::reap_orphaned_runs(&config.workspace_dir).await;
-        self.boot_mode = CoreBootMode::Normal;
-        self.services = self.deferred_services.take().unwrap_or_else(ServiceSet::none);
+        *self.config.write().expect("core config lock poisoned") = Some(config);
+        self.secret_preflight_complete.store(true, std::sync::atomic::Ordering::Release);
         Ok(())
     }
 
@@ -619,10 +619,11 @@ impl CoreRuntime {
     /// Idempotent while they run; the long-lived loops stop with
     /// [`stop_services`](Self::stop_services) or when this runtime drops.
     pub async fn start_services(&self) {
+        let config = self.config.read().expect("core config lock poisoned").clone();
         crate::core::runtime::services::start_selected_services(
             &self.service_tasks,
-            self.services,
-            self.config.as_ref(),
+            self.services(),
+            config.as_ref(),
             &self.ctx,
         )
         .await;
