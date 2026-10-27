@@ -67,7 +67,7 @@ pub(super) async fn decrypt_config_secrets_strict(
 async fn encrypt_optional_secret(
     store: &crate::security::secret_storage::SecretStore,
     value: &mut Option<String>,
-    _field_name: &str,
+    field_name: &str,
 ) -> Result<()> {
     if let Some(raw) = value.clone() {
         // An empty value means "no key"; sealing it would make it look set.
@@ -167,21 +167,33 @@ pub(super) async fn encrypt_config_secrets(config: &mut Config) -> Result<()> {
 /// walk this list, so a field cannot be sealed on one path and missed on the
 /// other. `storage.url` is not here: its decrypt fails closed, so each pass
 /// handles it itself.
-fn for_each_secret(
+async fn for_each_secret(
     config: &mut Config,
-    f: &mut dyn FnMut(&mut Option<String>, &str) -> Result<()>,
-) -> Result<()> {
-    f(&mut config.api_key, "api_key")?;
-    f(&mut config.seltz.api_key, "seltz.api_key")?;
+    store: &crate::security::secret_storage::SecretStore,
+    encrypt: bool,
+    strict: bool,
+) -> Result<bool> {
+    let mut migrated = false;
+    macro_rules! process_secret {
+        ($value:expr, $name:expr) => {{
+            if encrypt {
+                encrypt_optional_secret(store, $value, $name).await?;
+            } else {
+                migrated |= decrypt_optional_secret(store, $value, $name, strict).await?;
+            }
+        }};
+    }
+    process_secret!(&mut config.api_key, "api_key");
+    process_secret!(&mut config.seltz.api_key, "seltz.api_key");
     for provider in [
         "parallel", "brave", "querit", "exa", "tavily", "gemini", "tinyfish",
     ] {
         if let Some(creds) = config.search.credentials_mut(provider) {
-            f(&mut creds.api_key, &format!("search.{provider}.api_key"))?;
+            process_secret!(&mut creds.api_key, &format!("search.{provider}.api_key"));
         }
     }
-    f(&mut config.local_ai.api_key, "local_ai.api_key")?;
-    f(&mut config.composio.api_key, "composio.api_key")?;
+    process_secret!(&mut config.local_ai.api_key, "local_ai.api_key");
+    process_secret!(&mut config.composio.api_key, "composio.api_key");
     let integrations = &mut config.integrations;
     for (name, toggle) in [
         ("google_places", &mut integrations.google_places),
@@ -189,71 +201,78 @@ fn for_each_secret(
         ("tinyfish", &mut integrations.tinyfish),
         ("stock_prices", &mut integrations.stock_prices),
     ] {
-        f(&mut toggle.api_key, &format!("integrations.{name}.api_key"))?;
+        process_secret!(&mut toggle.api_key, &format!("integrations.{name}.api_key"));
     }
     // Empty means "read the environment", so it stays empty.
-    string_secret(&mut config.hosting.api_key, "hosting.api_key", f)?;
+    migrated |= string_secret(&mut config.hosting.api_key, "hosting.api_key", store, encrypt, strict).await?;
 
     let ch = &mut config.channels_config;
     if let Some(ref mut tg) = ch.telegram {
-        string_secret(&mut tg.bot_token, "telegram.bot_token", f)?;
+        migrated |= string_secret(&mut tg.bot_token, "telegram.bot_token", store, encrypt, strict).await?;
     }
     if let Some(ref mut d) = ch.discord {
-        string_secret(&mut d.bot_token, "discord.bot_token", f)?;
+        migrated |= string_secret(&mut d.bot_token, "discord.bot_token", store, encrypt, strict).await?;
     }
     if let Some(ref mut s) = ch.slack {
-        string_secret(&mut s.bot_token, "slack.bot_token", f)?;
-        f(&mut s.app_token, "slack.app_token")?;
+        migrated |= string_secret(&mut s.bot_token, "slack.bot_token", store, encrypt, strict).await?;
+        process_secret!(&mut s.app_token, "slack.app_token");
     }
     if let Some(ref mut m) = ch.mattermost {
-        string_secret(&mut m.bot_token, "mattermost.bot_token", f)?;
+        migrated |= string_secret(&mut m.bot_token, "mattermost.bot_token", store, encrypt, strict).await?;
     }
     if let Some(ref mut w) = ch.webhook {
-        f(&mut w.secret, "webhook.secret")?;
+        process_secret!(&mut w.secret, "webhook.secret");
     }
     if let Some(ref mut mx) = ch.matrix {
-        string_secret(&mut mx.access_token, "matrix.access_token", f)?;
+        migrated |= string_secret(&mut mx.access_token, "matrix.access_token", store, encrypt, strict).await?;
     }
     if let Some(ref mut wa) = ch.whatsapp {
-        f(&mut wa.access_token, "whatsapp.access_token")?;
-        f(&mut wa.verify_token, "whatsapp.verify_token")?;
-        f(&mut wa.app_secret, "whatsapp.app_secret")?;
+        process_secret!(&mut wa.access_token, "whatsapp.access_token");
+        process_secret!(&mut wa.verify_token, "whatsapp.verify_token");
+        process_secret!(&mut wa.app_secret, "whatsapp.app_secret");
     }
     if let Some(ref mut lq) = ch.linq {
-        string_secret(&mut lq.api_token, "linq.api_token", f)?;
+        migrated |= string_secret(&mut lq.api_token, "linq.api_token", store, encrypt, strict).await?;
     }
     if let Some(ref mut irc) = ch.irc {
-        f(&mut irc.server_password, "irc.server_password")?;
-        f(&mut irc.nickserv_password, "irc.nickserv_password")?;
-        f(&mut irc.sasl_password, "irc.sasl_password")?;
+        process_secret!(&mut irc.server_password, "irc.server_password");
+        process_secret!(&mut irc.nickserv_password, "irc.nickserv_password");
+        process_secret!(&mut irc.sasl_password, "irc.sasl_password");
     }
     if let Some(ref mut lk) = ch.lark {
-        string_secret(&mut lk.app_secret, "lark.app_secret", f)?;
-        f(&mut lk.encrypt_key, "lark.encrypt_key")?;
-        f(&mut lk.verification_token, "lark.verification_token")?;
+        migrated |= string_secret(&mut lk.app_secret, "lark.app_secret", store, encrypt, strict).await?;
+        process_secret!(&mut lk.encrypt_key, "lark.encrypt_key");
+        process_secret!(&mut lk.verification_token, "lark.verification_token");
     }
     if let Some(ref mut dt) = ch.dingtalk {
-        string_secret(&mut dt.client_secret, "dingtalk.client_secret", f)?;
+        migrated |= string_secret(&mut dt.client_secret, "dingtalk.client_secret", store, encrypt, strict).await?;
     }
     if let Some(ref mut qq) = ch.qq {
-        string_secret(&mut qq.app_secret, "qq.app_secret", f)?;
+        migrated |= string_secret(&mut qq.app_secret, "qq.app_secret", store, encrypt, strict).await?;
     }
-    Ok(())
+    Ok(migrated)
 }
 
 /// Runs `f` on a credential stored as a plain `String`, skipping it when empty.
-fn string_secret(
+async fn string_secret(
     value: &mut String,
     field_name: &str,
-    f: &mut dyn FnMut(&mut Option<String>, &str) -> Result<()>,
-) -> Result<()> {
+    store: &crate::security::secret_storage::SecretStore,
+    encrypt: bool,
+    strict: bool,
+) -> Result<bool> {
     if value.is_empty() {
-        return Ok(());
+        return Ok(false);
     }
     let mut slot = Some(value.clone());
-    f(&mut slot, field_name)?;
+    let migrated = if encrypt {
+        encrypt_optional_secret(store, &mut slot, field_name).await?;
+        false
+    } else {
+        decrypt_optional_secret(store, &mut slot, field_name, strict).await?
+    };
     *value = slot.unwrap_or_default();
-    Ok(())
+    Ok(migrated)
 }
 
 #[cfg(test)]
