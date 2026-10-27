@@ -102,7 +102,7 @@ fn engine_set_save_error(error: anyhow::Error) -> String {
 
 pub(super) fn engines_list(ctx: DispatchCtx, params: Map<String, Value>) -> ControllerFuture {
     rpc::<EmptyParams, _>(ctx, params, |_, config, _| async move {
-        Ok(ops::engines_list(&config))
+        Ok(ops::engines_list(&config).await)
     })
 }
 

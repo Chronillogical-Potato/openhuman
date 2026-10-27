@@ -276,7 +276,7 @@ pub async fn all_tools_with_runtime_and_pack_handle(
     // The single `memory` tool (recall | fetch | learn | forget), registered
     // only while memory is on: with no usable engine (signed out, no CortexDB
     // key) the model is not offered a tool that can only fail.
-    if crate::memory::engine::is_on(root_config) {
+    if crate::memory::engine::is_on(root_config).await {
         tools.push(Box::new(crate::memory::MemoryTool::new(config.clone())));
         tracing::debug!("[tools::ops] registered memory tool");
     } else {
