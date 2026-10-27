@@ -110,12 +110,14 @@ async fn explicit_turn_context_uses_its_model_and_capabilities_over_ambient_cont
         let source = TurnModelSource::new_crate_native(&dispatch, "chat", config);
         let models = source
             .build("hint:chat", 0.0, None, None)
+            .await
             .expect("explicit context A has a registered managed model");
 
         assert_eq!(name_of(&models.primary).await, "context-a-model");
         assert_eq!(name_of(&models.summarizer).await, "context-a-model");
         let standalone = source
             .build_summarizer("hint:summarization", 0.0, None)
+            .await
             .expect("standalone summarizer uses explicit context A");
         assert_eq!(name_of(&standalone).await, "context-a-model");
         assert!(models
@@ -179,6 +181,7 @@ async fn explicit_turn_context_without_provider_does_not_borrow_ambient_provider
         let source = TurnModelSource::new_crate_native(&dispatch, "chat", config);
         let error = source
             .build("hint:chat", 0.0, None, None)
+            .await
             .err()
             .expect("an explicit context without a provider must fail closed");
         assert!(error.to_string().contains("BACKEND_UNAVAILABLE"));
@@ -255,6 +258,7 @@ async fn role_pins_apply_when_the_primary_uses_config_routing() {
 
         let models = TurnModelSource::new_crate_native(&scope_ctx, "chat", Arc::new(config))
             .build("hint:chat", 0.0, None, None)
+            .await
             .expect("config-routed models");
         let coding = models
             .routes
@@ -462,6 +466,7 @@ async fn a_sub_agents_provider_failure_is_not_recorded_as_the_leads() {
         ])));
     let models = TurnModelSource::from_model(model)
         .build("m", 0.0, None, None)
+        .await
         .expect("turn models");
     let resolver = models.resolver();
     let child = resolver
@@ -487,6 +492,7 @@ async fn a_sub_agents_success_does_not_clear_the_leads_recorded_failure() {
         ])));
     let models = TurnModelSource::from_model(model)
         .build("m", 0.0, None, None)
+        .await
         .expect("turn models");
     let resolver = models.resolver();
     let lead = resolver
@@ -523,6 +529,7 @@ async fn a_sub_agents_route_failure_leaves_the_leads_slot_untouched() {
     ])));
     let models = TurnModelSource::from_model(primary)
         .build("m", 0.0, None, None)
+        .await
         .expect("turn models")
         .with_test_route("hint:burst", route.clone());
     let resolver = models.resolver();
@@ -569,6 +576,7 @@ async fn a_sub_agents_route_success_does_not_clear_the_leads_slot() {
     ])));
     let models = TurnModelSource::from_model(primary)
         .build("m", 0.0, None, None)
+        .await
         .expect("turn models")
         .with_test_route("hint:burst", route.clone());
     let resolver = models.resolver();
