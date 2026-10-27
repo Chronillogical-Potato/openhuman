@@ -73,8 +73,14 @@ pub fn publish_peer_status(channel_id: String, online: bool) {
 
 /// Publish a parsed encrypted frame from the host adapter.
 pub fn publish_tunnel_frame(channel_id: String, payload_b64: String) {
+    let now_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|duration| duration.as_millis().min(u128::from(u64::MAX)) as u64)
+        .unwrap_or_default();
     crate::core::bus::BUS.publish(crate::core::events::DomainEvent::DeviceTunnelFrame {
         channel_id,
         payload_b64,
+        connection_nonce: uuid::Uuid::new_v4().simple().to_string(),
+        expires_at_ms: now_ms.saturating_add(30_000),
     });
 }
