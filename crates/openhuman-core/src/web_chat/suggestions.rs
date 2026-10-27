@@ -137,7 +137,7 @@ async fn generate_and_emit(
     }
 
     let (chat_model, resolved_model) =
-        match provider::create_chat_model_with_model_id_in(ctx, "summarization", &config, 0.2) {
+        match provider::create_chat_model_with_model_id_in(ctx, "summarization", &config, 0.2).await {
             Ok(resolved) => resolved,
             Err(error) => {
                 log::debug!(
