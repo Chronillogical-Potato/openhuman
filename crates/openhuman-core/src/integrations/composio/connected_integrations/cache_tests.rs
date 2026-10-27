@@ -52,7 +52,7 @@ async fn cache_key_changes_when_resolved_fallback_url_changes() {
         api_url: Some("http://localhost:11434/v1".to_string()),
         ..Config::default()
     };
-    let first = cache_key_with_backend_url(&config, "https://backend-one.example");
-    let second = cache_key_with_backend_url(&config, "https://backend-two.example");
+    let first = cache_key_with_backend_url(&config, "https://backend-one.example").await;
+    let second = cache_key_with_backend_url(&config, "https://backend-two.example").await;
     assert_ne!(first, second);
 }
