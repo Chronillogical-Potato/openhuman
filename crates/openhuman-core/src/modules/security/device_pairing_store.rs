@@ -2,7 +2,7 @@
 
 use anyhow::{anyhow, Result};
 use serde_json::{json, Value};
-use tinystoragedrivers::{CollectionSpec, Precondition, Version};
+use tinystoragedrivers::{CollectionSpec, Precondition};
 
 use crate::{config::Config, storage::documents::Repo};
 

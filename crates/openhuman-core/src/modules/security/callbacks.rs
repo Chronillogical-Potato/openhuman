@@ -272,6 +272,7 @@ fn valid_pairing_context(
                 && !context.connection_nonce.is_empty()
         }
         Source::SocketClosed => !context.channel_id.is_empty(),
+        Source::Agent | Source::Automation => false,
     };
     valid_scope
         && !context.user_binding.is_empty()
