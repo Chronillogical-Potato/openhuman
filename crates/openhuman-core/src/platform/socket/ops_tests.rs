@@ -3,10 +3,10 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use super::*;
 
 // ── Redundant-connect suppression (#6181) ──────────────────────────
-use std::sync::atomic::AtomicUsize;
 use std::sync::Arc;
+use std::sync::atomic::AtomicUsize;
 
-use crate::platform::socket::token_provider::{static_token_provider, TokenProvider};
+use crate::platform::socket::token_provider::{TokenProvider, static_token_provider};
 use crate::platform::socket::types::ConnectionStatus;
 
 const TOKEN_A: &str = "session-token-a";
@@ -49,8 +49,8 @@ async fn spawn_accept_counting_eio_server() -> (Arc<AtomicUsize>, std::net::Sock
 /// EIO v4 mock that completes one handshake and then holds the connection open
 /// until the returned sender says to hang up, so a test can decide exactly when
 /// the loop is forced to reconnect. Later connections are held indefinitely.
-async fn spawn_server_that_hangs_up_on_cue(
-) -> (std::net::SocketAddr, tokio::sync::watch::Sender<bool>) {
+async fn spawn_server_that_hangs_up_on_cue()
+-> (std::net::SocketAddr, tokio::sync::watch::Sender<bool>) {
     use futures_util::{SinkExt, StreamExt};
     use tokio::net::TcpListener;
     use tokio_tungstenite::{accept_async, tungstenite::Message as WsMessage};
@@ -292,9 +292,9 @@ async fn spawn_handshake_stalling_eio_server() -> (
                 let open = r#"0{"sid":"mock-eio-sid","upgrades":[],"pingInterval":30000,"pingTimeout":30000}"#;
                 let _ = write.send(WsMessage::Text(open.into())).await;
                 let _ = read.next().await; // client SIO CONNECT
-                                           // The literal artefact Alan's acceptance criterion names: one
-                                           // `SIO CONNECT ACK` per boot. Counted at the send, so it tracks
-                                           // completed Socket.IO handshakes, not merely TCP accepts.
+                // The literal artefact Alan's acceptance criterion names: one
+                // `SIO CONNECT ACK` per boot. Counted at the send, so it tracks
+                // completed Socket.IO handshakes, not merely TCP accepts.
                 let _ = write
                     .send(WsMessage::Text(r#"40{"sid":"mock-sio-sid"}"#.into()))
                     .await;

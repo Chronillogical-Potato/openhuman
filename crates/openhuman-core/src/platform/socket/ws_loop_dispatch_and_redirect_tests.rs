@@ -340,7 +340,7 @@ fn fail_escalate_threshold_is_five() {
 /// start spamming Sentry again — exactly the regression this guards.
 #[test]
 fn sustained_outage_for_network_unreachable_classifies_as_expected() {
-    use crate::core::observability::{expected_error_kind, ExpectedErrorKind};
+    use crate::core::observability::{ExpectedErrorKind, expected_error_kind};
 
     let reason = "WebSocket connect: IO error: Network is unreachable (os error 51)";
     let detailed = format!(
@@ -365,7 +365,7 @@ fn sustained_outage_for_network_unreachable_classifies_as_expected() {
 /// handshake"` anchor to the emit site.
 #[test]
 fn sustained_outage_for_tls_handshake_eof_classifies_as_expected() {
-    use crate::core::observability::{expected_error_kind, ExpectedErrorKind};
+    use crate::core::observability::{ExpectedErrorKind, expected_error_kind};
 
     let reason = "WebSocket connect: TLS error: native-tls error: unexpected EOF during handshake";
     let detailed = format!(
