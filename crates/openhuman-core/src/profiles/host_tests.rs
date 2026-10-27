@@ -447,7 +447,7 @@ async fn a_reprovisioned_profile_does_not_inherit_the_old_credential() {
         super::super::credentials::UserCredentialKind::Session,
         "old-session",
         None,
-    )
+    ).await
     .unwrap();
     assert!(host.summary(&id).await.unwrap().unwrap().has_credential);
     host.deprovision(&id).await.unwrap();
