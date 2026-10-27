@@ -10,8 +10,10 @@ fn config_in(dir: &std::path::Path) -> Config {
     config
 }
 
-fn sign_in(config: &Config) {
-    crate::credentials::api_key::store_api_key(config, "backend-sentinel").unwrap();
+async fn sign_in(config: &Config) {
+    crate::credentials::api_key::store_api_key(config, "backend-sentinel")
+        .await
+        .unwrap();
 }
 
 fn select(config: &mut Config, providers: &[(&str, SearchProviderSettings)]) {
@@ -25,7 +27,7 @@ fn select(config: &mut Config, providers: &[(&str, SearchProviderSettings)]) {
 async fn signed_in_defaults_route_exa_and_gemini_through_the_backend() {
     let dir = tempfile::tempdir().unwrap();
     let config = config_in(dir.path());
-    sign_in(&config);
+    sign_in(&config).await;
     let payload = module_config(&config).await;
     for name in ["exa", "gemini"] {
         let provider = &payload.providers[name];
@@ -76,7 +78,7 @@ async fn direct_provider_config_keeps_limits_and_private_key() {
 async fn role_tools_follow_provider_selection() {
     let dir = tempfile::tempdir().unwrap();
     let mut config = config_in(dir.path());
-    sign_in(&config);
+    sign_in(&config).await;
     let names: Vec<String> = configured_tool_specs(&config)
         .await
         .into_iter()
