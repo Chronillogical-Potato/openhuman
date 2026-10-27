@@ -29,7 +29,7 @@ async fn decrypt_optional_secret(
                 }
                 Err(e) => {
                     if strict {
-                        anyhow::bail!("unable to decrypt config secret");
+                        anyhow::bail!("config secret(s) are sealed under this node's key and could not be opened");
                     }
                     // Decryption key is inaccessible (e.g. rotated, keyring reset, or
                     // migrated across machines). Clear the field so config loads

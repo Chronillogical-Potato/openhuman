@@ -193,7 +193,6 @@ async fn a_restarted_host_opens_a_fresh_handshake_from_a_paired_row() {
 
 #[tokio::test]
 async fn restarted_pairing_rejects_mismatched_or_revoked_device_rows() {
-    let original = DeviceKeypair::generate();
     let data_dir = tempfile::tempdir().unwrap();
     let config = crate::config::Config::default();
     let secret_store = crate::security::secret_storage::SecretStore::new_with_config(
