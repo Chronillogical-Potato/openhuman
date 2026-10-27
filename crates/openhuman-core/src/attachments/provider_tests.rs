@@ -249,7 +249,9 @@ async fn derivative_cache_survives_model_recreation_and_invalidates_changed_cont
     };
     let first = make();
     let scope = super::super::AttachmentAccessScope::default();
-    let key = first.fallback_key("uploads/thread/id/original.txt", "text/plain", b"original");
+    let key = first
+        .fallback_key("uploads/thread/id/original.txt", "text/plain", b"original")
+        .await;
     first
         .save_fallback(
             "uploads/thread/id/original.txt",
@@ -266,7 +268,9 @@ async fn derivative_cache_survives_model_recreation_and_invalidates_changed_cont
             .as_deref(),
         Some("derived readout")
     );
-    let changed = first.fallback_key("uploads/thread/id/original.txt", "text/plain", b"modified");
+    let changed = first
+        .fallback_key("uploads/thread/id/original.txt", "text/plain", b"modified")
+        .await;
     assert!(resumed
         .cached_fallback("uploads/thread/id/original.txt", &changed, &scope)
         .await
