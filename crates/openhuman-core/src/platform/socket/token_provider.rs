@@ -24,7 +24,7 @@ use std::sync::Arc;
 /// profile store is a lock + disk read, not an async I/O round-trip. Wrapping
 /// it in `Arc` lets it be cheaply cloned into the spawned task without
 /// requiring `async_fn_in_trait` or boxing.
-pub(super) type TokenProvider = Arc<dyn Fn() -> Result<String, String> + Send + Sync>;
+pub(super) type TokenProvider = Arc<dyn Fn() -> futures::future::BoxFuture<'static, Result<String, String>> + Send + Sync>;
 
 /// Returns `true` iff the failure reason carries both the Socket.IO CONNECT
 /// prefix AND the `"invalid token"` sentinel — a strict double anchor to avoid
@@ -59,11 +59,14 @@ pub(super) fn is_invalid_token_error(reason: &str) -> bool {
 /// `token_provider_from_config` (used by `handle_connect_with_session`).
 pub(super) fn static_token_provider(token: String) -> TokenProvider {
     Arc::new(move || {
-        if token.trim().is_empty() {
-            Err("empty session token — authenticate first".to_string())
-        } else {
-            Ok(token.clone())
-        }
+        let token = token.clone();
+        Box::pin(async move {
+            if token.trim().is_empty() {
+                Err("empty session token — authenticate first".to_string())
+            } else {
+                Ok(token)
+            }
+        })
     })
 }
 
@@ -75,13 +78,17 @@ pub(super) fn static_token_provider(token: String) -> TokenProvider {
 /// refreshed or re-stored since the previous attempt.
 pub(crate) fn token_provider_from_config(config: Arc<crate::config::Config>) -> TokenProvider {
     Arc::new(move || {
-        let token = crate::credentials::session_state::get_session_token(&config)
-            .map_err(|e| format!("failed to read session token: {e}"))?
-            .ok_or_else(|| "no session token stored — user must log in first".to_string())?;
-        if crate::credentials::session_state::is_local_session_token(&token) {
-            return Err("offline local session cannot connect to hosted socket".to_string());
-        }
-        Ok(token)
+        let config = Arc::clone(&config);
+        Box::pin(async move {
+            let token = crate::credentials::session_state::get_session_token(&config)
+                .await
+                .map_err(|e| format!("failed to read session token: {e}"))?
+                .ok_or_else(|| "no session token stored — user must log in first".to_string())?;
+            if crate::credentials::session_state::is_local_session_token(&token) {
+                return Err("offline local session cannot connect to hosted socket".to_string());
+            }
+            Ok(token)
+        })
     })
 }
 
