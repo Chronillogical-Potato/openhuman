@@ -134,6 +134,11 @@ async fn frame_size_cap_is_checked_before_a_socket_is_required() {
         .await
         .expect_err("oversized frame must be rejected before socket lookup");
     assert!(error.contains("frame too large"));
+
+    let error = emit_frame("ch_123", &"a".repeat(64 * 1024))
+        .await
+        .expect_err("a 64 KB frame proceeds to the socket transport");
+    assert!(error.contains("SocketManager not initialized"));
 }
 
 // ── The shape the backend actually sends (#5871) ──────────────────────────
