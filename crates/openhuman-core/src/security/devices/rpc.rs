@@ -78,7 +78,22 @@ pub async fn devices_create_pairing(
         label
     );
 
-    // Register with backend tunnel.
+    // Key generation and private identity storage stay inside TinySecurity.
+    let (client, scope, master_handle, generation) =
+        crate::modules::security::device_pairing_master(_config).await?;
+    let host_event_id = crate::modules::security::device_pairing_controller_event(
+        &scope,
+        master_handle,
+        generation,
+    )?;
+    let begin = client
+        .device_pairing2(pairing_begin_request(host_event_id))
+        .await
+        .map_err(|error| error.to_string())?;
+    let (core_pubkey, pairing_receipt) = pairing_begin_result(begin)?;
+
+    // Register only after TinySecurity has admitted the direct controller
+    // action, so a failed security call cannot leave an orphan backend channel.
     let reg = tunnel_client::emit_register().await.map_err(|e| {
         log::error!("[devices/rpc] tunnel:register failed: {e}");
         e
@@ -89,23 +104,6 @@ pub async fn devices_create_pairing(
         reg.channel_id,
         reg.pairing_token.len()
     );
-
-    // Key generation and private identity storage stay inside TinySecurity.
-    let (client, scope, master_handle, generation) =
-        crate::modules::security::device_pairing_master(_config).await?;
-    let host_event_id = crate::modules::security::device_pairing_controller_event(
-        &scope,
-        master_handle,
-        generation,
-    )?;
-    let begin = client
-        .device_pairing2(tinysecurity_bus::DevicePairingRequest2 {
-            call_id: uuid::Uuid::new_v4().simple().to_string(),
-            operation: tinysecurity_bus::DevicePairingOperation2::Begin { host_event_id },
-        })
-        .await
-        .map_err(|error| error.to_string())?;
-    let (core_pubkey, pairing_receipt) = pairing_begin_result(begin)?;
 
     // Best-effort LAN URL detection (non-fatal if it fails).
     let rpc_url = detect_lan_rpc_url();
@@ -287,6 +285,15 @@ fn pairing_begin_result(
         return Err("TinySecurity returned an unexpected result for pairing begin".to_owned());
     }
     Ok((public_key, receipt))
+}
+
+fn pairing_begin_request(
+    host_event_id: String,
+) -> tinysecurity_bus::DevicePairingRequest2 {
+    tinysecurity_bus::DevicePairingRequest2 {
+        call_id: uuid::Uuid::new_v4().simple().to_string(),
+        operation: tinysecurity_bus::DevicePairingOperation2::Begin { host_event_id },
+    }
 }
 
 // ---------------------------------------------------------------------------

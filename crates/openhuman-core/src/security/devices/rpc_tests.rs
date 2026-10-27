@@ -11,6 +11,15 @@ fn test_config() -> Config {
 
 #[test]
 fn pairing_begin_requires_tinysecurity_identity_and_receipt() {
+    let request = pairing_begin_request("host-event".into());
+    assert!(!request.call_id.is_empty());
+    assert_eq!(
+        request.operation,
+        tinysecurity_bus::DevicePairingOperation2::Begin {
+            host_event_id: "host-event".into()
+        }
+    );
+
     let response = tinysecurity_bus::DevicePairingResponse2 {
         receipt: Some("owner-receipt".into()),
         pairing_id: None,
