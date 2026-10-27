@@ -186,6 +186,7 @@ async fn render_via_session(
     agent_id: &str,
 ) -> Result<DumpedPrompt> {
     let mut agent = OpenHumanSessionHost::from_config_for_agent(ctx, config, agent_id)
+        .await
         .with_context(|| format!("building session agent for `{agent_id}`"))?;
 
     // Use the live turn prelude's hydration and surface reconciliation so this

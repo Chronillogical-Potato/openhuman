@@ -129,7 +129,8 @@ impl HarnessPayloadSummarizer<OpenHumanRunContext> for SubagentPayloadSummarizer
                     false,
                     None,
                     definition.temperature,
-                );
+                )
+                .await;
                 let max_output_tokens = request.max_output_tokens.min(max_output_tokens).max(1);
                 let framing = subagent_framing(SubagentRole::Leaf, summary_depth, &request.prompt);
                 let system_prompt = format!("{}\n\n{framing}", request.system.trim_end());

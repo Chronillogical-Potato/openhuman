@@ -41,7 +41,9 @@ async fn push_spans(config: &Config, spans: &[TraceSpan]) -> Result<(), String> 
     let token = match crate::credentials::backend_credential::direct_backend_credential(
         config,
         "langfuse otlp push",
-    ) {
+    )
+    .await
+    {
         Some(crate::credentials::backend_credential::BackendCredential::Session(token)) => token,
         _ => return Ok(()),
     };

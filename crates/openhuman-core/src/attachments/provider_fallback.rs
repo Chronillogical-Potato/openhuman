@@ -189,6 +189,7 @@ impl AttachmentModel {
                 &self.config,
                 0.0,
             )
+            .await
             .map_err(|e| tinyinference_llm::Error::Model(e.to_string()))?;
         let provider = vision
             .profile()
