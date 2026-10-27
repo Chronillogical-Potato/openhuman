@@ -74,7 +74,7 @@ impl VoiceTranscriber {
             "{LOG_PREFIX} transcribe provider={provider} bytes_b64={}",
             request.audio_base64.len()
         );
-        let stt = crate::voice::create_stt_provider(&provider, "", &self.config)?;
+        let stt = crate::voice::create_stt_provider(&provider, "", &self.config).await?;
         let outcome = stt
             .transcribe(
                 &self.config,
@@ -143,7 +143,7 @@ impl SpeechSynthesizer for VoiceSynthesizer {
         #[cfg(feature = "voice")]
         {
             let voice = request.voice.as_deref().unwrap_or_default();
-            let provider = crate::voice::create_tts_provider("cloud", voice, &self.config)?;
+            let provider = crate::voice::create_tts_provider("cloud", voice, &self.config).await?;
             let outcome = provider
                 .synthesize(&self.config, &request.text, request.voice.as_deref())
                 .await
