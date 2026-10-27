@@ -68,3 +68,56 @@ async fn disconnected_port_rejects_emits_and_disconnect_is_idempotent() {
     assert!(!port.is_loop_active());
     assert!(!port.loop_stopped_on_failure());
 }
+
+#[tokio::test]
+async fn actor_shutdown_fails_an_emit_queued_during_reconnect_promptly() {
+    use tokio::sync::{mpsc, oneshot, watch};
+    use tinyhumans_sdk::TinyHumansClient;
+
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = listener.local_addr().unwrap();
+    drop(listener);
+    let connection = TinyHumansClient::new(format!("http://{address}"))
+        .connect_socket_with_token_provider(|| Some("token".to_owned()))
+        .await
+        .unwrap();
+
+    let (commands, receiver) = mpsc::channel(4);
+    let (shutdown, shutdown_receiver) = watch::channel(false);
+    let (done, done_receiver) = oneshot::channel();
+    let state = Arc::new(RwLock::new(SocketState::default()));
+    let loop_active = Arc::new(AtomicBool::new(true));
+    let stopped_on_failure = Arc::new(AtomicBool::new(false));
+    tokio::spawn(run_socket_actor(
+        connection,
+        receiver,
+        shutdown_receiver,
+        done,
+        state,
+        Arc::clone(&loop_active),
+        stopped_on_failure,
+    ));
+
+    let (result, response) = oneshot::channel();
+    commands
+        .send(SocketCommand::Emit {
+            event: "test:event".to_owned(),
+            data: serde_json::json!({}),
+            result,
+        })
+        .await
+        .unwrap();
+    tokio::task::yield_now().await;
+    shutdown.send_replace(true);
+
+    assert!(tokio::time::timeout(std::time::Duration::from_millis(250), response)
+        .await
+        .expect("the queued emit waiter must be released during shutdown")
+        .unwrap()
+        .is_err());
+    tokio::time::timeout(std::time::Duration::from_millis(250), done_receiver)
+        .await
+        .expect("the actor must stop during shutdown")
+        .unwrap();
+    assert!(!loop_active.load(Ordering::Acquire));
+}
