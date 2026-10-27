@@ -100,11 +100,8 @@ fn try_create_local_runtime_chat_model_from_string_with_identity(
     if let Err(e) = enforce_local_only_inference(role, &p) {
         return Some(Err(e));
     }
-    if !inspection {
-        if let Err(e) = verify_provider_session(config, provider) {
-            return Some(Err(e));
-        }
-    }
+    // These routes own independent local-runtime authentication; they do not
+    // read or depend on the OpenHuman app-session profile.
 
     // Endpoint, auth, model and `@temp` resolution is the module's pure
     // `resolve_local_runtime`; the host only supplies config + env.
