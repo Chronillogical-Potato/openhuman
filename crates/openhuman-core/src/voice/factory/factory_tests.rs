@@ -58,7 +58,9 @@ async fn stt_factory_slug_colon_model_resolves_with_registry() {
             stt_api_style: SttApiStyle::Deepgram,
             ..Default::default()
         });
-    let p = create_stt_provider("deepgram:nova-2", "", &config).await.unwrap();
+    let p = create_stt_provider("deepgram:nova-2", "", &config)
+        .await
+        .unwrap();
     assert_eq!(p.name(), "external");
 }
 
@@ -254,7 +256,9 @@ async fn tts_factory_slug_colon_voice_reaches_provider() {
             default_tts_voice: Some("alloy".into()),
             ..Default::default()
         });
-    let p = create_tts_provider("openai:shimmer", "", &config).await.unwrap();
+    let p = create_tts_provider("openai:shimmer", "", &config)
+        .await
+        .unwrap();
     assert_eq!(p.configured_voice(), Some("shimmer"));
 }
 
@@ -284,7 +288,9 @@ async fn tts_factory_slug_colon_voice_resolves_with_registry() {
             default_tts_voice: Some("alloy".into()),
             ..Default::default()
         });
-    let p = create_tts_provider("openai:shimmer", "", &config).await.unwrap();
+    let p = create_tts_provider("openai:shimmer", "", &config)
+        .await
+        .unwrap();
     assert_eq!(p.name(), "external");
 }
 

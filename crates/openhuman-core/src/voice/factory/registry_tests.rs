@@ -129,9 +129,7 @@ async fn a_registered_tts_provider_gets_the_resolved_voice_and_returns_reply_spe
     let with_voice = create_tts_provider("fake-tts", "alloy", &config)
         .await
         .unwrap();
-    let without_voice = create_tts_provider("fake-tts", "", &config)
-        .await
-        .unwrap();
+    let without_voice = create_tts_provider("fake-tts", "", &config).await.unwrap();
     unregister_tts_provider("fake-tts");
 
     let speech = with_voice
