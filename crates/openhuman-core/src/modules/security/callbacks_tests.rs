@@ -161,19 +161,35 @@ async fn device_pairing_host_is_served_on_the_module_binding() {
     let _broker_task = broker.spawn(bus);
     let host = ModuleHost::new(broker);
     let path: tinybus::ObjectPath = callback_names2::OBJECT_PATH.parse().unwrap();
-    let binding = host
-        .prepare_host_callbacks(vec![HostCallbackEndpoint {
-            path: path.clone(),
-            interface: callback_names2::DEVICE_PAIRING_HOST.parse().unwrap(),
-            members: [
-                callback_names2::RESOLVE_PAIRING_EVENT,
-                callback_names2::PERSIST_DEVICE_PAIRING,
-                callback_names2::LOAD_LEGACY_DEVICE_IDENTITIES,
-            ]
-            .into_iter()
+    let endpoint = |interface: &str, members: &[&str]| HostCallbackEndpoint {
+        path: path.clone(),
+        interface: interface.parse().unwrap(),
+        members: members
+            .iter()
             .map(|member| member.parse().unwrap())
             .collect(),
-        }])
+    };
+    let binding = host
+        .prepare_host_callbacks(vec![
+            endpoint(
+                callback_names2::APPROVAL_STORE,
+                &[callback_names2::LOAD, callback_names2::CAS],
+            ),
+            endpoint(callback_names2::AUDIT_SINK, &[callback_names2::APPEND]),
+            endpoint(
+                callback_names2::APPROVAL_PROMPT,
+                &[callback_names2::PROMPT, callback_names2::VERIFY_HUMAN],
+            ),
+            endpoint(callback_names2::KEYRING_CONSENT, &[callback_names2::CONSENT]),
+            endpoint(
+                callback_names2::DEVICE_PAIRING_HOST,
+                &[
+                    callback_names2::RESOLVE_PAIRING_EVENT,
+                    callback_names2::PERSIST_DEVICE_PAIRING,
+                    callback_names2::LOAD_LEGACY_DEVICE_IDENTITIES,
+                ],
+            ),
+        ])
         .await
         .unwrap();
     serve_on_binding(&binding).await.unwrap();
