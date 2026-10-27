@@ -23,7 +23,7 @@ async fn start_mock_backend(app: Router) -> String {
 //   3. direct mode without api key — explicit error
 //   4. unknown mode string — explicit error
 
-fn config_with_session_token(tmp: &tempfile::TempDir) -> Config {
+async fn config_with_session_token(tmp: &tempfile::TempDir) -> Config {
     let mut config = Config::default();
     config.config_path = tmp.path().join("config.toml");
     crate::credentials::AuthService::from_config(&config)
@@ -33,7 +33,8 @@ fn config_with_session_token(tmp: &tempfile::TempDir) -> Config {
             "test-token",
             std::collections::HashMap::new(),
             true,
-        ).await
+        )
+        .await
         .expect("store test session token");
     config
 }

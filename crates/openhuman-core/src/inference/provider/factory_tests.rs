@@ -139,29 +139,30 @@ async fn inspection_codex_oauth_metadata_marks_output_budget_unsupported() {
     );
 }
 
-fn create_test_chat_model_from_string(
+async fn create_test_chat_model_from_string(
     role: &str,
     provider: &str,
     config: &Config,
 ) -> anyhow::Result<(Arc<dyn ChatModel<()>>, String)> {
-    with_library_test_context(|| {
-        create_chat_model_from_string_with_model_id(role, provider, config, 0.7)
+    with_library_test_context_async(|| async {
+        create_chat_model_from_string_with_model_id(role, provider, config, 0.7).await
     })
+    .await
 }
 
-fn create_test_local_chat_model_from_string(
+async fn create_test_local_chat_model_from_string(
     provider: &str,
     config: &Config,
 ) -> anyhow::Result<(Arc<dyn ChatModel<()>>, String)> {
-    create_local_chat_model_from_string(provider, config)
+    create_local_chat_model_from_string(provider, config).await
 }
 
-fn create_test_omlx_model(
+async fn create_test_omlx_model(
     model: &str,
     _temperature: Option<f64>,
     config: &Config,
 ) -> anyhow::Result<(Arc<dyn ChatModel<()>>, String)> {
-    create_local_chat_model_from_string(&format!("omlx:{model}"), config)
+    create_local_chat_model_from_string(&format!("omlx:{model}"), config).await
 }
 
 fn config_with_providers(providers: Vec<CloudProviderCreds>) -> Config {

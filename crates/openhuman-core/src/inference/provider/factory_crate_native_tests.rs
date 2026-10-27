@@ -14,7 +14,7 @@ fn isolated_config() -> (tempfile::TempDir, Config) {
     (tmp, config)
 }
 
-fn store_fixture_session(config: &Config) {
+async fn store_fixture_session(config: &Config) {
     crate::credentials::AuthService::from_config(config)
         .store_provider_token(
             crate::credentials::APP_SESSION_PROVIDER,
@@ -23,10 +23,11 @@ fn store_fixture_session(config: &Config) {
             Default::default(),
             true,
         )
+        .await
         .expect("store isolated fixture session");
 }
 
-fn store_fixture_cloud_key(config: &Config, slug: &str) {
+async fn store_fixture_cloud_key(config: &Config, slug: &str) {
     crate::credentials::AuthService::from_config(config)
         .store_provider_token(
             &format!("provider:{slug}"),
@@ -35,6 +36,7 @@ fn store_fixture_cloud_key(config: &Config, slug: &str) {
             Default::default(),
             true,
         )
+        .await
         .expect("store isolated provider credential");
 }
 
@@ -48,13 +50,13 @@ fn fixture_library_dispatch() -> crate::core::runtime::DispatchCtx {
     )
 }
 
-fn with_fixture_library_context<R>(f: impl FnOnce() -> R) -> R {
+async fn with_fixture_library_context<F: std::future::Future>(f: impl FnOnce() -> F) -> F::Output {
     let context = crate::core::runtime::CoreContext::for_test_with_host_kind(
         crate::core::types::HostKind::Library,
         crate::core::runtime::DomainSet::full(),
         None,
     );
-    crate::core::runtime::CoreContext::sync_scope(context, f)
+    crate::core::runtime::CoreContext::scope(context, f()).await
 }
 
 #[tokio::test]
