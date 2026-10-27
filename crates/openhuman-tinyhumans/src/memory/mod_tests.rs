@@ -5,14 +5,14 @@ use openhuman_embed::__host::credentials::session_state::{
     SESSION_EXPIRES_AT_META, SESSION_ISSUING_BACKEND_META,
 };
 use openhuman_embed::__host::credentials::{
-    AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
+    APP_SESSION_PROVIDER, AuthService, DEFAULT_AUTH_PROFILE_NAME,
 };
 use openhuman_embed::__host::memory_engines::Binding;
 use serde_json::json;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
 
-use billing::{active_with_cache, digest, fetch, parse_active, Answer, CACHE_TTL};
+use billing::{Answer, CACHE_TTL, active_with_cache, digest, fetch, parse_active};
 use engine::HostBearer;
 
 const KEY: &str = "https://backend.test";

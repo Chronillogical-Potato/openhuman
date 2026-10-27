@@ -1,10 +1,10 @@
 use super::super::inspection_entry;
 use axum::{
+    Json, Router,
     extract::State,
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
     routing::get,
-    Json, Router,
 };
 use openhuman_embed::__host::config::Config;
 use openhuman_embed::__host::credentials::session_state::{
@@ -15,8 +15,8 @@ use openhuman_embed::__host::inference_registry::{
     InspectionCatalogError, InspectionCatalogRequest, PreparedInspectionCatalog,
 };
 use std::sync::{
-    atomic::{AtomicUsize, Ordering},
     Arc,
+    atomic::{AtomicUsize, Ordering},
 };
 
 fn with_backend_env_test_lock(future: impl std::future::Future<Output = ()>) {
