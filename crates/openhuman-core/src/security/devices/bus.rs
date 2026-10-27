@@ -157,13 +157,6 @@ struct TunnelEnvelope {
     payload: Value,
 }
 
-#[derive(Debug, Deserialize)]
-struct TunnelRpcPayload {
-    method: String,
-    #[serde(default)]
-    params: Value,
-}
-
 async fn handle_peer_online(channel_id: &str) {
     log::info!("[devices/bus] peer online channel_id={}", channel_id);
     super::lock_unpoisoned(&PEER_STATUS).insert(channel_id.to_string(), true);
@@ -511,7 +504,7 @@ async fn handle_encrypted_rpc_frame(ctx: &DispatchCtx, channel_id: &str, frame_b
         return;
     }
 
-    let request = match serde_json::from_value::<TunnelRpcPayload>(envelope.payload) {
+    let request = match super::tunnel_rpc::parse_tunnel_rpc_payload(envelope.payload) {
         Ok(request) => request,
         Err(e) => {
             emit_tunnel_error(
@@ -532,13 +525,7 @@ async fn handle_encrypted_rpc_frame(ctx: &DispatchCtx, channel_id: &str, frame_b
         envelope.request_id
     );
 
-    let result = crate::core::invoke::invoke_method(
-        ctx.clone(),
-        crate::core::invoke::default_state(),
-        &request.method,
-        request.params,
-    )
-    .await;
+    let result = super::tunnel_rpc::dispatch_tunnel_rpc(ctx, request).await;
 
     match result {
         Ok(value) => {

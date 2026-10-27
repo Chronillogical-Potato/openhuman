@@ -13,6 +13,7 @@ pub mod store;
 mod store_documents;
 #[cfg(feature = "legacy-import")]
 mod store_import;
+mod tunnel_rpc;
 pub(crate) use storage_schema::{collection_specs, upgrade_records};
 #[cfg(feature = "legacy-import")]
 pub(crate) use store_documents::import_source;
