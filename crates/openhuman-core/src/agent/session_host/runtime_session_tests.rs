@@ -79,7 +79,7 @@ async fn committed_progress_uses_each_turns_receipt_sender() {
 #[tokio::test]
 async fn committed_progress_carries_the_sidecar_stop_on_turn_completed() {
     use crate::progress::AgentProgress;
-    use tinyagents_harness::{turn_stop::TurnStopKind, TurnFailureClass, TurnStop};
+    use tinyagents_harness::{TurnFailureClass, TurnStop, turn_stop::TurnStopKind};
     use tinyagents_runtime::{
         CommitReceipt, ResumeMode, SessionTurnOutcome, TranscriptTurnOptions,
     };
@@ -122,8 +122,8 @@ async fn committed_progress_carries_the_sidecar_stop_on_turn_completed() {
     assert_eq!(stop.operation.as_deref(), Some("web_answer_tool"));
 }
 
-#[test]
-fn clearing_progress_releases_warm_prelude_sender() {
+#[tokio::test]
+async fn clearing_progress_releases_warm_prelude_sender() {
     let tmp = tempfile::tempdir().expect("tempdir");
     let config = crate::config::Config {
         workspace_dir: tmp.path().join("workspace"),
@@ -131,12 +131,13 @@ fn clearing_progress_releases_warm_prelude_sender() {
         config_path: tmp.path().join("config.toml"),
         ..Default::default()
     };
-    crate::agent::session_host::test_support::install_managed_model_fixture(&config);
+    crate::agent::session_host::test_support::install_managed_model_fixture(&config).await;
     let mut host = crate::agent::OpenHumanSessionHost::from_config_for_agent(
         &crate::core::runtime::DispatchCtx::ambient(),
         &config,
         "orchestrator",
     )
+    .await
     .expect("orchestrator");
     host.ensure_runtime_session().expect("warm runtime");
 
@@ -223,12 +224,13 @@ fn connected_mcp_actions_enter_search_and_leave_on_disconnect() {
         config_path: tmp.path().join("config.toml"),
         ..Default::default()
     };
-    crate::agent::session_host::test_support::install_managed_model_fixture(&config);
+    crate::agent::session_host::test_support::install_managed_model_fixture(&config).await;
     let mut host = crate::agent::OpenHumanSessionHost::from_config_for_agent(
         &crate::core::runtime::DispatchCtx::ambient(),
         &config,
         "orchestrator",
     )
+    .await
     .expect("orchestrator");
     host.ensure_runtime_session().expect("runtime session");
     let prelude = host
@@ -273,12 +275,14 @@ fn connected_mcp_actions_enter_search_and_leave_on_disconnect() {
         .clear();
     prelude.refresh_delegation_tool_surface().unwrap();
     assert!(!synthesized_tool_names(&prelude).contains(&action));
-    assert!(!prelude
-        .tool_surface
-        .lock()
-        .expect("tool surface")
-        .deferred_tool_names
-        .contains(&action));
+    assert!(
+        !prelude
+            .tool_surface
+            .lock()
+            .expect("tool surface")
+            .deferred_tool_names
+            .contains(&action)
+    );
 }
 
 #[cfg(feature = "mcp")]
@@ -293,12 +297,13 @@ async fn resumed_mcp_snapshot_survives_a_cold_catalog_and_keeps_its_frozen_spec(
         config_path: tmp.path().join("config.toml"),
         ..Default::default()
     };
-    crate::agent::session_host::test_support::install_managed_model_fixture(&config);
+    crate::agent::session_host::test_support::install_managed_model_fixture(&config).await;
     let mut host = crate::agent::OpenHumanSessionHost::from_config_for_agent(
         &crate::core::runtime::DispatchCtx::ambient(),
         &config,
         "orchestrator",
     )
+    .await
     .expect("orchestrator");
     host.ensure_runtime_session().expect("runtime session");
     let prelude = host
@@ -397,19 +402,22 @@ async fn desktop_browser_setting_keeps_deferred_tools_in_fresh_and_resumed_surfa
     };
     config.browser.enabled = true;
     config.http_request.allowed_domains = vec!["example.com".into()];
-    crate::agent::session_host::test_support::install_managed_model_fixture(&config);
+    crate::agent::session_host::test_support::install_managed_model_fixture(&config).await;
     let mut host = crate::agent::OpenHumanSessionHost::from_config_for_agent(
         &crate::core::runtime::DispatchCtx::ambient(),
         &config,
         "orchestrator",
     )
+    .await
     .expect("desktop orchestrator");
     for name in ["browser", "browser_open"] {
         assert!(host.deferred_tool_names.contains(name), "{name}");
-        assert!(!host
-            .visible_tool_specs_arc()
-            .iter()
-            .any(|spec| spec.name == name));
+        assert!(
+            !host
+                .visible_tool_specs_arc()
+                .iter()
+                .any(|spec| spec.name == name)
+        );
     }
     host.ensure_runtime_session().expect("runtime session");
     let prelude = host
@@ -446,6 +454,7 @@ async fn desktop_browser_setting_keeps_deferred_tools_in_fresh_and_resumed_surfa
         &config,
         "orchestrator",
     )
+    .await
     .expect("browser-disabled orchestrator");
     for name in ["browser", "browser_open"] {
         assert!(!disabled.deferred_tool_names.contains(name), "{name}");
@@ -726,14 +735,18 @@ async fn newly_connected_action_cannot_shadow_a_permanent_source() {
         mutable.connected_integrations_authoritative = true;
     }
     let error = prelude.refresh_delegation_tool_surface().unwrap_err();
-    assert!(error
-        .to_string()
-        .contains("collision with synthesized tool"));
+    assert!(
+        error
+            .to_string()
+            .contains("collision with synthesized tool")
+    );
     let surface = prelude.tool_surface.lock().unwrap();
     assert!(Arc::ptr_eq(&surface.visible_tool_specs, &before));
     assert_eq!(surface.tools[0].description(), "host-owned action");
-    assert!(!surface
-        .synthesized_tools
-        .iter()
-        .any(|tool| tool.name() == "GMAIL_SEND_EMAIL"));
+    assert!(
+        !surface
+            .synthesized_tools
+            .iter()
+            .any(|tool| tool.name() == "GMAIL_SEND_EMAIL")
+    );
 }
