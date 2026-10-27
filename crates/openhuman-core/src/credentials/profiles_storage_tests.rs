@@ -1,7 +1,7 @@
 use super::*;
 
-#[test]
-fn persisted_profile_document_is_encrypted_at_rest() {
+#[tokio::test]
+async fn persisted_profile_document_is_encrypted_at_rest() {
     let tmp = tempfile::TempDir::new().unwrap();
     let store = AuthProfilesStore::new(tmp.path(), true);
     store
@@ -22,8 +22,8 @@ fn persisted_profile_document_is_encrypted_at_rest() {
     );
 }
 
-#[test]
-fn configured_generic_storage_does_not_replace_the_profile_local_document() {
+#[tokio::test]
+async fn configured_generic_storage_does_not_replace_the_profile_local_document() {
     let _backend = crate::storage::test_support::install_backend_for_test(
         crate::storage::test_support::memory_backend(),
     );

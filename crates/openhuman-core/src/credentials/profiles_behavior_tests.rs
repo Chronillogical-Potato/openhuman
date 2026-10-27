@@ -1,16 +1,16 @@
 use super::*;
 use tempfile::TempDir;
 
-#[test]
-fn profile_id_format() {
+#[tokio::test]
+async fn profile_id_format() {
     assert_eq!(
         profile_id("openai-codex", "default"),
         "openai-codex:default"
     );
 }
 
-#[test]
-fn token_expiry_math() {
+#[tokio::test]
+async fn token_expiry_math() {
     let token_set = TokenSet {
         access_token: "token".into(),
         refresh_token: Some("refresh".into()),
@@ -84,8 +84,8 @@ async fn profile_write_publishes_an_encrypted_document() {
     assert!(!String::from_utf8_lossy(&bytes).contains("token-abc"));
 }
 
-#[test]
-fn token_set_not_expiring_when_no_expiry() {
+#[tokio::test]
+async fn token_set_not_expiring_when_no_expiry() {
     let token_set = TokenSet {
         access_token: "token".into(),
         refresh_token: None,
@@ -97,8 +97,8 @@ fn token_set_not_expiring_when_no_expiry() {
     assert!(!token_set.is_expiring_within(Duration::from_secs(3600)));
 }
 
-#[test]
-fn auth_profile_new_token() {
+#[tokio::test]
+async fn auth_profile_new_token() {
     let profile = AuthProfile::new_token("anthropic", "default", "sk-abc".into());
     assert_eq!(profile.provider, "anthropic");
     assert_eq!(profile.profile_name, "default");
@@ -107,8 +107,8 @@ fn auth_profile_new_token() {
     assert!(profile.token_set.is_none());
 }
 
-#[test]
-fn auth_profile_new_oauth() {
+#[tokio::test]
+async fn auth_profile_new_oauth() {
     let ts = TokenSet {
         access_token: "access".into(),
         refresh_token: Some("refresh".into()),
@@ -123,16 +123,16 @@ fn auth_profile_new_oauth() {
     assert!(profile.token.is_none());
 }
 
-#[test]
-fn auth_profiles_data_default() {
+#[tokio::test]
+async fn auth_profiles_data_default() {
     let data = AuthProfilesData::default();
     assert_eq!(data.schema_version, CURRENT_SCHEMA_VERSION);
     assert!(data.profiles.is_empty());
     assert!(data.active_profiles.is_empty());
 }
 
-#[test]
-fn corrupt_store_is_quarantined_and_reset() {
+#[tokio::test]
+async fn corrupt_store_is_quarantined_and_reset() {
     let tmp = TempDir::new().unwrap();
     let store = AuthProfilesStore::new(tmp.path(), false);
     let path = store.legacy_path.clone();
@@ -168,8 +168,8 @@ fn corrupt_store_is_quarantined_and_reset() {
 /// never log in cleanly because every read pre-empts before reaching
 /// the "no profile" code path.
 
-#[test]
-fn load_drops_profiles_whose_decryption_fails_under_rotated_key() {
+#[tokio::test]
+async fn load_drops_profiles_whose_decryption_fails_under_rotated_key() {
     // The SecretStore caches keys by canonicalised path in a process-wide
     // OnceCell. Use a fresh temp dir per test so we don't pick up a
     // sibling test's cached key.
@@ -229,8 +229,8 @@ fn load_drops_profiles_whose_decryption_fails_under_rotated_key() {
 /// user is locked out of all sessions. Drop just the bad entry, matching
 /// the decrypt-failure recovery pattern.
 
-#[test]
-fn load_drops_profiles_with_unrecognized_kind_instead_of_failing_load() {
+#[tokio::test]
+async fn load_drops_profiles_with_unrecognized_kind_instead_of_failing_load() {
     let tmp = TempDir::new().unwrap();
     let store = AuthProfilesStore::new(tmp.path(), false);
 
@@ -305,16 +305,16 @@ fn load_drops_profiles_with_unrecognized_kind_instead_of_failing_load() {
     assert!(reread.profiles.contains_key(&good_id));
 }
 
-#[test]
-fn remove_nonexistent_profile_returns_false() {
+#[tokio::test]
+async fn remove_nonexistent_profile_returns_false() {
     let tmp = TempDir::new().unwrap();
     let store = AuthProfilesStore::new(tmp.path(), false);
     let result = store.remove_profile("nonexistent:id").unwrap();
     assert!(!result);
 }
 
-#[test]
-fn remove_existing_profile_returns_true() {
+#[tokio::test]
+async fn remove_existing_profile_returns_true() {
     let tmp = TempDir::new().unwrap();
     let store = AuthProfilesStore::new(tmp.path(), false);
     let profile = AuthProfile::new_token("test", "default", "tok".into());
@@ -329,8 +329,8 @@ fn remove_existing_profile_returns_true() {
     assert!(!data.active_profiles.values().any(|v| v == &id));
 }
 
-#[test]
-fn set_active_profile_errors_for_missing_profile() {
+#[tokio::test]
+async fn set_active_profile_errors_for_missing_profile() {
     let tmp = TempDir::new().unwrap();
     let store = AuthProfilesStore::new(tmp.path(), false);
     let err = store
@@ -339,8 +339,8 @@ fn set_active_profile_errors_for_missing_profile() {
     assert!(err.to_string().contains("not found"));
 }
 
-#[test]
-fn set_active_profile_succeeds_for_existing_profile() {
+#[tokio::test]
+async fn set_active_profile_succeeds_for_existing_profile() {
     let tmp = TempDir::new().unwrap();
     let store = AuthProfilesStore::new(tmp.path(), false);
     let profile = AuthProfile::new_token("openai", "prod", "tok".into());
@@ -352,8 +352,8 @@ fn set_active_profile_succeeds_for_existing_profile() {
     assert_eq!(data.active_profiles.get("openai"), Some(&id));
 }
 
-#[test]
-fn clear_active_profile() {
+#[tokio::test]
+async fn clear_active_profile() {
     let tmp = TempDir::new().unwrap();
     let store = AuthProfilesStore::new(tmp.path(), false);
     let profile = AuthProfile::new_token("openai", "prod", "tok".into());
@@ -364,8 +364,8 @@ fn clear_active_profile() {
     assert!(!data.active_profiles.contains_key("openai"));
 }
 
-#[test]
-fn auth_profile_lock_errors_do_not_include_local_paths() {
+#[tokio::test]
+async fn auth_profile_lock_errors_do_not_include_local_paths() {
     let tmp = TempDir::new().unwrap();
     let invalid_state_dir = tmp.path().join("not-a-directory");
     std::fs::write(&invalid_state_dir, "occupied").unwrap();
@@ -378,8 +378,8 @@ fn auth_profile_lock_errors_do_not_include_local_paths() {
     assert!(!err.contains(&invalid_state_dir.display().to_string()));
 }
 
-#[test]
-fn update_profile_modifies_in_place() {
+#[tokio::test]
+async fn update_profile_modifies_in_place() {
     let tmp = TempDir::new().unwrap();
     let store = AuthProfilesStore::new(tmp.path(), false);
     let profile = AuthProfile::new_token("openai", "prod", "tok".into());
@@ -398,16 +398,16 @@ fn update_profile_modifies_in_place() {
     );
 }
 
-#[test]
-fn update_profile_errors_for_missing_id() {
+#[tokio::test]
+async fn update_profile_errors_for_missing_id() {
     let tmp = TempDir::new().unwrap();
     let store = AuthProfilesStore::new(tmp.path(), false);
     let err = store.update_profile("missing:id", |_| Ok(())).unwrap_err();
     assert!(err.to_string().contains("not found"));
 }
 
-#[test]
-fn upsert_preserves_created_at_on_update() {
+#[tokio::test]
+async fn upsert_preserves_created_at_on_update() {
     let tmp = TempDir::new().unwrap();
     let store = AuthProfilesStore::new(tmp.path(), false);
     let profile = AuthProfile::new_token("openai", "prod", "tok1".into());

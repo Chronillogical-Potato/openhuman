@@ -3,8 +3,8 @@
 use super::*;
 use tempfile::TempDir;
 
-#[test]
-fn denied_keyring_write_never_falls_back_to_document_secrets() {
+#[tokio::test]
+async fn denied_keyring_write_never_falls_back_to_document_secrets() {
     for denial in [
         super::super::keychain::KeyringConsentError::Denied,
         super::super::keychain::KeyringConsentError::Pending,
@@ -16,8 +16,8 @@ fn denied_keyring_write_never_falls_back_to_document_secrets() {
     assert!(super::super::keychain::should_fallback_to_encrypted_document(&unavailable));
 }
 
-#[test]
-fn no_config_profile_store_uses_its_encrypted_document_without_keyring_bypass() {
+#[tokio::test]
+async fn no_config_profile_store_uses_its_encrypted_document_without_keyring_bypass() {
     let tmp = TempDir::new().unwrap();
     let store = AuthProfilesStore::new(tmp.path(), true);
 
@@ -25,8 +25,8 @@ fn no_config_profile_store_uses_its_encrypted_document_without_keyring_bypass() 
     assert!(store.security_config.is_none());
 }
 
-#[test]
-fn config_backed_profile_store_uses_tinysecurity_and_existing_namespaced_key() {
+#[tokio::test]
+async fn config_backed_profile_store_uses_tinysecurity_and_existing_namespaced_key() {
     let tmp = TempDir::new().unwrap();
     let config = crate::config::Config::default();
     let store = AuthProfilesStore::new_with_config(tmp.path(), true, &config);
@@ -39,8 +39,8 @@ fn config_backed_profile_store_uses_tinysecurity_and_existing_namespaced_key() {
     );
 }
 
-#[test]
-fn unavailable_keyring_keeps_keyring_only_oauth_metadata_in_place() {
+#[tokio::test]
+async fn unavailable_keyring_keeps_keyring_only_oauth_metadata_in_place() {
     let tmp = TempDir::new().unwrap();
     let config = crate::config::Config::default();
     let store = AuthProfilesStore::new_with_config(tmp.path(), true, &config);
@@ -76,8 +76,8 @@ fn unavailable_keyring_keeps_keyring_only_oauth_metadata_in_place() {
         .contains_key(&id));
 }
 
-#[test]
-fn denied_keyring_delete_restores_profile_document() {
+#[tokio::test]
+async fn denied_keyring_delete_restores_profile_document() {
     let tmp = TempDir::new().unwrap();
     let store = AuthProfilesStore::new(tmp.path(), true);
     let mut before = PersistedAuthProfiles::default();

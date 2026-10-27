@@ -1,8 +1,8 @@
 use super::*;
 use tempfile::TempDir;
 
-#[test]
-fn denied_keyring_read_preserves_keyring_only_oauth_profile() {
+#[tokio::test]
+async fn denied_keyring_read_preserves_keyring_only_oauth_profile() {
     let mut profile = PersistedAuthProfile {
         provider: "openai-codex".into(),
         profile_name: "default".into(),
@@ -22,8 +22,8 @@ fn denied_keyring_read_preserves_keyring_only_oauth_profile() {
     );
 }
 
-#[test]
-fn auth_profile_kind_serde_roundtrip() {
+#[tokio::test]
+async fn auth_profile_kind_serde_roundtrip() {
     let json = serde_json::to_string(&AuthProfileKind::OAuth).unwrap();
     assert_eq!(json, "\"o-auth\""); // kebab-case
     let back: AuthProfileKind = serde_json::from_str(&json).unwrap();
@@ -33,8 +33,8 @@ fn auth_profile_kind_serde_roundtrip() {
     assert_eq!(json, "\"token\"");
 }
 
-#[test]
-fn migration_normalizes_provider_but_preserves_profile_name_casing() {
+#[tokio::test]
+async fn migration_normalizes_provider_but_preserves_profile_name_casing() {
     let tmp = TempDir::new().unwrap();
     let store = AuthProfilesStore::new(tmp.path(), false);
     let raw_json = serde_json::json!({
@@ -70,8 +70,8 @@ fn migration_normalizes_provider_but_preserves_profile_name_casing() {
     );
 }
 
-#[test]
-fn migration_collision_prefers_existing_lowercase_key() {
+#[tokio::test]
+async fn migration_collision_prefers_existing_lowercase_key() {
     let tmp = TempDir::new().unwrap();
     let store = AuthProfilesStore::new(tmp.path(), false);
 
@@ -117,8 +117,8 @@ fn migration_collision_prefers_existing_lowercase_key() {
     );
 }
 
-#[test]
-fn migration_profile_id_collision_prefers_canonical_lowercase() {
+#[tokio::test]
+async fn migration_profile_id_collision_prefers_canonical_lowercase() {
     // Two profiles whose IDs differ only by casing.
     let tmp = TempDir::new().unwrap();
     let store = AuthProfilesStore::new(tmp.path(), false);

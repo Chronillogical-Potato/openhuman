@@ -58,8 +58,8 @@ async fn same_token_refresh_preserves_issuing_backend_and_refuses_rebinding() {
 
 // ── secret_store_for_config ────────────────────────────────────
 
-#[test]
-fn secret_store_for_config_scopes_to_config_parent() {
+#[tokio::test]
+async fn secret_store_for_config_scopes_to_config_parent() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
     // Build the store — must not panic and must operate under tmp path.
