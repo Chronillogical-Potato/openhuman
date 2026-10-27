@@ -1,17 +1,22 @@
 //! Tunnel client for the device pairing domain.
 //!
-//! Reuses the existing `SocketManager` (global singleton) to emit and receive
-//! `tunnel:*` Socket.IO events without opening a second WebSocket connection to
-//! the backend. Incoming `tunnel:peer-status` and `tunnel:frame` events arrive
-//! via the event bus (published by `socket::event_handlers` after this module
-//! adds them to the dispatch table) and are handled by `devices::bus`.
+//! Uses the existing SDK-backed Socket.IO connection to emit and receive
+//! `tunnel:*` events without opening a second connection to the backend. This
+//! module owns the tunnel wire DTOs and forwards parsed semantic events into
+//! the core's device domain.
 //!
 //! Frame cap: 64 KB. Rate limit: callers are expected to stay ≤ 100 frames/s.
 
 use serde::Deserialize;
 use serde_json::json;
 
-use crate::platform::socket::global_socket_manager;
+use openhuman_embed::__host::{
+    platform::socket::global_socket_manager,
+    security::devices::{
+        publish_peer_status, publish_tunnel_frame, TunnelClientPort, TunnelRegistration,
+    },
+};
+use std::sync::Arc;
 
 // ---------------------------------------------------------------------------
 // Wire types
@@ -120,6 +125,79 @@ pub struct TunnelFrame {
     pub channel_id: String,
     /// Base64url-encoded encrypted frame bytes.
     pub payload: String,
+}
+
+/// Inbound `tunnel:evicted` payload.
+#[derive(Debug, Clone, Deserialize)]
+struct TunnelEvicted {
+    #[serde(rename = "channelId")]
+    channel_id: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum TunnelEvent {
+    PeerStatus { channel_id: String, online: bool },
+    Frame { channel_id: String, payload: String },
+    Evicted { channel_id: String },
+}
+
+fn parse_inbound_event(event_name: &str, data: serde_json::Value) -> Option<Result<TunnelEvent, String>> {
+    match event_name {
+        "tunnel:peer-status" => Some(
+            serde_json::from_value::<TunnelPeerStatus>(data)
+                .map(|status| TunnelEvent::PeerStatus {
+                    channel_id: status.channel_id,
+                    online: status.online,
+                })
+                .map_err(|error| error.to_string()),
+        ),
+        "tunnel:frame" => Some(
+            serde_json::from_value::<TunnelFrame>(data)
+                .map(|frame| TunnelEvent::Frame {
+                    channel_id: frame.channel_id,
+                    payload: frame.payload,
+                })
+                .map_err(|error| error.to_string()),
+        ),
+        "tunnel:evicted" => Some(
+            serde_json::from_value::<TunnelEvicted>(data)
+                .map(|evicted| TunnelEvent::Evicted {
+                    channel_id: evicted.channel_id,
+                })
+                .map_err(|error| error.to_string()),
+        ),
+        _ => None,
+    }
+}
+
+/// Parse a backend tunnel event and publish its core-owned semantic event.
+/// Returns `true` for recognized tunnel event names, even if their payload is
+/// malformed, so the generic socket sink never treats wire DTOs as core data.
+pub(crate) fn dispatch_backend_event(event_name: &str, data: serde_json::Value) -> bool {
+    let Some(parsed) = parse_inbound_event(event_name, data) else {
+        return false;
+    };
+    match parsed {
+        Ok(TunnelEvent::PeerStatus { channel_id, online }) => {
+            log::info!("[devices/tunnel] peer status channel_id={channel_id} online={online}");
+            publish_peer_status(channel_id, online);
+        }
+        Ok(TunnelEvent::Frame { channel_id, payload }) => {
+            log::debug!(
+                "[devices/tunnel] frame received channel_id={channel_id} payload_len={}",
+                payload.len()
+            );
+            publish_tunnel_frame(channel_id, payload);
+        }
+        Ok(TunnelEvent::Evicted { channel_id }) => {
+            log::info!("[devices/tunnel] channel evicted channel_id={channel_id}");
+            if !channel_id.is_empty() {
+                publish_peer_status(channel_id, false);
+            }
+        }
+        Err(error) => log::warn!("[devices/tunnel] failed to parse {event_name}: {error}"),
+    }
+    true
 }
 
 // ---------------------------------------------------------------------------
@@ -259,6 +337,35 @@ pub async fn emit_frame(channel_id: &str, payload_b64: &str) -> Result<(), Strin
     mgr.emit("tunnel:frame", payload)
         .await
         .map_err(|e| format!("[devices/tunnel] emit tunnel:frame failed: {e}"))
+}
+
+#[derive(Default)]
+pub(crate) struct SdkTunnelClient;
+
+#[async_trait::async_trait]
+impl TunnelClientPort for SdkTunnelClient {
+    async fn register(&self) -> Result<TunnelRegistration, String> {
+        let response = emit_register().await?;
+        Ok(TunnelRegistration {
+            channel_id: response.channel_id,
+            pairing_token: response.pairing_token,
+            pairing_expires_at: response.pairing_expires_at,
+        })
+    }
+
+    async fn connect(&self, channel_id: &str) -> Result<(), String> {
+        emit_connect(channel_id).await
+    }
+
+    async fn emit_frame(&self, channel_id: &str, payload_b64: &str) -> Result<(), String> {
+        emit_frame(channel_id, payload_b64).await
+    }
+}
+
+pub(crate) fn register() {
+    openhuman_embed::__host::security::devices::set_global_tunnel_client_port(Arc::new(
+        SdkTunnelClient,
+    ));
 }
 
 #[cfg(test)]
