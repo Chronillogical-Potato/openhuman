@@ -82,6 +82,105 @@ fn device_pairing_host_event_is_bound_to_purpose_channel_and_used_once() {
 }
 
 #[test]
+fn direct_recovery_event_is_bound_to_its_exact_channel() {
+    use tinysecurity_bus::{DevicePairingPurpose2, DevicePairingSource2};
+
+    let events = PairingEventRegistry::default();
+    let event = events
+        .issue(
+            pairing_context(
+                "recover-channel",
+                DevicePairingSource2::AuthenticatedUserController,
+            ),
+            1_000,
+        )
+        .unwrap();
+    let request = |channel: &str| tinysecurity_bus::DevicePairingContextRequest2 {
+        host_event_id: event.clone(),
+        purpose: DevicePairingPurpose2::UserController,
+        requested_channel_id: Some(channel.to_owned()),
+    };
+
+    assert_eq!(
+        events.resolve(&request("recover-channel"), 1_000).unwrap().channel_id,
+        "recover-channel"
+    );
+
+    let wrong_channel = events
+        .issue(
+            pairing_context(
+                "recover-channel",
+                DevicePairingSource2::AuthenticatedUserController,
+            ),
+            1_000,
+        )
+        .unwrap();
+    assert!(events
+        .resolve(
+            &tinysecurity_bus::DevicePairingContextRequest2 {
+                host_event_id: wrong_channel,
+                purpose: DevicePairingPurpose2::UserController,
+                requested_channel_id: Some("other-channel".into()),
+            },
+            1_000,
+        )
+        .is_err());
+}
+
+#[tokio::test]
+async fn device_pairing_host_is_served_on_the_module_binding() {
+    use tinybus::module::{HostCallbackEndpoint, ModuleHost};
+    use tinybus::{Broker, MemoryBus};
+    use tinysecurity_bus::{callback_names2, DevicePairingPurpose2, DevicePairingSource2};
+
+    let broker = Broker::new();
+    let bus = MemoryBus::new();
+    let _broker_task = broker.spawn(bus);
+    let host = ModuleHost::new(broker);
+    let path = callback_names2::OBJECT_PATH.parse().unwrap();
+    let binding = host
+        .prepare_host_callbacks(vec![HostCallbackEndpoint {
+            path: path.clone(),
+            interface: callback_names2::DEVICE_PAIRING_HOST_INTERFACE
+                .parse()
+                .unwrap(),
+            members: callback_names2::DEVICE_PAIRING_HOST_MEMBERS
+                .iter()
+                .map(|member| (*member).parse().unwrap())
+                .collect(),
+        }])
+        .await
+        .unwrap();
+    serve_on_binding(&binding).await.unwrap();
+
+    let event_id = issue_pairing_event(pairing_context(
+        "served-channel",
+        DevicePairingSource2::RegisteredSocket,
+    ))
+    .unwrap();
+    let proxy = binding
+        .proxy(
+            binding.unique_name().as_str(),
+            callback_names2::OBJECT_PATH,
+            callback_names2::DEVICE_PAIRING_HOST_INTERFACE,
+        )
+        .unwrap();
+    let response: tinysecurity_bus::DevicePairingContextResponse2 = proxy
+        .call_confidential(
+            "ResolvePairingEvent",
+            (tinysecurity_bus::DevicePairingContextRequest2 {
+                host_event_id: event_id,
+                purpose: DevicePairingPurpose2::SocketEvent,
+                requested_channel_id: Some("served-channel".into()),
+            },),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.source, DevicePairingSource2::RegisteredSocket);
+    assert_eq!(response.channel_id, "served-channel");
+}
+
+#[test]
 fn direct_controller_pairing_event_requires_the_registered_channel_token_and_nonce() {
     use tinysecurity_bus::{DevicePairingPurpose2, DevicePairingSource2};
 
