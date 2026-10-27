@@ -207,7 +207,11 @@ pub async fn devices_import_legacy(
         if row.pairing_id.is_some() || row.core_private_key_encrypted.is_none() {
             continue;
         }
-        let event_id = crate::modules::security::device_pairing_recover_event(config).await?;
+        let event_id = crate::modules::security::device_pairing_recover_event(
+            config,
+            &row.channel_id,
+        )
+        .await?;
         let recovered = client
             .device_pairing2(tinysecurity_bus::DevicePairingRequest2 {
                 call_id: uuid::Uuid::new_v4().simple().to_string(),

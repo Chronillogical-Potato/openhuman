@@ -127,7 +127,13 @@ pub(crate) fn device_pairing_user_event(
 
 /// Mint a direct-user event for a channel lookup/revoke that does not need a
 /// secret master alias, such as recovering an imported pairing id.
-pub(crate) async fn device_pairing_recover_event(config: &Config) -> Result<String, String> {
+pub(crate) async fn device_pairing_recover_event(
+    config: &Config,
+    channel_id: &str,
+) -> Result<String, String> {
+    if channel_id.is_empty() || channel_id.len() > 128 {
+        return Err("invalid device recovery channel".to_owned());
+    }
     let client = client(config).await.map_err(|error| error.to_string())?;
     let scope = host_callbacks::secret_scope()
         .await
@@ -137,7 +143,30 @@ pub(crate) async fn device_pairing_recover_event(config: &Config) -> Result<Stri
         .await
         .map_err(|error| error.to_string())?
         .generation;
-    device_pairing_user_event(&scope, None, generation)
+    let scope_id = scope.scope_id().to_owned();
+    callbacks::issue_pairing_event(tinysecurity_bus::DevicePairingContextResponse2 {
+        scope_id: scope_id.clone(),
+        user_binding: scope_id,
+        secret_master_handle: None,
+        legacy_import_handle: None,
+        channel_id: channel_id.to_owned(),
+        pairing_token: None,
+        connection_nonce: String::new(),
+        generation,
+        source: tinysecurity_bus::DevicePairingSource2::AuthenticatedUserController,
+        expires_at_ms: now_plus_pairing_event_ttl()?,
+    })
+}
+
+fn now_plus_pairing_event_ttl() -> Result<u64, String> {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_err(|_| "system clock unavailable".to_owned())?
+        .as_millis()
+        .saturating_add(30_000)
+        .min(u128::from(u64::MAX))
+        .try_into()
+        .map_err(|_| "pairing event expiry overflow".to_owned())
 }
 
 /// Mint a one-shot direct-user import event and bind its callback to the
