@@ -26,6 +26,7 @@ fn test_bundled_record() -> &'static crate::modules::types::ModuleRecord {
         archive: "test-bundled-module.zip",
         // SHA-256 of the empty archive staged by the test.
         sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        library_sha256: None,
     }]));
     Box::leak(Box::new(ModuleRecord {
         id: "test-bundled-module",

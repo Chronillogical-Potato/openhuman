@@ -401,6 +401,7 @@ async fn existing_readonly_call_returns_a_matching_ready_response_with_a_bound()
             ),
             manifest: linked_fixture_manifest(),
             init: linked_fixture_init,
+            init_with_setup: None,
         },
         serde_json::json!({
             "reply": { "integrations": [{ "toolkit": "github", "connected": true }] }
