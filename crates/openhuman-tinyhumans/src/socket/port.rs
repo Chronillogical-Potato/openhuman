@@ -7,7 +7,10 @@ use std::time::Duration;
 use async_trait::async_trait;
 use parking_lot::RwLock;
 use serde_json::Value;
-use tinyhumans_sdk::{socket::SocketConnection, TinyHumansClient};
+use tinyhumans_sdk::{
+    socket::{SocketConnection, SocketEvent},
+    TinyHumansClient,
+};
 use tokio::sync::{mpsc, oneshot, watch, Mutex};
 use tokio::task::JoinSet;
 
@@ -298,14 +301,7 @@ async fn run_socket_actor(
                         snapshot.status = ConnectionStatus::Connecting;
                     }
                     "connect" => {
-                        let socket_id = event
-                            .payload
-                            .decode::<Value>("connect")
-                            .ok()
-                            .and_then(|value| value.get("sid").and_then(Value::as_str).map(str::to_owned));
-                        let mut snapshot = state.write();
-                        snapshot.status = ConnectionStatus::Connected;
-                        snapshot.socket_id = socket_id;
+                        apply_connect_event(&mut state.write(), &event);
                     }
                     "close" => {
                         let mut snapshot = state.write();
@@ -387,6 +383,15 @@ async fn run_socket_actor(
     }
     loop_active.store(false, Ordering::Release);
     let _ = done.send(());
+}
+
+fn apply_connect_event(state: &mut SocketState, event: &SocketEvent) {
+    state.status = ConnectionStatus::Connected;
+    state.socket_id = event
+        .payload
+        .decode::<Value>("connect")
+        .ok()
+        .and_then(|value| value.get("sid").and_then(Value::as_str).map(str::to_owned));
 }
 
 #[cfg(test)]
