@@ -343,7 +343,7 @@ async fn an_unconfigured_route_still_carries_the_offered_toolkit_policy() {
     // No session and no key: no route can be named, but the load blob the
     // module falls back to must not drop the operator's policy.
     assert!(module_config(&config).await.is_err());
-    let fallback = super::ops::module_config_for_test(&config, MODULE_ID);
+    let fallback = super::ops::module_config_for_test(&config, MODULE_ID).await;
     assert_eq!(
         fallback["offered_toolkits"]["deny"],
         serde_json::json!(["twitter"])

@@ -369,8 +369,8 @@ pub(crate) fn local_only_search_block_blocking(tool_name: &str) -> Option<String
 
 /// Build the agent's search tools from config. Empty when search is off or no
 /// provider is usable.
-pub fn build_search_tools(config: &Config) -> Vec<Box<dyn Tool>> {
-    let specs = crate::modules::search::configured_tool_specs(config);
+pub async fn build_search_tools(config: &Config) -> Vec<Box<dyn Tool>> {
+    let specs = crate::modules::search::configured_tool_specs(config).await;
     tracing::debug!(
         tools = ?specs.iter().map(|s| s.name.as_str()).collect::<Vec<_>>(),
         "[search][tool] registered search tools"
