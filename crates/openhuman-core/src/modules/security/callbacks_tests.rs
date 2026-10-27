@@ -180,7 +180,10 @@ async fn device_pairing_host_is_served_on_the_module_binding() {
                 callback_names2::APPROVAL_PROMPT,
                 &[callback_names2::PROMPT, callback_names2::VERIFY_HUMAN],
             ),
-            endpoint(callback_names2::KEYRING_CONSENT, &[callback_names2::CONSENT]),
+            endpoint(
+                callback_names2::KEYRING_CONSENT,
+                &[callback_names2::CONSENT],
+            ),
             endpoint(
                 callback_names2::DEVICE_PAIRING_HOST,
                 &[
