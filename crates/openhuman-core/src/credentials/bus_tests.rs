@@ -49,6 +49,7 @@ async fn stale_session_expiry_leaves_replacement_session_and_gate_intact() {
         Default::default(),
         true,
     )
+    .await
     .expect("store replacement session");
     let context = CoreContext::for_test_with_config(DomainSet::full(), config.clone());
     let ctx = DispatchCtx::new(context);
@@ -67,7 +68,10 @@ async fn stale_session_expiry_leaves_replacement_session_and_gate_intact() {
         .await;
 
     assert_eq!(
-        get_session_token(&config).expect("read session").as_deref(),
+        get_session_token(&config)
+            .await
+            .expect("read session")
+            .as_deref(),
         Some("replacement-session-token"),
         "an old request must not clear the replacement credential"
     );

@@ -18,6 +18,7 @@ async fn cold_flow_prompt_uses_the_module_and_warm_resume_does_not_refetch() {
         &config,
         "flow_discovery",
     )
+    .await
     .expect("flow_discovery session");
     host.ensure_runtime_session().expect("runtime session");
     let mut prelude = host
@@ -81,6 +82,7 @@ async fn explicit_flow_session_prompt_override_does_not_require_tinyflows_or_con
         &config,
         &definition,
     )
+    .await
     .expect("explicit flow definition session");
     host.ensure_runtime_session().expect("runtime session");
     let mut prelude = host
