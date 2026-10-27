@@ -373,8 +373,8 @@ async fn typed_mode_progress_emission_is_a_noop_without_sink() {
 
 // ── resolve_subagent_source ───────────────────────────────────────────
 
-#[test]
-fn resolve_subagent_source_inherit_uses_parent_source_and_model() {
+#[tokio::test]
+async fn resolve_subagent_source_inherit_uses_parent_source_and_model() {
     let parent: Arc<dyn ChatModel<()>> = ScriptedProvider::new(vec![]);
     let parent_source = crate::agent::tinyagents::TurnModelSource::from_model(parent.clone());
     let (_resolved_source, resolved_model) = super::super::resolve_subagent_source(
@@ -386,12 +386,12 @@ fn resolve_subagent_source_inherit_uses_parent_source_and_model() {
         false,
         None,
         0.0,
-    );
+    ).await;
     assert_eq!(resolved_model, "parent-model-x");
 }
 
-#[test]
-fn resolve_subagent_source_exact_overrides_only_model() {
+#[tokio::test]
+async fn resolve_subagent_source_exact_overrides_only_model() {
     // Exact keeps the parent's provider but replaces the model name.
     // This is the explicit "I want a cheaper tier on the same backend"
     // escape hatch.
@@ -405,12 +405,12 @@ fn resolve_subagent_source_exact_overrides_only_model() {
         false,
         None,
         0.0,
-    );
+    ).await;
     assert_eq!(resolved_model, "haiku-mini");
 }
 
-#[test]
-fn resolve_subagent_source_spawn_override_wins_over_definition_model() {
+#[tokio::test]
+async fn resolve_subagent_source_spawn_override_wins_over_definition_model() {
     let parent: Arc<dyn ChatModel<()>> = ScriptedProvider::new(vec![]);
     let (_resolved_source, resolved_model) = super::super::resolve_subagent_source(
         &ModelSpec::Exact("definition-model".to_string()),
@@ -421,12 +421,12 @@ fn resolve_subagent_source_spawn_override_wins_over_definition_model() {
         false,
         Some("spawn-model-y"),
         0.0,
-    );
+    ).await;
     assert_eq!(resolved_model, "spawn-model-y");
 }
 
-#[test]
-fn resolve_subagent_source_config_model_wins_over_definition_model() {
+#[tokio::test]
+async fn resolve_subagent_source_config_model_wins_over_definition_model() {
     use crate::config::{Config, TeamModelConfig};
 
     let mut config = Config::default();
@@ -448,12 +448,12 @@ fn resolve_subagent_source_config_model_wins_over_definition_model() {
         false,
         None,
         0.0,
-    );
+    ).await;
     assert_eq!(resolved_model, "configured-agent-model");
 }
 
-#[test]
-fn resolve_subagent_source_inline_override_wins_over_config_model() {
+#[tokio::test]
+async fn resolve_subagent_source_inline_override_wins_over_config_model() {
     use crate::config::{Config, TeamModelConfig};
 
     let mut config = Config::default();
@@ -475,12 +475,12 @@ fn resolve_subagent_source_inline_override_wins_over_config_model() {
         false,
         Some("inline-model"),
         0.0,
-    );
+    ).await;
     assert_eq!(resolved_model, "inline-model");
 }
 
-#[test]
-fn resolve_subagent_source_agent_suffix_resolves_its_team_pin() {
+#[tokio::test]
+async fn resolve_subagent_source_agent_suffix_resolves_its_team_pin() {
     use crate::config::{Config, TeamModelConfig};
 
     let mut config = Config::default();
@@ -502,12 +502,12 @@ fn resolve_subagent_source_agent_suffix_resolves_its_team_pin() {
         false,
         None,
         0.0,
-    );
+    ).await;
     assert_eq!(resolved_model, "research-agent-model");
 }
 
-#[test]
-fn resolve_subagent_source_hint_with_no_config_falls_back() {
+#[tokio::test]
+async fn resolve_subagent_source_hint_with_no_config_falls_back() {
     // The async config load failed (transient I/O, missing file, etc.).
     // The Hint arm must NOT silently swallow the failure and synthesise
     // `{workload}-v1` — that's the OpenHuman-only naming that breaks
@@ -523,15 +523,15 @@ fn resolve_subagent_source_hint_with_no_config_falls_back() {
         false,
         None,
         0.0,
-    );
+    ).await;
     assert_eq!(
         resolved_model, "real-claude-id",
         "model must be parent's current model — NOT '{{workload}}-v1'"
     );
 }
 
-#[test]
-fn resolve_subagent_source_hint_with_config_routes_via_factory() {
+#[tokio::test]
+async fn resolve_subagent_source_hint_with_config_routes_via_factory() {
     crate::agent::session_host::test_support::install_model_fixture();
     // The Hint arm with a real config takes the workload-factory path.
     // We don't assert the *resulting* provider identity here (the
@@ -562,7 +562,7 @@ fn resolve_subagent_source_hint_with_config_routes_via_factory() {
         false,
         None,
         0.0,
-    );
+    ).await;
     assert_eq!(
         resolved_model, "test/session-fixture",
         "Hint must resolve through the registered provider model policy, not a retired tier \
@@ -570,8 +570,8 @@ fn resolve_subagent_source_hint_with_config_routes_via_factory() {
     );
 }
 
-#[test]
-fn resolve_subagent_source_hint_falls_back_on_factory_error() {
+#[tokio::test]
+async fn resolve_subagent_source_hint_falls_back_on_factory_error() {
     // An invalid provider string in the workload config (e.g. a typo
     // like "groq:something") makes the factory return Err. The Hint
     // arm must fall back to the parent provider rather than
@@ -591,7 +591,7 @@ fn resolve_subagent_source_hint_falls_back_on_factory_error() {
         false,
         None,
         0.0,
-    );
+    ).await;
     assert_eq!(resolved_model, "fallback-model");
 }
 
