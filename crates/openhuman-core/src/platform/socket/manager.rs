@@ -719,6 +719,14 @@ impl super::SocketPort for SocketManager {
     fn loop_stopped_on_failure(&self) -> bool {
         SocketManager::loop_stopped_on_failure(self)
     }
+
+    fn set_webhook_router(&self, router: Arc<WebhookRouter>) {
+        SocketManager::set_webhook_router(self, router)
+    }
+
+    fn webhook_router(&self) -> Option<Arc<WebhookRouter>> {
+        SocketManager::webhook_router(self)
+    }
 }
 
 // ---------------------------------------------------------------------------

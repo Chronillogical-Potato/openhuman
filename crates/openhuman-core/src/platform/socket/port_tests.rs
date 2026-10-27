@@ -15,6 +15,8 @@ impl SocketPort for FakePort {
     fn status_for(&self, _: &str, _: &str) -> Option<ConnectionStatus> { None }
     fn is_loop_active(&self) -> bool { false }
     fn loop_stopped_on_failure(&self) -> bool { false }
+    fn set_webhook_router(&self, _: Arc<crate::skills::webhooks::WebhookRouter>) {}
+    fn webhook_router(&self) -> Option<Arc<crate::skills::webhooks::WebhookRouter>> { None }
 }
 
 #[tokio::test]

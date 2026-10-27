@@ -36,6 +36,8 @@ pub trait SocketPort: Send + Sync + 'static {
     fn status_for(&self, url: &str, token: &str) -> Option<ConnectionStatus>;
     fn is_loop_active(&self) -> bool;
     fn loop_stopped_on_failure(&self) -> bool;
+    fn set_webhook_router(&self, router: Arc<crate::skills::webhooks::WebhookRouter>);
+    fn webhook_router(&self) -> Option<Arc<crate::skills::webhooks::WebhookRouter>>;
 
     async fn lock_identity_rebind(&self) -> SocketIdentityRebindGuard {
         let lock = IDENTITY_REBIND.get_or_init(|| Arc::new(tokio::sync::Mutex::new(())));
