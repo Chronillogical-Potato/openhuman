@@ -80,8 +80,11 @@ pub async fn client_config_json(config: &Config) -> serde_json::Value {
             })
         })
         .collect();
-    let credits_bypass_chat = crate::inference::provider::factory::role_bypasses_managed_credits("chat", config).await;
-    let credits_bypass_reasoning = crate::inference::provider::factory::role_bypasses_managed_credits("reasoning", config).await;
+    let credits_bypass_chat =
+        crate::inference::provider::factory::role_bypasses_managed_credits("chat", config).await;
+    let credits_bypass_reasoning =
+        crate::inference::provider::factory::role_bypasses_managed_credits("reasoning", config)
+            .await;
 
     serde_json::json!({
         "api_url": config.api_url,

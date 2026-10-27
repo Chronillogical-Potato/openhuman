@@ -91,7 +91,8 @@ impl OpenHumanSessionHost {
                 agent_id,
                 target_def,
                 turn_model_source.as_ref(),
-            ).await?;
+            )
+            .await?;
         // Resolve the user-configured vision flag for the (now-final) model while
         // the full `Config` / `model_registry` is in scope — the turn engine only
         // sees `MultimodalConfig`. Stored on the session and surfaced to the image
@@ -148,7 +149,7 @@ impl OpenHumanSessionHost {
         // and then paying a repair pass on turn 1 just to recover the real
         // delegation surface.
         let prewarmed_integrations =
-            crate::integrations::composio::cached_active_integrations(config);
+            crate::integrations::composio::cached_active_integrations(config).await;
         let prewarmed_integrations_slice = prewarmed_integrations.as_deref().unwrap_or(&[]);
 
         // Resolve the per-agent deferred integration actions and visible-tool

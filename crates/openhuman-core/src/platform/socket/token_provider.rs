@@ -24,7 +24,8 @@ use std::sync::Arc;
 /// profile store is a lock + disk read, not an async I/O round-trip. Wrapping
 /// it in `Arc` lets it be cheaply cloned into the spawned task without
 /// requiring `async_fn_in_trait` or boxing.
-pub(super) type TokenProvider = Arc<dyn Fn() -> futures::future::BoxFuture<'static, Result<String, String>> + Send + Sync>;
+pub(super) type TokenProvider =
+    Arc<dyn Fn() -> futures::future::BoxFuture<'static, Result<String, String>> + Send + Sync>;
 
 /// Returns `true` iff the failure reason carries both the Socket.IO CONNECT
 /// prefix AND the `"invalid token"` sentinel — a strict double anchor to avoid

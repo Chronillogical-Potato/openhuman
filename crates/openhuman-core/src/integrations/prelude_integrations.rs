@@ -409,10 +409,11 @@ impl OpenHumanTurnPrelude {
         if let Some(config) = config.as_deref() {
             // The connection list and change events invalidate the process
             // snapshot, so the turn reads it without an idle-time refresh.
-            let current = match crate::integrations::composio::cached_active_integrations(config).await {
-                Some(current) => Some((current, true)),
-                None => load_connected_integrations(config).await,
-            };
+            let current =
+                match crate::integrations::composio::cached_active_integrations(config).await {
+                    Some(current) => Some((current, true)),
+                    None => load_connected_integrations(config).await,
+                };
             if let Some((current, authoritative)) = current {
                 let mut mutable = self
                     .mutable

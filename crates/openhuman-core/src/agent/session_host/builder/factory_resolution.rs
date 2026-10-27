@@ -68,7 +68,8 @@ pub(crate) async fn resolve_session_model(
                     provider_role,
                     config,
                     config.default_temperature,
-                ).await?;
+                )
+                .await?;
             let supports_native = model.profile().is_none_or(|profile| profile.tool_calling);
             (model_name, supports_native)
         }

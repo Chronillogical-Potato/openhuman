@@ -98,7 +98,8 @@ pub(crate) async fn build_channel_turn_parts(
                 "chat",
                 config,
                 config.default_temperature,
-            ).await?;
+            )
+            .await?;
             (model, provider::factory::INFERENCE_BACKEND_ID.to_string())
         }
         ChatWorkloadResolution::Workload {
@@ -115,7 +116,8 @@ pub(crate) async fn build_channel_turn_parts(
                 "chat",
                 config,
                 config.default_temperature,
-            ).await?;
+            )
+            .await?;
             (model_id, slug)
         }
     };

@@ -78,7 +78,8 @@ impl SessionDriver<OpenHumanRunContext> for OpenHumanSessionDriver {
                 self.temperature,
                 context_window,
                 request.run_context.data.thread_id.as_deref(),
-            ).await
+            )
+            .await
             .map_err(driver_error)?;
 
         let mut messages: Vec<TranscriptMessage> = request

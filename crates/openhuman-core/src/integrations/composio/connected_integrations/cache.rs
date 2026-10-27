@@ -149,7 +149,9 @@ pub(crate) async fn checked_cache_key(config: &Config) -> Option<String> {
 /// explicitly scoped tenant context. Production callers use the checked API.
 #[cfg(test)]
 pub(crate) async fn cache_key(config: &Config) -> String {
-    checked_cache_key(config).await.expect("integration cache test requires a valid scope")
+    checked_cache_key(config)
+        .await
+        .expect("integration cache test requires a valid scope")
 }
 
 /// Digest the configuration, endpoint and resolved credential identities.
@@ -193,7 +195,9 @@ async fn cache_key_with_backend_url(config: &Config, backend_url: &str) -> Strin
             .map(str::trim)
             .filter(|key| !key.is_empty());
         if composio.mode.trim() == crate::config::schema::COMPOSIO_MODE_DIRECT {
-            if let Ok(Some(stored)) = crate::integrations::composio::get_composio_api_key(config).await {
+            if let Ok(Some(stored)) =
+                crate::integrations::composio::get_composio_api_key(config).await
+            {
                 digest.update(stored.as_bytes());
             } else if let Some(key) = inline_key {
                 digest.update(key.as_bytes());
