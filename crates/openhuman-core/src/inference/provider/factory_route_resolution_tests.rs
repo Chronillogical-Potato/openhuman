@@ -518,28 +518,28 @@ async fn byo_route_without_usable_key_stays_gated() {
 #[tokio::test]
 async fn local_only_blocks_external_cloud_slug() {
     use crate::config::PrivacyMode;
-    let v = local_only_violation(PrivacyMode::LocalOnly, "openai:gpt-4o").await;
+    let v = local_only_violation(PrivacyMode::LocalOnly, "openai:gpt-4o");
     assert_eq!(v.as_deref(), Some("openai"));
 }
 
 #[tokio::test]
 async fn local_only_blocks_managed_backend() {
     use crate::config::PrivacyMode;
-    let v = local_only_violation(PrivacyMode::LocalOnly, PROVIDER_OPENHUMAN).await;
+    let v = local_only_violation(PrivacyMode::LocalOnly, PROVIDER_OPENHUMAN);
     assert_eq!(v.as_deref(), Some("OpenHuman (managed cloud)"));
 }
 
 #[tokio::test]
 async fn local_only_blocks_claude_code_cli() {
     use crate::config::PrivacyMode;
-    let v = local_only_violation(PrivacyMode::LocalOnly, "claude-code:sonnet").await;
+    let v = local_only_violation(PrivacyMode::LocalOnly, "claude-code:sonnet");
     assert_eq!(v.as_deref(), Some("Claude Code CLI"));
 }
 
 #[tokio::test]
 async fn local_only_blocks_claude_agent_sdk() {
     use crate::config::PrivacyMode;
-    let violation = local_only_violation(PrivacyMode::LocalOnly, "claude_agent_sdk:sonnet").await;
+    let violation = local_only_violation(PrivacyMode::LocalOnly, "claude_agent_sdk:sonnet");
     assert_eq!(violation.as_deref(), Some("Claude Agent SDK"));
 }
 
@@ -553,7 +553,7 @@ async fn local_only_permits_local_runtimes() {
         "local-openai:foo",
     ] {
         assert_eq!(
-            local_only_violation(PrivacyMode::LocalOnly, local).await,
+            local_only_violation(PrivacyMode::LocalOnly, local),
             None,
             "local provider '{local}' must be permitted in LocalOnly mode"
         );
@@ -565,9 +565,9 @@ async fn local_only_defers_reresolving_sentinels() {
     use crate::config::PrivacyMode;
     // Empty / "cloud" re-resolve to a concrete string and are re-checked on the
     // recursive call — not blocked here.
-    assert_eq!(local_only_violation(PrivacyMode::LocalOnly, "").await, None);
+    assert_eq!(local_only_violation(PrivacyMode::LocalOnly, ""), None);
     assert_eq!(
-        local_only_violation(PrivacyMode::LocalOnly, "cloud").await,
+        local_only_violation(PrivacyMode::LocalOnly, "cloud"),
         None
     );
 }
@@ -578,7 +578,7 @@ async fn local_only_does_not_treat_unresolved_route_sentinels_as_local() {
     for route in ["cloud:gpt-4o", ":gpt-4o"] {
         assert!(
             local_only_violation(PrivacyMode::LocalOnly, route)
-                .await
+                
                 .is_some(),
             "an unresolved route must remain blocked under LocalOnly: {route}"
         );
@@ -589,11 +589,11 @@ async fn local_only_does_not_treat_unresolved_route_sentinels_as_local() {
 async fn standard_mode_permits_external() {
     use crate::config::PrivacyMode;
     assert_eq!(
-        local_only_violation(PrivacyMode::Standard, "openai:gpt-4o").await,
+        local_only_violation(PrivacyMode::Standard, "openai:gpt-4o"),
         None
     );
     assert_eq!(
-        local_only_violation(PrivacyMode::Sensitive, "openai:gpt-4o").await,
+        local_only_violation(PrivacyMode::Sensitive, "openai:gpt-4o"),
         None,
         "Sensitive mode has no egress enforcement in S1"
     );
