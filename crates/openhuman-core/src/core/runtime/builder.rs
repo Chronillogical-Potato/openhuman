@@ -433,7 +433,7 @@ impl CoreBuilder {
 
         Ok(CoreRuntime {
             ctx,
-            config,
+            config: std::sync::RwLock::new(config),
             services: if self.boot_mode == CoreBootMode::Inspection {
                 ServiceSet::none()
             } else if self.boot_mode == CoreBootMode::SecretPreflight {
@@ -444,6 +444,7 @@ impl CoreBuilder {
             deferred_services: (self.boot_mode == CoreBootMode::SecretPreflight)
                 .then(|| components.narrow_services(self.services)),
             boot_mode: self.boot_mode,
+            secret_preflight_complete: std::sync::atomic::AtomicBool::new(false),
             has_operator_token,
             host: self.host,
             port: self.port,
@@ -457,10 +458,11 @@ impl CoreBuilder {
 /// to `openhuman_rpc::server::serve` to run the selected transport as well.
 pub struct CoreRuntime {
     ctx: Arc<CoreContext>,
-    config: Option<Config>,
+    config: std::sync::RwLock<Option<Config>>,
     services: ServiceSet,
     deferred_services: Option<ServiceSet>,
     boot_mode: CoreBootMode,
+    secret_preflight_complete: std::sync::atomic::AtomicBool,
     has_operator_token: bool,
     host: Option<String>,
     port: Option<u16>,
@@ -473,26 +475,30 @@ pub struct CoreRuntime {
 impl CoreRuntime {
     /// The services/transports this runtime is configured to run.
     pub fn services(&self) -> ServiceSet {
-        self.services
+        if self.secret_preflight_complete.load(std::sync::atomic::Ordering::Acquire) {
+            self.deferred_services.unwrap_or(self.services)
+        } else {
+            self.services
+        }
     }
 
     /// Whether this runtime still needs the restricted config-secret startup
     /// phase completed by its transport host.
     pub fn requires_secret_preflight(&self) -> bool {
         self.boot_mode == CoreBootMode::SecretPreflight
+            && !self.secret_preflight_complete.load(std::sync::atomic::Ordering::Acquire)
     }
 
     /// Decrypt the sealed startup config and refresh the dispatch snapshot.
     /// The host must keep the restricted approval router serving until this
     /// returns successfully.
-    pub async fn complete_secret_preflight(&mut self) -> anyhow::Result<()> {
+    pub async fn complete_secret_preflight(&self) -> anyhow::Result<()> {
         anyhow::ensure!(
             self.requires_secret_preflight(),
             "core runtime has no pending secret preflight"
         );
-        let config = self
-            .config
-            .as_mut()
+        let mut config = self.config.read().expect("core config lock poisoned")
+            .clone()
             .ok_or_else(|| anyhow::anyhow!("secret preflight has no loaded config"))?;
         let migrated = config.decrypt_secrets_after_preflight().await?;
         if migrated {
