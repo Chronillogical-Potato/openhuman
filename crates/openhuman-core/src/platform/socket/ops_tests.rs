@@ -172,11 +172,12 @@ async fn a_token_refreshed_mid_loop_updates_the_recorded_identity() {
     let refreshed = Arc::new(AtomicBool::new(false));
     let seen = Arc::clone(&refreshed);
     let provider: TokenProvider = Arc::new(move || {
-        Ok(if seen.load(Ordering::SeqCst) {
+        let token = if seen.load(Ordering::SeqCst) {
             TOKEN_B.to_string()
         } else {
             TOKEN_A.to_string()
-        })
+        };
+        Box::pin(async move { Ok(token) })
     });
 
     manager.connect_with_provider(&url, provider).await.unwrap();

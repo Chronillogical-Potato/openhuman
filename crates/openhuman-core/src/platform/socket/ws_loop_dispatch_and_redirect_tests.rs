@@ -604,7 +604,11 @@ async fn ws_loop_exits_cleanly_when_provider_returns_error() {
         ws_loop(
             "http://invalid.example.invalid:1".into(),
             // Provider always returns Err — simulates logged-out state.
-            Arc::new(|| Err("no session token stored — user must log in first".to_string())),
+            Arc::new(|| {
+                Box::pin(async {
+                    Err("no session token stored — user must log in first".to_string())
+                })
+            }),
             loop_shared,
             emit_rx,
             shutdown_rx,

@@ -102,7 +102,7 @@ async fn start_mock_backend(app: Router) -> String {
     format!("http://127.0.0.1:{}", addr.port())
 }
 
-fn config_with_backend(tmp: &tempfile::TempDir, base: String) -> Config {
+async fn config_with_backend(tmp: &tempfile::TempDir, base: String) -> Config {
     let mut c = Config::default();
     c.workspace_dir = tmp.path().join("workspace");
     c.config_path = tmp.path().join("config.toml");
@@ -114,7 +114,8 @@ fn config_with_backend(tmp: &tempfile::TempDir, base: String) -> Config {
             "test-token",
             std::collections::HashMap::new(),
             true,
-        ).await
+        )
+        .await
         .expect("store test session token");
     c
 }
@@ -207,7 +208,7 @@ fn conn(id: &str, toolkit: &str, status: &str) -> super::super::types::ComposioC
 
 /// Set up a config with `composio.mode = "direct"` and a stored
 /// direct-mode API key (so `resolve_composio_route` succeeds).
-fn direct_mode_config(tmp: &tempfile::TempDir) -> Config {
+async fn direct_mode_config(tmp: &tempfile::TempDir) -> Config {
     let mut c = Config::default();
     c.workspace_dir = tmp.path().join("workspace");
     c.config_path = tmp.path().join("config.toml");
@@ -219,7 +220,8 @@ fn direct_mode_config(tmp: &tempfile::TempDir) -> Config {
             "ck_test_direct_key",
             std::collections::HashMap::new(),
             true,
-        ).await
+        )
+        .await
         .expect("store test direct-mode api key");
     c
 }
