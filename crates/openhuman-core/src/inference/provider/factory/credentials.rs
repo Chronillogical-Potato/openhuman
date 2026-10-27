@@ -22,16 +22,16 @@ pub(super) enum CredentialAccess {
 }
 
 impl CredentialAccess {
-    pub(super) fn lookup_key_for_slug(self, slug: &str, config: &Config) -> anyhow::Result<String> {
+    pub(super) async fn lookup_key_for_slug(self, slug: &str, config: &Config) -> anyhow::Result<String> {
         match self {
-            Self::Runtime => lookup_key_for_slug(slug, config),
+            Self::Runtime => lookup_key_for_slug(slug, config).await,
             Self::Inspection => anyhow::bail!("inspection credential was not pre-resolved"),
         }
     }
 
-    pub(super) fn openai_bearer_is_oauth(self, config: &Config) -> bool {
+    pub(super) async fn openai_bearer_is_oauth(self, config: &Config) -> bool {
         match self {
-            Self::Runtime => openai_bearer_is_oauth(config),
+            Self::Runtime => openai_bearer_is_oauth(config).await,
             Self::Inspection => false,
         }
     }
@@ -225,12 +225,12 @@ pub(crate) fn redact_endpoint_origin(endpoint: &str) -> String {
 /// *kind* of the profile that would win. With no stored openai profile carrying a
 /// credential, the only bearer source is the OAuth fallback, so a present OAuth
 /// credential means the bearer is OAuth.
-pub(crate) fn openai_bearer_is_oauth(config: &Config) -> bool {
+pub(crate) async fn openai_bearer_is_oauth(config: &Config) -> bool {
     use crate::credentials::profiles::AuthProfileKind;
 
     let auth = AuthService::from_config(config);
     for provider in [auth_key_for_slug("openai"), "openai".to_string()] {
-        if let Ok(Some(profile)) = auth.get_profile(&provider, None) {
+        if let Ok(Some(profile)) = auth.get_profile(&provider, None).await {
             // A profile with an empty credential is skipped by
             // `lookup_key_for_slug`, so fall through to the next precedence level.
             let has_credential = match profile.kind {
@@ -251,6 +251,7 @@ pub(crate) fn openai_bearer_is_oauth(config: &Config) -> bool {
     // No stored openai profile with a credential → the bearer, if any, comes from
     // the OAuth fallback (`lookup_openai_bearer_token`).
     crate::credentials::openai_oauth::lookup_openai_oauth_credentials(config)
+        .await
         .ok()
         .flatten()
         .is_some()
@@ -259,7 +260,7 @@ pub(crate) fn openai_bearer_is_oauth(config: &Config) -> bool {
 /// Resolve host-selected Codex OAuth metadata through TinyInference's shared
 /// routing decision while preserving the configured endpoint for standard
 /// requests.
-pub(crate) fn resolve_codex_routing(
+pub(crate) async fn resolve_codex_routing(
     config: &Config,
     slug: &str,
     endpoint: &str,
@@ -267,7 +268,7 @@ pub(crate) fn resolve_codex_routing(
     bearer_is_oauth: bool,
 ) -> std::result::Result<tinyinference_llm::providers::openai::codex::OpenAiCodexRouting, String> {
     let credentials = if slug == "openai" {
-        match crate::credentials::openai_oauth::lookup_openai_oauth_credentials(config) {
+        match crate::credentials::openai_oauth::lookup_openai_oauth_credentials(config).await {
             Ok(credentials) => credentials,
             Err(error) if !bearer_key.trim().is_empty() => {
                 log::warn!(
@@ -307,7 +308,7 @@ pub(crate) fn resolve_codex_routing(
 /// Missing or empty keys return `Ok(String::new())` — callers treat that as
 /// "no auth", which surfaces an authentication error at first call rather than
 /// at factory build time.
-pub fn lookup_key_for_slug(slug: &str, config: &Config) -> anyhow::Result<String> {
+pub async fn lookup_key_for_slug(slug: &str, config: &Config) -> anyhow::Result<String> {
     // Ahead of the stored profiles, and scoped to the one slug the per-call
     // route registers. A caller that named an endpoint and a bearer for this
     // turn has said where the credential comes from, and there is nothing on
@@ -329,7 +330,7 @@ pub fn lookup_key_for_slug(slug: &str, config: &Config) -> anyhow::Result<String
     let auth = AuthService::from_config(config);
     // Try new-style key first.
     let new_key = auth_key_for_slug(slug);
-    if let Ok(Some(k)) = auth.get_provider_bearer_token(&new_key, None) {
+    if let Ok(Some(k)) = auth.get_provider_bearer_token(&new_key, None).await {
         if !k.is_empty() {
             log::debug!(
                 "[providers][chat-factory] auth lookup slug={} key_present=true (new-style)",
@@ -341,6 +342,7 @@ pub fn lookup_key_for_slug(slug: &str, config: &Config) -> anyhow::Result<String
     // Fall back to legacy bare slug.
     let key = auth
         .get_provider_bearer_token(slug, None)
+        .await
         .map_err(|e| {
             anyhow::anyhow!(
                 "[chat-factory] failed to read API key for slug '{}': {}",
@@ -361,7 +363,7 @@ pub fn lookup_key_for_slug(slug: &str, config: &Config) -> anyhow::Result<String
     // returns empty, so env/audit/metrics in the standard path always execute
     // and the OAuth path never silently bypasses provider-agnostic logic.
     if slug == "openai" {
-        match crate::credentials::openai_oauth::lookup_openai_bearer_token(config) {
+        match crate::credentials::openai_oauth::lookup_openai_bearer_token(config).await {
             Ok(Some(token)) if !token.is_empty() => {
                 log::debug!(
                     "[providers][chat-factory] auth lookup slug={} key_present=true (oauth)",
