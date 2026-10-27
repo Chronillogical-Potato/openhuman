@@ -214,6 +214,7 @@ async fn only_a_host_only_session_accepts_untrusted_input() {
         &host_belt(),
         None,
     )
+    .await
     .expect("normal session");
 
     assert!(host_only.set_untrusted_input(true).is_ok());

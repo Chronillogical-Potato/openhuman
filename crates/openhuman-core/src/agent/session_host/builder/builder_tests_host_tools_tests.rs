@@ -95,6 +95,7 @@ async fn a_host_tool_is_on_the_belt_and_advertised() {
         &host,
         None,
     )
+    .await
     .expect("build a session with a host belt");
 
     assert!(
@@ -141,6 +142,7 @@ async fn a_host_can_withhold_a_config_tool_for_one_turn() {
         &host,
         Some("hidden-turn"),
     )
+    .await
     .expect("build a session with a per-turn withheld name");
 
     assert!(
@@ -158,6 +160,7 @@ async fn a_host_can_withhold_a_config_tool_for_one_turn() {
         &host,
         Some("visible-turn"),
     )
+    .await
     .expect("build the next session without the temporary withholding");
     assert!(
         visible_turn
@@ -184,6 +187,7 @@ async fn withholding_tool_search_disables_wildcard_discovery() {
         &host,
         None,
     )
+    .await
     .expect("build a wildcard session with discovery withheld");
 
     assert!(
@@ -218,6 +222,7 @@ async fn the_factory_runs_once_per_session_build() {
             &host,
             None,
         )
+        .await
         .expect("build a session with a host belt");
     }
 
@@ -324,6 +329,7 @@ async fn the_factory_is_told_the_session_it_is_building_for() {
         &host,
         Some("desk:eng"),
     )
+    .await
     .expect("build a session for a named conversation");
 
     assert!(
@@ -341,6 +347,7 @@ async fn the_factory_is_told_the_session_it_is_building_for() {
         &host,
         None,
     )
+    .await
     .expect("build a session with no conversation named");
 
     assert!(
@@ -405,6 +412,7 @@ async fn a_host_tool_overrides_a_config_tool_of_the_same_name() {
         &host,
         None,
     )
+    .await
     .expect("build a session whose host belt collides");
 
     let advertised: Vec<_> = agent
@@ -472,6 +480,7 @@ async fn permanent_attachment_preserves_a_fresh_wildcard_belt() {
         &host,
         None,
     )
+    .await
     .unwrap();
     let names: std::collections::HashSet<_> = attached
         .visible_tool_specs_arc()
@@ -535,6 +544,7 @@ async fn the_factory_is_told_the_context_the_session_is_built_under() {
         &host,
         None,
     )
+    .await
     .expect("build a session under an explicit context");
 
     let seen = seen.lock().unwrap();
