@@ -242,7 +242,7 @@ pub(super) fn resolve_cloud_slug_with_access<'a>(
     };
 
     let (key, bearer_is_oauth, oauth_account_id) = if credential_access
-        == CredentialAccess::Inspection
+        .is_inspection()
         && entry.auth_style == AuthStyle::OpenhumanJwt
     {
         // The managed model constructor receives its credential later, on
