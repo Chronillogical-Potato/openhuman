@@ -184,14 +184,17 @@ pub fn resolver(config: &Config) -> Resolver {
         records: registry::release_records(),
         terminal_marker: tinytools::status::MODULE_FAULT_MARKER.to_string(),
         runtime: Arc::new(|| Box::pin(runtime::runtime())),
-        module_config: Arc::new(move |id| {
-            let value = runtime_module_config(&module_config_source, id);
-            if id == super::connectors::MODULE_ID {
-                super::connectors::note_module_config_for_load(&module_config_source, &value);
-            }
-            value
-        }),
-        async_module_config: None,
+        module_config: Arc::new(|_| serde_json::Value::Null),
+        async_module_config: Some(Arc::new(move |id| {
+            let config = Arc::clone(&module_config_source);
+            Box::pin(async move {
+                let value = runtime_module_config(&config, id).await;
+                if id == super::connectors::MODULE_ID {
+                    super::connectors::note_module_config_for_load(&config, &value);
+                }
+                value
+            })
+        })),
         reporter: report::reporter(),
     })
 }
@@ -243,7 +246,7 @@ async fn ensure_loaded_with_storage_callback(
 ) -> Result<(), String> {
     let mut loads = STORAGE_CALLBACK_LOADS.lock().await;
     if let Some((binding, _served)) = loads.get(id) {
-        let mut module_config = module_config(config, id);
+        let mut module_config = module_config(config, id).await;
         module_config["storage_callback"] = serde_json::json!(binding.unique_name().as_str());
         return resolver
             .ensure_loaded_with_host_callbacks(id, std::sync::Arc::clone(binding), module_config)
@@ -257,7 +260,7 @@ async fn ensure_loaded_with_storage_callback(
     let (binding, served) = super::storage_host::prepare_module_callbacks(runtime)
         .await
         .map_err(|error| error.to_string())?;
-    let mut module_config = module_config(config, id);
+    let mut module_config = module_config(config, id).await;
     module_config["storage_callback"] = serde_json::json!(binding.unique_name().as_str());
     resolver
         .ensure_loaded_with_host_callbacks(id, std::sync::Arc::clone(&binding), module_config)
@@ -353,12 +356,12 @@ async fn ensure_loaded_with_computer_callback(
 }
 
 #[cfg(feature = "security-module")]
-fn module_config_with_consequence_callback(
+async fn module_config_with_consequence_callback(
     config: &Config,
     id: &str,
     binding: &tinybus::module::HostCallbackBinding,
 ) -> serde_json::Value {
-    let mut module_config = module_config(config, id);
+    let mut module_config = module_config(config, id).await;
     module_config["consequence_host"] =
         serde_json::json!({ "destination": binding.unique_name().as_str() });
     module_config
@@ -586,17 +589,17 @@ pub fn state_of(id: &str) -> ModuleState {
 /// Credentials and callback destinations are intentionally absent. TinyMemory
 /// receives only its compute configuration; TinyMCP and TinyEventQueues get a
 /// unique storage callback destination from the verified loader.
-pub(super) fn module_config(config: &Config, id: &str) -> serde_json::Value {
+pub(super) async fn module_config(config: &Config, id: &str) -> serde_json::Value {
     #[cfg(feature = "security-module")]
     if id == super::security::MODULE_ID {
         return serde_json::to_value(super::security::module_config(config))
             .expect("TinySecurity module config is serializable");
     }
     if id == super::search::MODULE_ID {
-        return super::search::load_configuration(config);
+        return super::search::load_configuration(config).await;
     }
     if id == super::desktop::MODULE_ID {
-        return super::desktop::module_config(config);
+        return super::desktop::module_config(config).await;
     }
     // The queue manifest and pipeline the inbound event queues run; the
     // storage host declares the same manifest on the module's scope.
@@ -611,7 +614,7 @@ pub(super) fn module_config(config: &Config, id: &str) -> serde_json::Value {
         // empty blob rather than failing the load: the capability members need
         // no route and must still answer, and every member that does need one
         // reports the missing route when it is called.
-        return super::connectors::module_config(config).unwrap_or_else(|error| {
+        return super::connectors::module_config(config).await.unwrap_or_else(|error| {
             tracing::info!(
                 error = %error,
                 "[connectors] no route configured; loading with the capability surface only"
@@ -626,7 +629,7 @@ pub(super) fn module_config(config: &Config, id: &str) -> serde_json::Value {
 /// TinySecurity binds its privileged API to this process-wide host connection;
 /// a missing identity must fail at initialization rather than leave a loaded
 /// module whose every call is rejected.
-fn runtime_module_config(config: &Config, id: &str) -> serde_json::Value {
+async fn runtime_module_config(config: &Config, id: &str) -> serde_json::Value {
     #[cfg(feature = "security-module")]
     if id == super::security::MODULE_ID {
         let trusted_host = super::runtime::existing_runtime()
@@ -636,13 +639,13 @@ fn runtime_module_config(config: &Config, id: &str) -> serde_json::Value {
             .expect("module runtime must expose its host identity before loading modules");
         return serde_json::to_value(config).expect("TinySecurity module config is serializable");
     }
-    module_config(config, id)
+    module_config(config, id).await
 }
 
 /// [`module_config`] for a test in a sibling module.
 #[cfg(test)]
-pub(super) fn module_config_for_test(config: &Config, id: &str) -> serde_json::Value {
-    module_config(config, id)
+pub(super) async fn module_config_for_test(config: &Config, id: &str) -> serde_json::Value {
+    module_config(config, id).await
 }
 
 /// Where downloaded artifacts are kept.
