@@ -174,6 +174,7 @@ async fn handle_tunnel_frame(
             channel_id,
             &config,
             &frame_bytes,
+            connection_token,
             connection_nonce,
             expires_at_ms,
         )
@@ -214,7 +215,11 @@ async fn handle_handshake(
             session
         }
     };
-    if session.channel_id != channel_id || !pairing_session_is_live(&session) {
+    if session.channel_id != channel_id
+        || session.pairing_token != connection_token
+        || session.connection_nonce != connection_nonce
+        || !pairing_session_is_live(&session)
+    {
         return;
     }
     let Ok((event_id, _scope_id)) = crate::modules::security::device_pairing_socket_event(
@@ -482,6 +487,7 @@ async fn handle_encrypted_rpc_frame(
     channel_id: &str,
     config: &crate::config::Config,
     frame: &[u8],
+    connection_token: &str,
     connection_nonce: &str,
     expires_at_ms: u64,
 ) {
@@ -496,6 +502,11 @@ async fn handle_encrypted_rpc_frame(
         .contains(channel_id)
     {
         let Some(session) = pending else { return };
+        if session.pairing_token != connection_token
+            || session.connection_nonce != connection_nonce
+        {
+            return;
+        }
         confirm_pairing(
             channel_id,
             ctx.tenant().ok().and_then(|tenant| tenant.agent),
@@ -517,7 +528,9 @@ async fn handle_encrypted_rpc_frame(
         log::warn!("[devices/bus] encrypted frame without active session channel_id={channel_id}");
         return;
     };
-    if !active_session_matches_connection(&active, connection_nonce) {
+    if active.pairing_token != connection_token
+        || !active_session_matches_connection(&active, connection_nonce)
+    {
         ACTIVE_SESSIONS
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
