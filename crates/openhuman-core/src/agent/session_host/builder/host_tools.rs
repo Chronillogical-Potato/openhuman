@@ -400,7 +400,7 @@ impl OpenHumanSessionHost {
     ///
     /// `session_id` is the conversation this turn runs in, reaching the
     /// factory as [`TurnContext::session_id`]; `None` when none is named yet.
-    pub fn from_config_with_host_tools(
+    pub async fn from_config_with_host_tools(
         ctx: &crate::core::runtime::DispatchCtx,
         config: &Config,
         definition: &crate::agent_registry::host_definition::AgentDefinition,
@@ -415,7 +415,7 @@ impl OpenHumanSessionHost {
             false,
             Some(host),
             session_id,
-        )
+        ).await
     }
 
     /// Build a session agent from a definition the caller already holds,
@@ -428,7 +428,7 @@ impl OpenHumanSessionHost {
     /// registry entry that happens to share its id. This is the constructor a
     /// library host uses to run many independently specified agents on one
     /// booted core.
-    pub fn from_config_with_definition(
+    pub async fn from_config_with_definition(
         ctx: &crate::core::runtime::DispatchCtx,
         config: &Config,
         definition: &crate::agent_registry::host_definition::AgentDefinition,
@@ -446,10 +446,10 @@ impl OpenHumanSessionHost {
             false,
             None,
             None,
-        )
+        ).await
     }
 
-    pub(crate) fn from_config_with_definition_and_turn_model_source(
+    pub(crate) async fn from_config_with_definition_and_turn_model_source(
         ctx: &crate::core::runtime::DispatchCtx,
         config: &Config,
         definition: &crate::agent_registry::host_definition::AgentDefinition,
@@ -465,6 +465,6 @@ impl OpenHumanSessionHost {
             None,
             None,
             Some((source, model)),
-        )
+        ).await
     }
 }
