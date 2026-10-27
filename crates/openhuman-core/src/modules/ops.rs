@@ -488,10 +488,15 @@ pub fn load_error_message(error: LoadError) -> String {
 /// Returns a message suitable for surfacing to a user or a model when the module
 /// cannot be loaded: no artifact for this host, downloads disabled, a refused
 /// artifact, or a previous failure in this process.
-pub async fn ensure_loaded(config: &Config, id: &str) -> Result<(), String> {
-    ensure_loaded_within(config, id, None)
-        .await
-        .map_err(load_error_message)
+pub fn ensure_loaded<'a>(
+    config: &'a Config,
+    id: &'a str,
+) -> futures::future::BoxFuture<'a, Result<(), String>> {
+    Box::pin(async move {
+        ensure_loaded_within(config, id, None)
+            .await
+            .map_err(load_error_message)
+    })
 }
 
 /// [`ensure_loaded`] with a bound on how long this caller waits.
@@ -505,11 +510,12 @@ pub async fn ensure_loaded(config: &Config, id: &str) -> Result<(), String> {
 /// [`LoadError::Failed`] when the module cannot be loaded in this process;
 /// [`LoadError::StillLoading`] when `within` passed first;
 /// [`LoadError::Disabled`] when its `[components]` switch is off.
-pub async fn ensure_loaded_within(
-    config: &Config,
-    id: &str,
+pub fn ensure_loaded_within<'a>(
+    config: &'a Config,
+    id: &'a str,
     within: Option<Duration>,
-) -> Result<(), LoadError> {
+) -> futures::future::BoxFuture<'a, Result<(), LoadError>> {
+    Box::pin(async move {
     let resolver = resolver(config);
     let result = if needs_storage_callback(id) {
         if let Some(component) = disabled_component(config, id) {
@@ -570,6 +576,7 @@ pub async fn ensure_loaded_within(
         super::security::text::arm(config);
     }
     result
+    })
 }
 
 /// The state of `id` as the resolution table reports it, without touching it.
@@ -589,7 +596,11 @@ pub fn state_of(id: &str) -> ModuleState {
 /// Credentials and callback destinations are intentionally absent. TinyMemory
 /// receives only its compute configuration; TinyMCP and TinyEventQueues get a
 /// unique storage callback destination from the verified loader.
-pub(super) async fn module_config(config: &Config, id: &str) -> serde_json::Value {
+pub(super) fn module_config<'a>(
+    config: &'a Config,
+    id: &'a str,
+) -> futures::future::BoxFuture<'a, serde_json::Value> {
+    Box::pin(async move {
     #[cfg(feature = "security-module")]
     if id == super::security::MODULE_ID {
         return serde_json::to_value(super::security::module_config(config))
@@ -623,6 +634,7 @@ pub(super) async fn module_config(config: &Config, id: &str) -> serde_json::Valu
         });
     }
     serde_json::json!({})
+    })
 }
 
 /// Configuration passed to the loader after it has started the module bus.

@@ -95,7 +95,10 @@ fn provider_config(config: &Config, provider: &ResolvedProvider) -> ProviderConf
 }
 
 /// The complete private configuration for TinySearch.
-pub async fn module_config(config: &Config) -> ModuleSearchConfig {
+pub fn module_config(
+    config: &Config,
+) -> futures::future::BoxFuture<'_, ModuleSearchConfig> {
+    Box::pin(async move {
     let private = config
         .profile_providers
         .as_ref()
@@ -167,6 +170,7 @@ pub async fn module_config(config: &Config) -> ModuleSearchConfig {
         providers: module_providers,
         presentation,
     }
+    })
 }
 
 /// Deterministic declarations for synchronous tool registration, computed
