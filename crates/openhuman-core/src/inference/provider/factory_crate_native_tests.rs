@@ -107,7 +107,6 @@ async fn enforce_local_only_inference_errors_on_external_when_local_only() {
     crate::security::live_policy::install(policy, ws.clone(), ws.clone());
 
     let err = enforce_local_only_inference("chat", "openai:gpt-4o")
-        .await
         .expect_err("external provider must be refused in LocalOnly mode");
     let msg = err.to_string();
     assert!(
@@ -124,7 +123,9 @@ async fn enforce_local_only_inference_errors_on_external_when_local_only() {
         "claude_agent_sdk:claude-sonnet-4-6",
         &Config::default(),
         0.0,
-    ) {
+    )
+    .await
+    {
         Err(error) => error,
         Ok(_) => panic!("direct Claude SDK model must preserve the privacy gate"),
     };
@@ -135,7 +136,9 @@ async fn enforce_local_only_inference_errors_on_external_when_local_only() {
         "claude-code:claude-sonnet-4-6",
         &Config::default(),
         0.0,
-    ) {
+    )
+    .await
+    {
         Err(error) => error,
         Ok(_) => panic!("direct Claude Code model must preserve the privacy gate"),
     };
@@ -170,7 +173,6 @@ async fn enforce_local_only_inference_errors_on_external_when_local_only() {
 
     // Local provider passes.
     enforce_local_only_inference("chat", "ollama:llama3")
-        .await
         .expect("local provider must be permitted in LocalOnly mode");
 
     // Restore Standard so we don't leak LocalOnly into other serial tests.
@@ -202,6 +204,7 @@ async fn create_chat_model_uses_native_test_override() {
         &config,
         0.3,
     )
+    .await
     .expect("create_chat_model must build");
     let response = model
         .invoke(&(), ModelRequest::new(vec![Message::user("hi there")]))
@@ -249,6 +252,7 @@ async fn one_shot_chat_models_preserve_factory_temperature_as_request_default() 
         &config,
         0.3,
     )
+    .await
     .expect("role model");
     role_model
         .invoke(&(), ModelRequest::new(vec![Message::user("default")]))

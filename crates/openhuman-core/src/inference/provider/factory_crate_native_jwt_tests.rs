@@ -31,6 +31,7 @@ async fn unmanaged_openhuman_jwt_route_never_builds_a_direct_unauthenticated_mod
         &EgressLedger::none(),
         Some(&extensions),
     )
+    .await
     .expect("configured slug");
     let error = match error {
         Err(error) => error,

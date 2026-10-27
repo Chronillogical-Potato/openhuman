@@ -27,32 +27,30 @@ fn local_ai_at(base_url: &str) -> Config {
     config
 }
 
-#[test]
-fn local_only_refuses_ollama_cloud_proxied_models() {
+#[tokio::test]
+async fn local_only_refuses_ollama_cloud_proxied_models() {
     for provider in [
         "ollama:gpt-oss:120b-cloud",
         "ollama:kimi-k2:1t-cloud@0.2",
         "ollama:deepseek-v3.1:671B-Cloud",
     ] {
         assert!(
-            local_only_violation(PrivacyMode::LocalOnly, provider)
-                .await
-                .is_some(),
+            local_only_violation(PrivacyMode::LocalOnly, provider).is_some(),
             "LocalOnly permitted the cloud-proxied model {provider}"
         );
     }
     assert_eq!(
-        local_only_violation(PrivacyMode::LocalOnly, "ollama:llama3.1:8b").await,
+        local_only_violation(PrivacyMode::LocalOnly, "ollama:llama3.1:8b"),
         None
     );
     assert_eq!(
-        local_only_violation(PrivacyMode::Standard, "ollama:gpt-oss:120b-cloud").await,
+        local_only_violation(PrivacyMode::Standard, "ollama:gpt-oss:120b-cloud"),
         None
     );
 }
 
-#[test]
-fn local_only_refuses_a_local_runtime_pointed_at_another_host() {
+#[tokio::test]
+async fn local_only_refuses_a_local_runtime_pointed_at_another_host() {
     let _guard = crate::inference::inference_test_guard();
     let _env = EnvVarGuard::locked_unset_many(ENDPOINT_ENV);
     let _mode = crate::security::live_policy::test_privacy_scope(PrivacyMode::LocalOnly);

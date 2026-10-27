@@ -154,7 +154,7 @@ async fn create_test_local_chat_model_from_string(
     provider: &str,
     config: &Config,
 ) -> anyhow::Result<(Arc<dyn ChatModel<()>>, String)> {
-    create_local_chat_model_from_string(provider, config).await
+    create_local_chat_model_from_string(provider, config)
 }
 
 async fn create_test_omlx_model(
@@ -162,7 +162,7 @@ async fn create_test_omlx_model(
     _temperature: Option<f64>,
     config: &Config,
 ) -> anyhow::Result<(Arc<dyn ChatModel<()>>, String)> {
-    create_local_chat_model_from_string(&format!("omlx:{model}"), config).await
+    create_local_chat_model_from_string(&format!("omlx:{model}"), config)
 }
 
 fn config_with_providers(providers: Vec<CloudProviderCreds>) -> Config {

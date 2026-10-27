@@ -35,6 +35,7 @@ async fn default_temperature_wrapper_preserves_physical_attempt_tracking() {
         &Config::default(),
         0.3,
     )
+    .await
     .expect("test override model");
 
     assert!(wrapped.tracks_physical_attempts());

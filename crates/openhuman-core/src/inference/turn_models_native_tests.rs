@@ -22,7 +22,7 @@ async fn native_turn_factory_applies_default_temperature_and_preserves_explicit_
         Arc::new(TemperatureProbe(Arc::clone(&seen))),
     );
     let tmp = tempfile::tempdir().expect("isolated workspace");
-    let config = Arc::new(managed_fixture_config(&tmp));
+    let config = Arc::new(managed_fixture_config(&tmp).await);
     let ctx = crate::core::runtime::DispatchCtx::unbound();
     let models = TurnModelSource::new_crate_native(&ctx, "chat", config)
         .build("hint:chat", 0.3, None, None)
@@ -70,7 +70,7 @@ async fn native_budget_wrapping_keeps_owner_error_slots_for_primary_tiers_and_su
     );
     let ctx = DispatchCtx::new(context.clone());
     let tmp = tempfile::tempdir().expect("isolated workspace");
-    let config = Arc::new(managed_fixture_config(&tmp));
+    let config = Arc::new(managed_fixture_config(&tmp).await);
     let budget = ModelBudget::new(
         tinyinference_llm::model::budget::Budget::new(SpendLimits {
             tokens: Some(0),
@@ -164,7 +164,7 @@ async fn explicit_provider_string_turn_source_uses_scoped_managed_model() {
         CoreContext::for_test_with_host_kind(HostKind::Library, DomainSet::full(), None);
     let dispatch = DispatchCtx::new(explicit_context);
     let tmp = tempfile::tempdir().expect("isolated workspace");
-    let mut config = managed_fixture_config(&tmp);
+    let mut config = managed_fixture_config(&tmp).await;
     config.chat_provider = Some("unconfigured:must-not-win".into());
 
     CoreContext::scope(ambient_context, async {
@@ -212,6 +212,7 @@ async fn native_turn_preserves_deepseek_route_metadata_after_cloud_resolution() 
             Default::default(),
             true,
         )
+        .await
         .expect("store isolated BYOK credential");
     let context = CoreContext::for_test_with_host_kind(
         HostKind::Library,

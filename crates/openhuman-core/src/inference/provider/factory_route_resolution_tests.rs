@@ -30,7 +30,7 @@ async fn nvidia_nim_with_explicit_model_builds_correctly() {
 async fn nvidia_nim_empty_model_in_provider_string_errors_clearly() {
     let _guard = crate::inference::inference_test_guard();
     let config = config_with_providers(vec![nvidia_nim_entry("p_nim", None)]);
-    let err = match create_test_chat_model_from_string("reasoning", "nvidia-nim:", &config) {
+    let err = match create_test_chat_model_from_string("reasoning", "nvidia-nim:", &config).await {
         Ok(_) => panic!("empty model string must not succeed — would send model='' to the API"),
         Err(e) => e,
     };
