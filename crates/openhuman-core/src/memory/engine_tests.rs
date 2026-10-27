@@ -259,7 +259,7 @@ async fn cortexdb_is_off_until_a_key_is_stored_and_rebuilds_on_a_new_key() {
         .await
         .unwrap();
     assert_eq!(
-        read_cortexdb_key(&config).unwrap().as_deref(),
+        read_cortexdb_key(&config).await.unwrap().as_deref(),
         Some("cdb-key-one")
     );
     assert!(has_key(&config, CORTEXDB_ENGINE).await);
