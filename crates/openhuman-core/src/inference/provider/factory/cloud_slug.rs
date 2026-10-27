@@ -14,10 +14,6 @@ use super::{
 use crate::config::ops::resolve_primary_cloud_provider_string;
 use crate::config::schema::cloud_providers::AuthStyle;
 use crate::config::Config;
-#[cfg(not(test))]
-use crate::inference::provider::factory::access_gates::verify_backend_session_active;
-#[cfg(not(test))]
-use crate::inference::provider::factory::access_gates::verify_session_active;
 use crate::inference::provider::fallback_diagnostics;
 use crate::inference::provider::openai_codex::resolve_openai_codex_routing_for_inspection;
 use crate::security::egress::EgressLedger;
@@ -542,9 +538,9 @@ fn try_create_cloud_slug_chat_model_from_string_with_native_tools_and_access(
     if let Err(e) = enforce_local_only_inference(role, &p) {
         return Some(Err(e));
     }
-    if matches!(credential_access, CredentialAccess::Runtime(_)) {
+    if let CredentialAccess::Runtime(snapshot) = credential_access {
         #[cfg(not(test))]
-        if let Err(e) = verify_session_active(config) {
+        if let Err(e) = super::access_gates::verify_session_active_with_snapshot(config, snapshot) {
             return Some(Err(e));
         }
     }
@@ -614,10 +610,12 @@ fn try_create_cloud_slug_chat_model_from_string_with_native_tools_and_access(
                 extensions, style,
             ) =>
         {
-            if matches!(credential_access, CredentialAccess::Runtime(_)) {
+            if let CredentialAccess::Runtime(snapshot) = credential_access {
                 #[cfg(not(test))]
-                if let Err(error) = verify_backend_session_active(config) {
-                    return Some(Err(error));
+                if !snapshot.backend_session_active() {
+                    return Some(Err(anyhow::anyhow!(
+                        "SESSION_EXPIRED: no backend session — sign in to use OpenHuman"
+                    )));
                 }
             }
             let model_override =
