@@ -39,5 +39,5 @@ fn sdk_token_provider_with_observer(
 }
 
 #[cfg(test)]
-#[path = "tests.rs"]
+#[path = "socket_tests.rs"]
 mod tests;
