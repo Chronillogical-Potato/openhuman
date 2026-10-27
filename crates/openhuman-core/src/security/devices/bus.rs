@@ -339,7 +339,28 @@ async fn begin_device_renewal_once(
         Ok(Some(device)) if !device.revoked => device,
         _ => return None,
     };
-    let pairing_id = device.pairing_id.as_deref()?;
+    let is_pending = PENDING_SESSIONS
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .contains_key(channel_id);
+    let is_active = ACTIVE_SESSIONS
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .contains_key(channel_id);
+    let peer_online = PEER_STATUS
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .get(channel_id)
+        .copied()
+        .unwrap_or(false);
+    let scope_unlocked = crate::modules::security::device_pairing_scope_is_unlocked(config).await;
+    let pairing_id = renewal_pairing_id(
+        peer_online,
+        scope_unlocked,
+        is_pending,
+        is_active,
+        &device,
+    )?;
     let event_id = crate::modules::security::device_pairing_reconnect_event(
         config,
         channel_id,
@@ -394,6 +415,24 @@ async fn begin_device_renewal_once(
         .unwrap_or_else(std::sync::PoisonError::into_inner)
         .insert(channel_id.to_owned(), session.clone());
     Some(session)
+}
+
+fn renewal_pairing_id<'a>(
+    peer_online: bool,
+    scope_unlocked: bool,
+    has_pending_session: bool,
+    has_active_session: bool,
+    device: &'a super::types::PairedDevice,
+) -> Option<&'a str> {
+    if !peer_online
+        || !scope_unlocked
+        || has_pending_session
+        || has_active_session
+        || device.revoked
+    {
+        return None;
+    }
+    device.pairing_id.as_deref().filter(|value| !value.is_empty())
 }
 
 fn unix_time_ms() -> u64 {

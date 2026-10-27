@@ -281,6 +281,22 @@ pub async fn devices_list(config: &Config) -> Result<Outcome<ListDevicesResponse
     Ok(Outcome::new(ListDevicesResponse { devices }, vec![]))
 }
 
+/// Rejoin persisted device channels after the direct user action unlocks the
+/// module-owned identity for this process.
+pub(crate) async fn resume_device_tunnels(config: &Config) {
+    let Ok(devices) = store::list_devices(config) else {
+        return;
+    };
+    for device in devices.into_iter().filter(|device| !device.revoked) {
+        if let Err(error) = tunnel_client::emit_connect(&device.channel_id).await {
+            log::warn!(
+                "[devices/rpc] could not resume device tunnel channel_id={}: {error}",
+                device.channel_id
+            );
+        }
+    }
+}
+
 // ---------------------------------------------------------------------------
 // revoke
 // ---------------------------------------------------------------------------

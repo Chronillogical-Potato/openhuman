@@ -237,8 +237,16 @@ fn run_create_pairing(ctx: DispatchCtx, config: Config, label: Option<String>) -
     })
 }
 
-fn run_list(_ctx: DispatchCtx, config: Config, (): ()) -> ControllerFuture {
-    Box::pin(async move { to_json(crate::security::devices::rpc::devices_list(&config).await?) })
+fn run_list(ctx: DispatchCtx, config: Config, (): ()) -> ControllerFuture {
+    Box::pin(async move {
+        if ctx.invocation_source()
+            == crate::core::runtime::InvocationSource::AuthenticatedUserController
+        {
+            crate::modules::security::ensure_device_pairing_unlocked(&config).await?;
+            crate::security::devices::rpc::resume_device_tunnels(&config).await;
+        }
+        to_json(crate::security::devices::rpc::devices_list(&config).await?)
+    })
 }
 
 fn run_import_legacy(ctx: DispatchCtx, config: Config, (): ()) -> ControllerFuture {

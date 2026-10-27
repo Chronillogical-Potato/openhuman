@@ -113,6 +113,19 @@ pub(crate) async fn ensure_device_pairing_unlocked(config: &Config) -> Result<()
     unlock_pairing_scope(&client, &scope, &master, generation).await
 }
 
+pub(crate) async fn device_pairing_scope_is_unlocked(config: &Config) -> bool {
+    let Ok(client) = client(config).await else {
+        return false;
+    };
+    let Some(scope) = host_callbacks::secret_scope().await else {
+        return false;
+    };
+    let Ok(policy) = client.policy_info().await else {
+        return false;
+    };
+    pairing_scope_is_unlocked(scope.scope_id(), policy.generation)
+}
+
 async fn unlock_pairing_scope(
     client: &Client,
     scope: &crate::security::approval::native::SecretScope,
@@ -383,6 +396,9 @@ pub(crate) async fn device_pairing_reconnect_event(
         .await
         .map_err(|error| error.to_string())?
         .generation;
+    if !pairing_scope_is_unlocked(scope.scope_id(), generation) {
+        return Err("device pairing scope has not been unlocked by a direct user action".into());
+    }
     let scope_id = scope.scope_id().to_owned();
     callbacks::issue_pairing_event(tinysecurity_bus::DevicePairingContextResponse2 {
         scope_id: scope_id.clone(),
