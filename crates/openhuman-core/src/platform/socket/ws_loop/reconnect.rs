@@ -123,7 +123,7 @@ pub(crate) async fn ws_loop(
         // the server.
         let token = match pending_token.take() {
             Some(t) => t,
-            None => match token_provider() {
+            None => match token_provider().await {
                 Ok(t) if !t.trim().is_empty() => t,
                 Ok(_) => {
                     log::warn!("[socket] ws_loop: token provider returned empty token — stopping");
@@ -268,7 +268,7 @@ pub(crate) async fn ws_loop(
                     "[socket] Invalid token on attempt — checking for fresh token (current_len={})",
                     token.len()
                 );
-                match decide_after_invalid_token(&token, &token_provider) {
+                match decide_after_invalid_token(&token, &token_provider).await {
                     InvalidTokenAction::RetryImmediately { token: fresh } => {
                         let fresh_len = fresh.len();
                         fresh_token_retries = fresh_token_retries.saturating_add(1);
@@ -514,11 +514,11 @@ pub(super) enum InvalidTokenAction {
 /// - Provider returns the **same** token → `Escalate` (no point retrying).
 /// - Provider returns an **empty** token → `Escalate` (treat as no session).
 /// - Provider returns `Err` → `Escalate` with the provider error as reason.
-pub(super) fn decide_after_invalid_token(
+pub(super) async fn decide_after_invalid_token(
     previous_token: &str,
     provider: &TokenProvider,
 ) -> InvalidTokenAction {
-    match provider() {
+    match provider().await {
         Ok(fresh) if !fresh.trim().is_empty() && fresh != previous_token => {
             InvalidTokenAction::RetryImmediately { token: fresh }
         }
