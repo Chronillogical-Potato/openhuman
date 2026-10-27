@@ -275,7 +275,7 @@ async fn one_shot_cloud_sentinel_resolves_the_configured_byok_provider() {
     provider.default_model = Some("gpt-4o-mini".into());
     let mut config = config_with_providers_in_tempdir(&tmp, vec![provider]);
     config.primary_cloud = Some("p_openai".into());
-    store_byo_key(&config, "openai", "sk-fixture");
+    store_byo_key(&config, "openai", "sk-fixture").await;
     let library = crate::core::runtime::CoreContext::for_test_with_host_kind(
         crate::core::types::HostKind::Library,
         crate::core::runtime::DomainSet::full(),

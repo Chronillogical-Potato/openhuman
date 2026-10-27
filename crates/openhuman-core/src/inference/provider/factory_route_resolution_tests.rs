@@ -495,7 +495,7 @@ async fn byo_route_without_usable_key_stays_gated() {
     assert!(!role_bypasses_managed_credits("chat", &config).await);
 
     // Once a key is stored, the route becomes a genuine bypass.
-    store_byo_key(&config, "openai", "sk-byo-test");
+    store_byo_key(&config, "openai", "sk-byo-test").await;
     assert!(role_bypasses_managed_credits("chat", &config).await);
 }
 

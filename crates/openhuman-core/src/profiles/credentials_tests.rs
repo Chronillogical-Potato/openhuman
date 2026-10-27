@@ -158,18 +158,15 @@ async fn concurrent_stores_of_different_kinds_leave_exactly_one_kind() {
         key.await.unwrap();
 
         // Whichever store ran last owns the profile; the other kind is gone.
-        let provider_present = |provider: &str| async {
-            let auth = AuthService::from_config(&user);
-            let id = crate::credentials::normalize_provider(provider).unwrap();
-            auth.load_profiles()
-                .await
+        let auth = AuthService::from_config(&user);
+        let profiles = auth.load_profiles().await.unwrap().profiles;
+        let has_key = profiles.values().any(|profile| {
+            profile.provider == crate::credentials::normalize_provider(api_key::API_KEY_PROVIDER)
                 .unwrap()
-                .profiles
-                .values()
-                .any(|profile| profile.provider == id)
-        };
-        let has_key = provider_present(api_key::API_KEY_PROVIDER).await;
-        let has_session = provider_present(APP_SESSION_PROVIDER).await;
+        });
+        let has_session = profiles.values().any(|profile| {
+            profile.provider == crate::credentials::normalize_provider(APP_SESSION_PROVIDER).unwrap()
+        });
         assert!(
             has_key != has_session,
             "round {round}: exactly one kind must remain (key={has_key}, session={has_session})"

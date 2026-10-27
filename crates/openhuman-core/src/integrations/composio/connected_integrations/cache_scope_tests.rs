@@ -179,7 +179,8 @@ async fn profile_invalidation_preserves_another_profiles_snapshot() {
             cached_active_integrations(&config).await.unwrap()[0].toolkit,
             "gmail"
         )
-    });
+    })
+    .await;
     INTEGRATIONS_CACHE.write().unwrap().remove(&alice_key);
 }
 
