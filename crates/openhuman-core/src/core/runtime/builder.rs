@@ -501,6 +501,11 @@ impl CoreRuntime {
             }
         }
         self.ctx.replace_latest_embedder_config(config.clone());
+        crate::core::runtime::subscribers::finish_secret_preflight_credentials(
+            &crate::core::runtime::DispatchCtx::new(Arc::clone(&self.ctx)),
+            config,
+        )
+        .await;
         crate::core::runtime::services::run_legacy_migrations(config).await;
         crate::agent::tinyagents::reaper::reap_orphaned_runs(&config.workspace_dir).await;
         self.boot_mode = CoreBootMode::Normal;
