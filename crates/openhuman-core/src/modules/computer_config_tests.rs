@@ -11,7 +11,7 @@ fn config_in(dir: &std::path::Path) -> Config {
     config
 }
 
-fn store(config: &Config, slug: &str, key: &str) {
+async fn store(config: &Config, slug: &str, key: &str) {
     AuthService::from_config(config)
         .store_provider_token(
             &format!("provider:{slug}"),
@@ -20,6 +20,7 @@ fn store(config: &Config, slug: &str, key: &str) {
             Default::default(),
             true,
         )
+        .await
         .expect("store provider key");
 }
 
@@ -30,7 +31,9 @@ async fn signed_in_host_routes_jev_and_planner_through_tinyhumans() {
     config.resolved_endpoints.product_identity = Some("openhuman-test".into());
     config.computer.rescue_model = Some("openai/gpt-6-luna-pro".into());
     config.computer.planner_model = Some("anthropic/claude-sonnet-5".into());
-    api_key::store_api_key(&config, "th_test_backend").unwrap();
+    api_key::store_api_key(&config, "th_test_backend")
+        .await
+        .unwrap();
     let value = module_config(&config).await;
     assert_eq!(value["jev"]["provider"], "tiny_humans_open_router");
     assert_eq!(value["planner"]["provider"], "tiny_humans");
@@ -47,7 +50,9 @@ async fn signed_in_host_routes_jev_and_planner_through_tinyhumans() {
 async fn signed_in_host_runs_unchosen_roles_on_a_model_the_gateway_serves() {
     let dir = tempfile::tempdir().unwrap();
     let mut config = config_in(dir.path());
-    api_key::store_api_key(&config, "th_test_backend").unwrap();
+    api_key::store_api_key(&config, "th_test_backend")
+        .await
+        .unwrap();
     // A blank choice is no choice.
     config.computer.rescue_model = Some("  ".into());
     let value = module_config(&config).await;
@@ -60,7 +65,7 @@ async fn signed_in_host_runs_unchosen_roles_on_a_model_the_gateway_serves() {
 async fn byok_host_uses_openrouter_for_both() {
     let dir = tempfile::tempdir().unwrap();
     let config = config_in(dir.path());
-    store(&config, "openrouter", "or_test_direct");
+    store(&config, "openrouter", "or_test_direct").await;
     let value = module_config(&config).await;
     assert_eq!(value["jev"]["provider"], "open_router");
     assert_eq!(value["planner"]["provider"], "open_router");
@@ -76,8 +81,8 @@ async fn byok_host_uses_openrouter_for_both() {
 async fn open_jev_and_sage_use_their_own_keys() {
     let dir = tempfile::tempdir().unwrap();
     let mut config = config_in(dir.path());
-    store(&config, "openjev", "oj_test");
-    store(&config, "sage", "sage_test");
+    store(&config, "openjev", "oj_test").await;
+    store(&config, "sage", "sage_test").await;
 
     config.computer.decision_model = DecisionModel::OpenJev;
     let value = module_config(&config).await;

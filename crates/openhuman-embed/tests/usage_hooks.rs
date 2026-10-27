@@ -10,7 +10,7 @@ use openhuman_embed::seams::{StopDecision, StopHook, TurnCost, TurnState};
 use openhuman_embed::{
     AgentDefinitionSpec, AgentSpec, HostTurnTools, Runtime, Tool, ToolScopeSpec, Workspace,
 };
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::sync::{Arc, Mutex};
 
 type Seen = Arc<Mutex<Vec<(String, u32, u64, Option<f64>)>>>;
@@ -100,7 +100,7 @@ async fn scenario() {
                     .bare_prompt("Use probe then answer")
                     .tools(ToolScopeSpec::HostOnly),
             )
-            .tools(|_| HostTurnTools::advertised(vec![Box::new(Probe)]))
+            .tools(|_| Box::pin(async { HostTurnTools::advertised(vec![Box::new(Probe)]) }))
     };
     let a = runtime
         .agent(spec("budget-a", &a_provider).stop_hook(Arc::new(Policy {

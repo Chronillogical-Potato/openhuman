@@ -11,8 +11,8 @@
 
 use crate::common;
 
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use common::{chat_requests, offline_config, runtime, stub_backend};
 use openhuman_embed::complete::ResponseFormat;
@@ -20,7 +20,7 @@ use openhuman_embed::{
     AgentDefinitionSpec, AgentSpec, CoreError, HostTurnTools, Provider, Runtime, Tool,
     ToolScopeSpec, Workspace,
 };
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, Request, Respond, ResponseTemplate};
 
@@ -119,7 +119,10 @@ fn analyst(id: &str, provider: &MockServer, reads: Arc<AtomicUsize>) -> AgentSpe
                 .bare_prompt("Analyze the document. Answer with the analysis JSON.")
                 .tools(ToolScopeSpec::HostOnly),
         )
-        .tools(move |_| HostTurnTools::advertised(vec![Box::new(ReadFile(reads.clone()))]))
+        .tools(move |_| {
+            let reads = reads.clone();
+            Box::pin(async move { HostTurnTools::advertised(vec![Box::new(ReadFile(reads))]) })
+        })
 }
 
 fn answer_schema() -> ResponseFormat {

@@ -75,7 +75,10 @@ async fn parking_agent(
                         .tools(ToolScopeSpec::Named(vec!["write_marker".into()])),
                 )
                 .tools(move |_| {
-                    HostTurnTools::advertised(vec![Box::new(WriteMarker(file.clone()))])
+                    let file = file.clone();
+                    Box::pin(
+                        async move { HostTurnTools::advertised(vec![Box::new(WriteMarker(file))]) },
+                    )
                 }),
         )
         .expect("agent instantiates");
@@ -160,10 +163,11 @@ fn removing_an_agent_releases_everything_it_held() {
                         .is_none(),
                     "a closed instance must refuse direct gate decisions"
                 );
-                assert!(gate
-                    .decide_for_agent("closing", &closing_request.request_id, decision)
-                    .unwrap()
-                    .is_none());
+                assert!(
+                    gate.decide_for_agent("closing", &closing_request.request_id, decision)
+                        .unwrap()
+                        .is_none()
+                );
             }
             assert_eq!(
                 gate.classify_decide_miss(&closing_request.request_id),
@@ -171,26 +175,29 @@ fn removing_an_agent_releases_everything_it_held() {
                 "a removal barrier is a benign decision miss, not a lost registration"
             );
             for owner in [None, Some("closing")] {
-                assert!(openhuman_core::security::approval::rpc::approval_decide(
-                    &openhuman_core::core::runtime::DispatchCtx::process_default(),
-                    &closing_request.request_id,
-                    openhuman_embed::ApprovalDecision::ApproveOnce,
-                    owner,
-                )
-                .await
-                .is_err());
+                assert!(
+                    openhuman_core::security::approval::rpc::approval_decide(
+                        &openhuman_core::core::runtime::DispatchCtx::process_default(),
+                        &closing_request.request_id,
+                        openhuman_embed::ApprovalDecision::ApproveOnce,
+                        owner,
+                    )
+                    .await
+                    .is_err()
+                );
             }
             assert_eq!(closing.approvals().pending().unwrap().len(), 1);
             runtime.remove_agent("closing").await.unwrap();
             removed(closing_turn.await.unwrap(), "closing");
             assert!(!scratch.path().join("closing-wrote").exists());
-            assert!(gate
-                .list_pending_for_agent(
+            assert!(
+                gate.list_pending_for_agent(
                     &openhuman_core::core::runtime::DispatchCtx::ambient(),
                     Some("closing")
                 )
                 .unwrap()
-                .is_empty());
+                .is_empty()
+            );
 
             // Reusing the public id installs a fresh barrier: the new request
             // remains answerable through the same context-free gate entry point.
@@ -205,13 +212,14 @@ fn removing_an_agent_releases_everything_it_held() {
             })
             .await;
             assert_ne!(replacement_request.request_id, closing_request.request_id);
-            assert!(gate
-                .decide(
+            assert!(
+                gate.decide(
                     &replacement_request.request_id,
                     openhuman_embed::ApprovalDecision::ApproveOnce,
                 )
                 .unwrap()
-                .is_some());
+                .is_some()
+            );
             assert!(replacement_turn.await.unwrap().is_ok());
             assert!(scratch.path().join("closing-wrote").exists());
             runtime.remove_agent("closing").await.unwrap();

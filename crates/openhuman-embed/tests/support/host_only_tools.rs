@@ -8,15 +8,15 @@
 
 use crate::common;
 
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use common::{chat_completion, chat_requests, offline_config, runtime, stub_backend, tool_names};
 use openhuman_embed::{
     Access, AgentDefinitionSpec, AgentSpec, HostTurnTools, Provider, Runtime, Tool, ToolPolicy,
     ToolScopeSpec, Workspace,
 };
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, Request, Respond, ResponseTemplate};
 
@@ -123,16 +123,19 @@ fn host_only_spec(id: &str, provider: &MockServer, calls: Arc<AtomicUsize>) -> A
                 .tools(ToolScopeSpec::HostOnly),
         )
         .tools(move |_| {
-            HostTurnTools::advertised(vec![
-                Box::new(HostTool {
-                    name: "read_file",
-                    calls: calls.clone(),
-                }),
-                Box::new(HostTool {
-                    name: "find_documents",
-                    calls: calls.clone(),
-                }),
-            ])
+            let calls = calls.clone();
+            Box::pin(async move {
+                HostTurnTools::advertised(vec![
+                    Box::new(HostTool {
+                        name: "read_file",
+                        calls: calls.clone(),
+                    }),
+                    Box::new(HostTool {
+                        name: "find_documents",
+                        calls,
+                    }),
+                ])
+            })
         })
 }
 
