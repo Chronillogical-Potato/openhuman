@@ -6,7 +6,6 @@
 use std::sync::{Arc, OnceLock};
 
 use async_trait::async_trait;
-use parking_lot::RwLock;
 
 use super::models::{ConnectionStatus, SocketState};
 
@@ -49,20 +48,18 @@ pub trait SocketPort: Send + Sync + 'static {
 pub struct SocketIdentityRebindGuard(tokio::sync::OwnedMutexGuard<()>);
 
 static IDENTITY_REBIND: OnceLock<Arc<tokio::sync::Mutex<()>>> = OnceLock::new();
-static SOCKET_PORT: OnceLock<RwLock<Option<Arc<dyn SocketPort>>>> = OnceLock::new();
-
-fn slot() -> &'static RwLock<Option<Arc<dyn SocketPort>>> {
-    SOCKET_PORT.get_or_init(|| RwLock::new(None))
-}
+static SOCKET_PORT: OnceLock<Arc<dyn SocketPort>> = OnceLock::new();
 
 /// Install the hosted socket port. Reinstallation replaces the previous host.
 pub fn set_global_socket_port(port: Arc<dyn SocketPort>) {
-    *slot().write() = Some(port);
+    if SOCKET_PORT.set(port).is_err() {
+        log::warn!("[socket] global socket port already installed; ignoring duplicate");
+    }
 }
 
 /// Return the currently installed hosted socket port.
 pub fn global_socket_port() -> Option<Arc<dyn SocketPort>> {
-    slot().read().clone()
+    SOCKET_PORT.get().cloned()
 }
 
 /// Compatibility name for core consumers while the concrete transport is host-owned.

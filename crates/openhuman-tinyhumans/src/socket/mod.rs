@@ -15,16 +15,26 @@ pub(crate) fn register() {
 fn sdk_token_provider(
     provider: TokenProvider,
 ) -> impl Fn() -> Option<String> + Send + Sync + 'static {
+    sdk_token_provider_with_observer(provider, |_| {})
+}
+
+fn sdk_token_provider_with_observer(
+    provider: TokenProvider,
+    observer: impl Fn(String) + Send + Sync + 'static,
+) -> impl Fn() -> Option<String> + Send + Sync + 'static {
+    let observer = Arc::new(observer);
     move || {
         let provider = provider.clone();
-        openhuman_embed::__host::storage::block_on_anyhow(async move {
-            provider()
-                .await
-                .map(Some)
-                .map_err(anyhow::Error::msg)
+        let observer = Arc::clone(&observer);
+        let token = openhuman_embed::__host::storage::block_on_anyhow(async move {
+            provider().await.map_err(anyhow::Error::msg)
         })
-        .ok()
-        .flatten()
+        .ok()?;
+        if token.trim().is_empty() {
+            return None;
+        }
+        observer(token.clone());
+        Some(token)
     }
 }
 

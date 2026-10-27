@@ -14,7 +14,7 @@ use openhuman_embed::__host::platform::socket::{
     ConnectionStatus, SocketPort, SocketState, TokenProvider,
 };
 
-use super::sdk_token_provider;
+use super::sdk_token_provider_with_observer;
 
 enum SocketCommand {
     Emit {
@@ -34,7 +34,7 @@ enum SocketCommand {
 /// TinyHumans' SDK-backed implementation of the core socket port.
 pub(crate) struct SdkSocketPort {
     state: Arc<RwLock<SocketState>>,
-    identity: RwLock<Option<(String, String)>>,
+    identity: Arc<RwLock<Option<(String, String)>>>,
     loop_active: Arc<AtomicBool>,
     stopped_on_failure: Arc<AtomicBool>,
     commands: Mutex<Option<mpsc::Sender<SocketCommand>>>,
@@ -45,7 +45,7 @@ impl Default for SdkSocketPort {
     fn default() -> Self {
         Self {
             state: Arc::new(RwLock::new(SocketState::default())),
-            identity: RwLock::new(None),
+            identity: Arc::new(RwLock::new(None)),
             loop_active: Arc::new(AtomicBool::new(false)),
             stopped_on_failure: Arc::new(AtomicBool::new(false)),
             commands: Mutex::new(None),
@@ -85,13 +85,22 @@ impl SocketPort for SdkSocketPort {
         }
         self.disconnect().await?;
 
+        *self.identity.write() = Some((url.to_owned(), identity_token));
+        let identity = Arc::clone(&self.identity);
+        let identity_url = url.to_owned();
+
         let connection = TinyHumansClient::new(url)
-            .connect_socket_with_token_provider(sdk_token_provider(provider))
+            .connect_socket_with_token_provider(sdk_token_provider_with_observer(
+                provider,
+                move |token| *identity.write() = Some((identity_url.clone(), token)),
+            ))
             .await
-            .map_err(|error| error.to_string())?;
+            .map_err(|error| {
+                *self.identity.write() = None;
+                error.to_string()
+            })?;
         let (tx, rx) = mpsc::channel(128);
         *self.commands.lock().await = Some(tx);
-        *self.identity.write() = Some((url.to_owned(), identity_token));
         *self.state.write() = SocketState {
             status: ConnectionStatus::Connecting,
             socket_id: None,
