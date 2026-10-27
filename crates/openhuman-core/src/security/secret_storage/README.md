@@ -24,12 +24,12 @@ Host-installable secret storage with an in-memory default. Cipher operations for
 | `crates/openhuman-core/src/security/secret_storage/memory_backend.rs` | Basic in-memory backend, default for core and embed; no key initialization or secret files. |
 | `crates/openhuman-core/src/security/secret_storage/backend.rs` | `SecretBackend` trait plus `FileBackend` (plaintext `dev-keychain.json`, test/debug only), and test-only `MockBackend`. |
 | `crates/openhuman-core/src/security/secret_storage/encrypted_file_backend.rs` | `EncryptedFileBackend`: an adapter over `tinystoragedrivers`' `EncryptedFileSecrets` (format and `secrets.enc.lock` unchanged): all secrets in one ChaCha20-Poly1305 `secrets.enc` file keyed by an app master key; `init_master_key`; legacy `dev-keychain.json` migration; corrupt-file quarantine (a desktop policy kept here: the driver fails closed, this adapter moves the file aside as `secrets.enc.corrupt.<ts>` and continues, so a bad file never wedges sign-in). `adapter.rs` holds the shared error mapping and that policy; `fixtures/` holds bytes written by the pre-port code. |
-| `crates/openhuman-core/src/security/secret_storage/encrypted_store.rs` | `SecretStore`: config-field encryption (`enc2:` ChaCha20-Poly1305, legacy `enc:` XOR migration), keychain-backed master key with legacy `.secret_key` file migration, process-wide key cache. |
+| `crates/openhuman-core/src/security/secret_storage/encrypted_store.rs` | `SecretStore`: TinySecurity cipher bus adapter, callback-bound master handle cache, and legacy `.secret_key` migration path. |
 | `crates/openhuman-core/src/security/secret_storage/file_store.rs` | Shared secrets-file primitives for both file backends: the cross-process advisory write lock (`lock_for_write`, on a sidecar `<path>.lock`), the `0600` unique-temp-then-rename `write_atomic`, and `quarantine_corrupt`. |
 | `crates/openhuman-core/src/security/secret_storage/error.rs` | `SecretStorageError` (thiserror) with variants `InvalidUtf8`/`MigrationReadFailed`/`VerifyFailed`/`MigrationDeleteFailed`/`RandomGeneration`/`Crypto`/`Backend`, plus a log-safe `diagnostic()`; native errors arrive as opaque `Backend` detail. |
 | `crates/openhuman-core/src/security/secret_storage/mod_tests.rs` | Module tests (backend isolation via `force_backend_for_test`). |
 | `crates/openhuman-core/src/security/secret_storage/store_tests.rs`, [`store_tests_2_tests.rs`](./store_tests_2_tests.rs), [`store_test_scope_tests.rs`](./store_test_scope_tests.rs) | Test-isolation regressions: test builds ignore `OPENHUMAN_WORKSPACE`, production resolution still honours it, scoped workspaces do not share secrets, and a deleted scoped workspace cannot reset the default store. |
-| `crates/openhuman-core/src/security/secret_storage/encrypted_store_tests.rs`, [`encrypted_store_crypto_migration_tests.rs`](./encrypted_store_crypto_migration_tests.rs) | `SecretStore` encryption and legacy-format migration tests (wired via `#[path]` from [`encrypted_store.rs`](./encrypted_store.rs)). |
+| `crates/openhuman-core/src/security/secret_storage/encrypted_store_tests.rs` | SecretStore bus fail-closed, plaintext compatibility, and format detection tests. |
 
 ## Public surface
 
@@ -38,7 +38,7 @@ Re-exported from [`mod.rs`](./mod.rs):
 - `SecretBackend`: backend trait (`get`/`set`/`delete`/`name`).
 - `install_secret_backend`, `installed_secret_backend`, `clear_secret_backend`: host install slot; thread-local in unit tests.
 - `MasterKeySource` (`load`/`store`) and `install_master_key_source`, `installed_master_key_source`, `clear_master_key_source`: host key-source slot, with the same isolation.
-- `SecretStore`: config-field encrypt/decrypt; `encrypt`/`decrypt`/`decrypt_and_migrate`/`needs_migration`/`is_encrypted`/`new`.
+- `SecretStore`: async TinySecurity cipher operations; `needs_migration`/`is_encrypted`/`new`.
 - `SecretStorageError`: error enum with `diagnostic()`.
 - `init_master_key`: load the app master key at startup for encrypted storage, from the environment (`OPENHUMAN_KEYRING_MASTER_KEY` inline, or `OPENHUMAN_KEYRING_MASTER_KEY_FILE` naming a file; 64 hex characters, exactly one of the two) when set, otherwise from the host source or `keyring/master.key`. A set-but-malformed variable is a boot error, not a fall-through; the source is logged at `info`, the value never. Key files must not be group- or world-writable; read-only group/world access is supported for secret mounts, but any principal able to read the file can decrypt the keyring.
 - `init_workspace`: register the workspace dir for file and encrypted-file backends.
@@ -67,7 +67,7 @@ Secret storage backend: host install slot first, then a cached environment overr
 - `file` (explicit `OPENHUMAN_KEYRING_BACKEND=file`): plaintext JSON `{workspace}/dev-keychain.json`. Not encrypted; test and debug use only.
 - `mock` (test-only): in-memory `HashMap`.
 
-`SecretStore` additionally manages a master encryption key: on the active process backend (slot `secretstore.master_key`) with one-time migration into persistent providers from the legacy `{data_dir}/openhuman/.secret_key` file; memory providers read existing legacy keys without deleting them and keep new keys only in memory. Decoded keys are cached process-wide, keyed by normalized path.
+`SecretStore` resolves the master handle through TinySecurity's registered User slot. The callback supports one-time migration into persistent providers from the legacy `{data_dir}/openhuman/.secret_key` file; volatile providers read existing keys without deleting them and keep new keys only in memory. Opaque master handles are cached briefly by normalized path and exact callback/module identity.
 
 The workspace dir resolves from `init_workspace`, else `OPENHUMAN_WORKSPACE`, else `~/.openhuman` (or `~/.openhuman-staging` under `OPENHUMAN_APP_ENV=staging`). In `cfg(test)` builds only, that rule is bypassed; see the test-isolation note below.
 
@@ -115,8 +115,8 @@ Discovered consumers (`crate::security::secret_storage::*`):
 - `encrypted_file` corrupt or undecryptable files are quarantined (renamed `secrets.enc.corrupt.<ts>`) and treated as empty rather than crashing.
 - A corrupt file is never overwritten. `file` reads degrade to an empty map (so a missing token means "sign in again"), but a `set`/`delete` over an unparseable file quarantines it and returns an error. Returning empty on the write path is what turned a corrupt file into a wipe: the write that followed persisted a map holding nothing but the key being set.
 - Mutations hold a cross-process lock, on `<secrets file>.lock` rather than the secrets file itself, because `write_atomic` replaces the file by rename, so a lock on the old inode would guard nothing. Callers must hold it across the read and the write.
-- The `SecretStore` master-key file is write-once. Transient read errors retry briefly. Decoded keys are cached so repeated decrypts (for example, snapshot polls) hit memory.
-- Legacy formats: `SecretStore` migrates `enc:` (XOR) to `enc2:` (ChaCha20-Poly1305) on decrypt. `EncryptedFileBackend` writes `dev-keychain.json` into `secrets.enc`, reads back and verifies the encrypted map, then removes the plaintext source. It also removes older `.json.migrated` copies when their entries match the decrypted store. Invalid or divergent copies remain for manual recovery.
+- The TinySecurity-resolved opaque master handle is cached briefly for repeated operations, keyed by normalized secret path and callback/module identity.
+- Legacy ciphertext migration from `enc:` is delegated to TinySecurity. `EncryptedFileBackend` writes `dev-keychain.json` into `secrets.enc`, reads back and verifies the encrypted map, then removes the plaintext source. It also removes older `.json.migrated` copies when their entries match the decrypted store. Invalid or divergent copies remain for manual recovery.
 - Errors never carry secret values, only namespaced keys. `diagnostic()` is safe to log and preserves opaque backend diagnostics.
 
 ## Further reading
