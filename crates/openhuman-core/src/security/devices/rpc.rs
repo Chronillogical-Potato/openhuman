@@ -280,6 +280,43 @@ pub async fn devices_revoke(
     require_user_controller(ctx)?;
     log::info!("[devices/rpc] devices_revoke channel_id={}", channel_id);
 
+    let existing = store::get_device(config, &channel_id)
+        .map_err(|error| format!("[devices/rpc] get_device failed: {error}"))?;
+    let Some(existing) = existing else {
+        return Ok(Outcome::single_log(
+            RevokeDeviceResponse { success: false },
+            format!("device {channel_id} not found"),
+        ));
+    };
+
+    if let Some(pairing_id) = existing.pairing_id.as_deref() {
+        let (client, scope, master_handle, generation) =
+            crate::modules::security::device_pairing_master(config).await?;
+        let host_event_id = crate::modules::security::device_pairing_user_event(
+            &scope,
+            Some(master_handle),
+            generation,
+        )?;
+        let response = client
+            .device_pairing2(tinysecurity_bus::DevicePairingRequest2 {
+                call_id: uuid::Uuid::new_v4().simple().to_string(),
+                operation: tinysecurity_bus::DevicePairingOperation2::Revoke {
+                    pairing_id: pairing_id.to_owned(),
+                    host_event_id,
+                },
+            })
+            .await
+            .map_err(|error| error.to_string())?;
+        if !response.frame.is_empty()
+            || response.pairing_id.is_some()
+            || response.session_id.is_some()
+            || response.core_public_key.is_some()
+            || response.device_public_key.is_some()
+        {
+            return Err("TinySecurity returned an unexpected revoke result".to_owned());
+        }
+    }
+
     let revoked = store::revoke_device(config, &channel_id)
         .map_err(|e| format!("[devices/rpc] revoke_device failed: {e}"))?;
 
