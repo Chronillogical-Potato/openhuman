@@ -42,6 +42,83 @@ fn build_core_connect_payload_omits_session_token_for_core_role() {
     assert!(payload.get("pairingToken").is_none());
 }
 
+#[test]
+fn connect_and_frame_payloads_keep_the_backend_wire_shape() {
+    let connect = build_core_connect_payload("ch_123");
+    assert_eq!(connect, json!({ "channelId": "ch_123", "role": "core" }));
+
+    let frame = build_frame_payload("ch_123", "YWJj");
+    assert_eq!(frame, json!({ "channelId": "ch_123", "payload": "YWJj" }));
+}
+
+#[test]
+fn incoming_peer_status_uses_camel_case_wire_dto() {
+    let parsed = parse_inbound_event(
+        "tunnel:peer-status",
+        json!({ "channelId": "ch_123", "online": true }),
+    )
+    .expect("known event");
+
+    assert_eq!(
+        parsed.expect("valid payload"),
+        TunnelEvent::PeerStatus {
+            channel_id: "ch_123".to_string(),
+            online: true,
+        }
+    );
+}
+
+#[test]
+fn incoming_frame_keeps_the_encoded_payload_and_channel() {
+    let parsed = parse_inbound_event(
+        "tunnel:frame",
+        json!({ "channelId": "ch_456", "payload": "YWJj" }),
+    )
+    .expect("known event");
+
+    assert_eq!(
+        parsed.expect("valid payload"),
+        TunnelEvent::Frame {
+            channel_id: "ch_456".to_string(),
+            payload: "YWJj".to_string(),
+        }
+    );
+}
+
+#[test]
+fn evicted_event_parses_channel_and_empty_channel_is_preserved_for_drop_policy() {
+    let parsed = parse_inbound_event("tunnel:evicted", json!({ "channelId": "ch_789" }))
+        .expect("known event");
+    assert_eq!(
+        parsed.expect("valid payload"),
+        TunnelEvent::Evicted {
+            channel_id: "ch_789".to_string(),
+        }
+    );
+    assert_eq!(
+        parse_inbound_event("tunnel:evicted", json!({ "channelId": "" }))
+            .expect("known event")
+            .expect("valid payload"),
+        TunnelEvent::Evicted {
+            channel_id: String::new(),
+        }
+    );
+}
+
+#[test]
+fn malformed_known_tunnel_events_are_handled_without_becoming_unknown_events() {
+    assert!(parse_inbound_event("tunnel:frame", json!({ "payload": "YWJj" })).is_some());
+    assert!(parse_inbound_event("unrelated:event", json!({})).is_none());
+}
+
+#[tokio::test]
+async fn frame_size_cap_is_checked_before_a_socket_is_required() {
+    let error = emit_frame("ch_123", &"a".repeat(64 * 1024 + 1))
+        .await
+        .expect_err("oversized frame must be rejected before socket lookup");
+    assert!(error.contains("frame too large"));
+}
+
 // ── The shape the backend actually sends (#5871) ──────────────────────────
 
 /// The live backend types `pairingExpiresAt` as a **number** and fills it with

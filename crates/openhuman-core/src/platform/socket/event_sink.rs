@@ -153,58 +153,6 @@ pub fn dispatch_socket_event(event_name: &str, data: serde_json::Value) {
                 }
             }
         }
-        // Device tunnel — peer-status update.
-        "tunnel:peer-status" => {
-            log::info!("[socket] tunnel:peer-status received");
-            match serde_json::from_value::<crate::security::devices::tunnel_client::TunnelPeerStatus>(
-                data.clone(),
-            ) {
-                Ok(status) => {
-                    if status.online {
-                        BUS.publish(DomainEvent::DevicePeerOnline {
-                            channel_id: status.channel_id,
-                        });
-                    } else {
-                        BUS.publish(DomainEvent::DevicePeerOffline {
-                            channel_id: status.channel_id,
-                        });
-                    }
-                }
-                Err(e) => {
-                    log::warn!("[socket] failed to parse tunnel:peer-status: {e}");
-                }
-            }
-        }
-        // Device tunnel — encrypted frame from the iOS device.
-        "tunnel:frame" => {
-            log::debug!("[socket] tunnel:frame received");
-            match serde_json::from_value::<crate::security::devices::tunnel_client::TunnelFrame>(
-                data.clone(),
-            ) {
-                Ok(frame) => {
-                    BUS.publish(DomainEvent::DeviceTunnelFrame {
-                        channel_id: frame.channel_id,
-                        payload_b64: frame.payload,
-                    });
-                }
-                Err(e) => {
-                    log::warn!("[socket] failed to parse tunnel:frame: {e}");
-                }
-            }
-        }
-        // Device tunnel — backend evicted the channel (TTL / server restart).
-        "tunnel:evicted" => {
-            let channel_id = data
-                .get("channelId")
-                .and_then(|v| v.as_str())
-                .unwrap_or("")
-                .to_string();
-            log::info!("[socket] tunnel:evicted channel_id={}", channel_id);
-            if !channel_id.is_empty() {
-                BUS.publish(DomainEvent::DevicePeerOffline { channel_id });
-            }
-        }
-
         // ── Backend Meet Bot events ──────────────────────────────────────
         "voice:harness" => {
             // Realtime voice-agent turn relayed from the backend Custom-LLM

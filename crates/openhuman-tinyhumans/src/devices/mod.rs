@@ -1,1 +1,1 @@
-mod tunnel_client;
+pub(crate) mod tunnel_client;
