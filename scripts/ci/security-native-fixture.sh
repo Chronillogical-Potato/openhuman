@@ -6,6 +6,47 @@ set -euo pipefail
 export OPENHUMAN_TEST_SECURITY_FIXTURE_DIR="${OPENHUMAN_TEST_SECURITY_FIXTURE_DIR:-$HOME/.cache/openhuman-security-fixtures}"
 mkdir -p "$OPENHUMAN_TEST_SECURITY_FIXTURE_DIR"
 
+host_key="${OH_MODULE_HOST_KEY:-}"
+if [ -z "$host_key" ]; then
+  case "$(uname -s)" in
+    Linux) host_key="ubuntu-24.04-x86_64" ;;
+    Darwin)
+      case "$(uname -m)" in
+        arm64) host_key="macos-15-arm64" ;;
+        *) host_key="macos-15-x86_64" ;;
+      esac
+      ;;
+    MINGW*|MSYS*|CYGWIN*) host_key="windows-2025-x86_64" ;;
+    *) echo "unsupported native fixture host: $(uname -s)" >&2; exit 1 ;;
+  esac
+fi
+
+asset="$(node scripts/ci/self-hosted/test-module-assets.mjs "$host_key" tinysecurity)"
+IFS=$'\t' read -r _module_id asset_url archive expected_sha <<< "$asset"
+archive_path="$OPENHUMAN_TEST_SECURITY_FIXTURE_DIR/$archive"
+module_dir="$OPENHUMAN_TEST_SECURITY_FIXTURE_DIR/tinysecurity"
+curl --fail --location --silent --show-error --retry 4 --retry-delay 2 \
+  "$asset_url" --output "$archive_path"
+node - "$archive_path" "$expected_sha" <<'NODE'
+const { createHash } = require("node:crypto");
+const { readFileSync } = require("node:fs");
+
+const [file, expected] = process.argv.slice(2);
+const actual = createHash("sha256").update(readFileSync(file)).digest("hex");
+if (actual !== expected) {
+  throw new Error(`TinySecurity fixture digest mismatch: expected ${expected}, got ${actual}`);
+}
+NODE
+rm -rf "$module_dir"
+mkdir -p "$module_dir"
+if [[ "$archive" == *.zip ]]; then
+  powershell.exe -NoProfile -Command \
+    "Expand-Archive -LiteralPath '$(cygpath -w "$archive_path")' -DestinationPath '$(cygpath -w "$module_dir")' -Force"
+else
+  tar --no-same-owner -xzf "$archive_path" -C "$module_dir"
+fi
+export OPENHUMAN_MODULE_PATH="$module_dir${OPENHUMAN_MODULE_PATH:+:$OPENHUMAN_MODULE_PATH}"
+
 core_features="$(scripts/ci/product-features.sh | sed 's/,os-keyring//' | sed 's/,security-module//')"
 
 security_pin="$(git -C vendor/tinysecurity rev-parse HEAD)"

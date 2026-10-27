@@ -39,7 +39,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, macos-15, windows-2025]
+        include:
+          - os: ubuntu-24.04
+            module_host_key: ubuntu-24.04-x86_64
+          - os: macos-15
+            module_host_key: macos-15-arm64
+          - os: windows-2025
+            module_host_key: windows-2025-x86_64
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     steps:
@@ -62,4 +68,6 @@ jobs:
           key: security-native-${{ runner.os }}
       - name: Run native release fixture
         shell: bash
+        env:
+          OH_MODULE_HOST_KEY: ${{ matrix.module_host_key }}
         run: bash scripts/ci/security-native-fixture.sh
