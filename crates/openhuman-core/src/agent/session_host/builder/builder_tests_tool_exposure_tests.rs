@@ -1,15 +1,15 @@
 use super::*;
 
-fn visible_names(agent_id: &str) -> std::collections::HashSet<String> {
+async fn visible_names(agent_id: &str) -> std::collections::HashSet<String> {
     let definition =
         crate::agent_registry::host_definition::AgentDefinitionRegistry::builtins_only()
             .get(agent_id)
             .cloned()
             .unwrap_or_else(|| panic!("built-in agent definition not found: {agent_id}"));
-    visible_names_for(&definition)
+    visible_names_for(&definition).await
 }
 
-fn visible_names_for(
+async fn visible_names_for(
     definition: &crate::agent_registry::host_definition::AgentDefinition,
 ) -> std::collections::HashSet<String> {
     let tmp = tempfile::TempDir::new().unwrap();
@@ -19,6 +19,7 @@ fn visible_names_for(
         &config,
         definition,
     )
+    .await
     .await
     .unwrap_or_else(|e| panic!("{} session build: {e}", definition.id));
     agent
@@ -80,7 +81,7 @@ async fn hiding_and_reseeding_wildcard_visibility_keeps_collapsed_exposure() {
 /// while an engine is usable); none of it may come back.
 #[tokio::test]
 async fn wildcard_belt_advertises_collapsed_tools_not_their_hidden_members() {
-    let visible = visible_names_for(&super::wildcard_probe_def());
+    let visible = visible_names_for(&super::wildcard_probe_def()).await;
 
     assert!(
         visible.contains("todo"),
@@ -209,7 +210,7 @@ async fn named_belt_without_tool_search_reaches_no_deferred_tool() {
 async fn named_belt_keeps_its_listed_members() {
     let mut definition = super::wildcard_probe_def();
     definition.tools = tinyagents_definition::ToolScope::Named(vec!["file_read".to_owned()]);
-    let visible = visible_names_for(&definition);
+    let visible = visible_names_for(&definition).await;
     assert!(
         visible.contains("file_read"),
         "named belt must keep the members it lists; got {visible:?}"

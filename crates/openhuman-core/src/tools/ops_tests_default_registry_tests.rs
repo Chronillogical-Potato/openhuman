@@ -313,9 +313,9 @@ async fn all_tools_registers_generic_mcp_bridge_tools_when_servers_exist() {
 /// Deliberately asserts by prefix rather than naming the ~19 tools: a new MCP
 /// tool added later must not be able to leak into slim builds just because
 /// nobody remembered to extend a hardcoded list here.
-#[test]
+#[tokio::test]
 #[cfg(not(feature = "mcp"))]
-fn all_tools_omits_mcp_tools_when_gate_off() {
+async fn all_tools_omits_mcp_tools_when_gate_off() {
     let tmp = TempDir::new().unwrap();
     let mut cfg = test_config(&tmp);
     cfg.gitbooks.enabled = false;

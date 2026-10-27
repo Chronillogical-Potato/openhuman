@@ -31,7 +31,7 @@ fn test_config_without_inference(tmp: &tempfile::TempDir) -> crate::config::Conf
     config
 }
 
-fn async fn test_config(tmp: &tempfile::TempDir) -> crate::config::Config {
+async fn test_config(tmp: &tempfile::TempDir) -> crate::config::Config {
     let mut config = test_config_without_inference(tmp);
     crate::agent::session_host::test_support::install_model_fixture();
     config.default_model = Some("test/session-fixture".to_string());
