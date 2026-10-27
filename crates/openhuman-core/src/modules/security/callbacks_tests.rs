@@ -28,7 +28,7 @@ fn device_pairing_host_event_is_bound_to_purpose_channel_and_used_once() {
     let event_id = events.issue(pairing_context(
         "channel-1",
         DevicePairingSource2::RegisteredSocket,
-    ));
+    ), 1_000).unwrap();
     let request = tinysecurity_bus::DevicePairingContextRequest2 {
         host_event_id: event_id.clone(),
         purpose: DevicePairingPurpose2::SocketEvent,
@@ -47,7 +47,7 @@ fn device_pairing_host_event_is_bound_to_purpose_channel_and_used_once() {
     let wrong_purpose = events.issue(pairing_context(
         "channel-2",
         DevicePairingSource2::RegisteredSocket,
-    ));
+    ), 1_000).unwrap();
     assert!(events
         .resolve(
             &tinysecurity_bus::DevicePairingContextRequest2 {
@@ -62,7 +62,7 @@ fn device_pairing_host_event_is_bound_to_purpose_channel_and_used_once() {
     let wrong_channel = events.issue(pairing_context(
         "channel-3",
         DevicePairingSource2::RegisteredSocket,
-    ));
+    ), 1_000).unwrap();
     assert!(events
         .resolve(
             &tinysecurity_bus::DevicePairingContextRequest2 {

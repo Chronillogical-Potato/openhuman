@@ -183,10 +183,22 @@ pub(crate) struct PairingEventRegistry {
 }
 
 impl PairingEventRegistry {
-    pub(crate) fn issue(&self, context: tinysecurity_bus::DevicePairingContextResponse2) -> String {
+    pub(crate) fn issue(
+        &self,
+        context: tinysecurity_bus::DevicePairingContextResponse2,
+        now_ms: u64,
+    ) -> Result<String, ()> {
+        if !valid_pairing_context(&context, now_ms) {
+            return Err(());
+        }
         let event_id = uuid::Uuid::new_v4().simple().to_string();
-        self.events.lock().insert(event_id.clone(), context);
-        event_id
+        let mut events = self.events.lock();
+        events.retain(|_, context| context.expires_at_ms > now_ms);
+        if events.len() >= 4096 {
+            return Err(());
+        }
+        events.insert(event_id.clone(), context);
+        Ok(event_id)
     }
 
     pub(crate) fn resolve(
@@ -211,31 +223,10 @@ impl PairingEventRegistry {
             Purpose::Reconnect => Source::BackendReconnect,
             Purpose::SocketClosed => Source::SocketClosed,
         };
-        let valid_scope = context.scope_id.len() == 32
-            && context
-                .scope_id
-                .bytes()
-                .all(|byte| byte.is_ascii_hexdigit());
         let channel_bound = request
             .requested_channel_id
             .as_deref()
             .is_none_or(|channel| channel == context.channel_id);
-        let source_fields_valid = match request.purpose {
-            Purpose::UserController | Purpose::LegacyImport | Purpose::UserLogout => {
-                context.channel_id.is_empty()
-                    && context.pairing_token.is_none()
-                    && context.connection_nonce.is_empty()
-            }
-            Purpose::SocketEvent | Purpose::Reconnect => {
-                !context.channel_id.is_empty()
-                    && context
-                        .pairing_token
-                        .as_ref()
-                        .is_some_and(|value| !value.is_empty())
-                    && !context.connection_nonce.is_empty()
-            }
-            Purpose::SocketClosed => !context.channel_id.is_empty(),
-        };
         let legacy_fields_valid = match request.purpose {
             Purpose::LegacyImport => context
                 .legacy_import_handle
@@ -245,12 +236,8 @@ impl PairingEventRegistry {
         };
 
         if context.source != expected_source
-            || !valid_scope
-            || context.user_binding.is_empty()
-            || context.generation == 0
-            || context.expires_at_ms <= now_ms
+            || !valid_pairing_context(&context, now_ms)
             || !channel_bound
-            || !source_fields_valid
             || !legacy_fields_valid
         {
             return Err(());
@@ -259,13 +246,49 @@ impl PairingEventRegistry {
     }
 }
 
+fn valid_pairing_context(
+    context: &tinysecurity_bus::DevicePairingContextResponse2,
+    now_ms: u64,
+) -> bool {
+    use tinysecurity_bus::DevicePairingSource2 as Source;
+
+    let valid_scope = context.scope_id.len() == 32
+        && context
+            .scope_id
+            .bytes()
+            .all(|byte| byte.is_ascii_hexdigit());
+    let source_fields_valid = match context.source {
+        Source::AuthenticatedUserController | Source::AuthenticatedUserLogout => {
+            context.channel_id.is_empty()
+                && context.pairing_token.is_none()
+                && context.connection_nonce.is_empty()
+        }
+        Source::RegisteredSocket | Source::BackendReconnect => {
+            !context.channel_id.is_empty()
+                && context
+                    .pairing_token
+                    .as_ref()
+                    .is_some_and(|value| !value.is_empty())
+                && !context.connection_nonce.is_empty()
+        }
+        Source::SocketClosed => !context.channel_id.is_empty(),
+    };
+    valid_scope
+        && !context.user_binding.is_empty()
+        && context.generation > 0
+        && context.expires_at_ms > now_ms
+        && source_fields_valid
+}
+
 static PAIRING_EVENTS: LazyLock<PairingEventRegistry> =
     LazyLock::new(PairingEventRegistry::default);
 
 pub(crate) fn issue_pairing_event(
     context: tinysecurity_bus::DevicePairingContextResponse2,
-) -> String {
-    PAIRING_EVENTS.issue(context)
+) -> Result<String, String> {
+    PAIRING_EVENTS
+        .issue(context, unix_time_ms())
+        .map_err(|_| "invalid or unavailable device pairing event".into())
 }
 
 fn unix_time_ms() -> u64 {
