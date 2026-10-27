@@ -89,6 +89,76 @@ fn stale_pending_session_is_retired_before_same_device_renewal() {
 }
 
 #[test]
+fn only_global_credential_clear_is_a_pairing_logout_event() {
+    assert!(should_lock_pairings_after_credential_event(
+        &DomainEvent::CredentialChanged {
+            kind: "cleared".into(),
+            tenant: None,
+        }
+    ));
+    assert!(!should_lock_pairings_after_credential_event(
+        &DomainEvent::CredentialChanged {
+            kind: "session".into(),
+            tenant: None,
+        }
+    ));
+    assert!(!should_lock_pairings_after_credential_event(
+        &DomainEvent::CredentialChanged {
+            kind: "cleared".into(),
+            tenant: Some(crate::core::runtime::Tenant::default()),
+        }
+    ));
+}
+
+#[test]
+fn logout_clears_volatile_tunnel_sessions_and_pairing_handles() {
+    let channel = "logout-test-channel".to_owned();
+    PENDING_SESSIONS
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .insert(channel.clone(), session("2099-01-01T00:00:00Z"));
+    ACTIVE_SESSIONS
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .insert(
+            channel.clone(),
+            super::super::rpc::ActiveDeviceSession {
+                scope_id: "scope".into(),
+                session_id: "session".into(),
+                pairing_token: "token".into(),
+                connection_nonce: "nonce".into(),
+            },
+        );
+    PENDING_RENEWALS
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .insert(channel.clone(), "pairing-id".into());
+    PEER_STATUS
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .insert(channel.clone(), true);
+
+    clear_device_pairing_runtime_state();
+
+    assert!(!PENDING_SESSIONS
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .contains_key(&channel));
+    assert!(!ACTIVE_SESSIONS
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .contains_key(&channel));
+    assert!(!PENDING_RENEWALS
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .contains_key(&channel));
+    assert!(!PEER_STATUS
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .contains_key(&channel));
+}
+
+#[test]
 fn process_restart_unlock_then_peer_online_renews_only_the_same_device() {
     let device = paired_device();
     // Process restart cleared both volatile capabilities. A live persisted
