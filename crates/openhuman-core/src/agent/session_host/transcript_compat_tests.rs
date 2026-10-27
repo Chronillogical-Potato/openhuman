@@ -22,7 +22,7 @@ use std::collections::{BTreeMap, HashMap};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, LazyLock, Mutex};
 
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use tinyagents_harness::testkit::ScriptedModel;
 use tinyagents_session::port::SessionStoreProvider;
 use tinyagents_session::transcript::{SessionRef, TranscriptLocator};
@@ -491,14 +491,16 @@ fn assert_retired_tool_replay(identity_bound: bool) {
             &store_locator(root.path()),
             "retired-audio-thread",
         );
-        assert!(archived
-            .tools
-            .as_ref()
-            .expect("recorded declarations")
-            .as_array()
-            .expect("declarations array")
-            .iter()
-            .any(|spec| spec["name"] == RETIRED));
+        assert!(
+            archived
+                .tools
+                .as_ref()
+                .expect("recorded declarations")
+                .as_array()
+                .expect("declarations array")
+                .iter()
+                .any(|spec| spec["name"] == RETIRED)
+        );
         let archived_rows = to_json(&archived.messages);
         drop(first);
 
@@ -525,10 +527,12 @@ fn assert_retired_tool_replay(identity_bound: bool) {
                 .expect("unthreaded session build")
         };
         if identity_bound {
-            assert!(resumed
-                .resume_bound_session()
-                .await
-                .expect("resume archive"));
+            assert!(
+                resumed
+                    .resume_bound_session()
+                    .await
+                    .expect("resume archive")
+            );
         } else {
             resumed
                 .ensure_runtime_session()
@@ -584,7 +588,8 @@ fn assert_retired_tool_replay(identity_bound: bool) {
             &config.http_request,
             root.path(),
             &config,
-        );
+        )
+        .await;
         assert!(
             !live.iter().any(|tool| tool.name() == RETIRED),
             "retired tool must not be restored to the live registry"
