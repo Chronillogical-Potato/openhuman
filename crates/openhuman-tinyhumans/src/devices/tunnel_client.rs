@@ -329,16 +329,22 @@ fn build_frame_payload(channel_id: &str, payload_b64: &str) -> serde_json::Value
     })
 }
 
+const MAX_FRAME_BYTES: usize = 64 * 1024;
+
+fn validate_frame_size(frame_bytes: usize) -> Result<(), String> {
+    if frame_bytes > MAX_FRAME_BYTES {
+        return Err(format!(
+            "[devices/tunnel] frame too large: {frame_bytes} bytes (max 64 KB)"
+        ));
+    }
+    Ok(())
+}
+
 /// Emit a `tunnel:frame` carrying an encrypted payload for the peer.
 ///
 /// `payload_b64` is the base64url-encoded sealed frame from TinySecurity's `Tunnel::seal`.
 pub async fn emit_frame(channel_id: &str, payload_b64: &str) -> Result<(), String> {
-    if payload_b64.len() > 64 * 1024 {
-        return Err(format!(
-            "[devices/tunnel] frame too large: {} bytes (max 64 KB)",
-            payload_b64.len()
-        ));
-    }
+    validate_frame_size(payload_b64.len())?;
     let mgr = global_socket_manager()
         .ok_or_else(|| "[devices/tunnel] SocketManager not initialized".to_string())?;
 
