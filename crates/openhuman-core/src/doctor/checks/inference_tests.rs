@@ -1,9 +1,9 @@
-use crate::config::schema::cloud_providers::{AuthStyle, CloudProviderCreds};
 use crate::config::Config;
+use crate::config::schema::cloud_providers::{AuthStyle, CloudProviderCreds};
 use crate::doctor::runner;
 use crate::doctor::{DoctorCtx, DoctorOptions, DoctorTier, Finding, FindingSeverity};
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use tinyinference_llm::model::{ChatModel, ModelRequest, ModelResponse};
 
 const PROVIDER_REF: &str = "inference/provider-ref";
@@ -394,7 +394,7 @@ async fn inspection_reports_refresh_required_without_refreshing_or_publishing_se
 #[tokio::test]
 async fn a_fully_configured_managed_default_constructs_cleanly() {
     use crate::config::schema::cloud_providers::{
-        register_hosted_cloud_provider_policy_in, AuthStyle, CloudProviderCreds,
+        AuthStyle, CloudProviderCreds, register_hosted_cloud_provider_policy_in,
     };
     use crate::config::test_env::EnvVarGuard;
     use crate::inference::provider::factory::PROVIDER_OPENHUMAN;
@@ -436,17 +436,19 @@ async fn a_fully_configured_managed_default_constructs_cleanly() {
     let generations = Arc::new(AtomicUsize::new(0));
     let build_constructions = Arc::clone(&constructions);
     let model_generations = Arc::clone(&generations);
-    let inspection_factory: InspectionChatModelFactory = Arc::new(move |_| Box::pin(async move {
-        build_constructions.fetch_add(1, Ordering::SeqCst);
-        Ok(crate::inference::registry::InspectionChatModelBuild {
-            model: Arc::new(ManagedModel {
-                generations: Arc::clone(&model_generations),
-            }) as Arc<dyn ChatModel<()>>,
-            model_id: "managed-test-model".to_owned(),
-            endpoint: "https://api.openhuman.invalid/openai/v1".to_owned(),
-            credential: "doctor-test-session-token".to_owned(),
+    let inspection_factory: InspectionChatModelFactory = Arc::new(move |_| {
+        Box::pin(async move {
+            build_constructions.fetch_add(1, Ordering::SeqCst);
+            Ok(crate::inference::registry::InspectionChatModelBuild {
+                model: Arc::new(ManagedModel {
+                    generations: Arc::clone(&model_generations),
+                }) as Arc<dyn ChatModel<()>>,
+                model_id: "managed-test-model".to_owned(),
+                endpoint: "https://api.openhuman.invalid/openai/v1".to_owned(),
+                credential: "doctor-test-session-token".to_owned(),
+            })
         })
-    }));
+    });
     crate::inference::registry::register_inspection_chat_model_in(
         &extensions,
         PROVIDER_OPENHUMAN,
@@ -528,9 +530,11 @@ async fn a_fully_configured_managed_default_constructs_cleanly() {
         "the managed provider factory must be consulted"
     );
     assert_eq!(generations.load(Ordering::SeqCst), 0);
-    assert!(findings
-        .iter()
-        .all(|result| !result.message.contains("doctor-test-session-token")));
+    assert!(
+        findings
+            .iter()
+            .all(|result| !result.message.contains("doctor-test-session-token"))
+    );
     assert!(!temp.path().join("auth-profiles.json").exists());
     assert!(!temp.path().join("auth-profiles.lock").exists());
 }
@@ -584,16 +588,18 @@ impl Drop for RegisterManagedModel {
 
 #[tokio::test]
 async fn embedding_only_configuration_does_not_construct_a_chat_model_for_embeddings() {
-    use crate::inference::registry::{register_inspection_chat_model, InspectionChatModelFactory};
+    use crate::inference::registry::{InspectionChatModelFactory, register_inspection_chat_model};
 
     let _inference_guard = crate::inference::inference_test_guard_async().await;
 
     let roles = Arc::new(std::sync::Mutex::new(Vec::new()));
     let seen_roles = Arc::clone(&roles);
-    let factory: InspectionChatModelFactory = Arc::new(move |request| Box::pin(async move {
-        seen_roles.lock().unwrap().push(request.role.to_owned());
-        anyhow::bail!("test construction marker")
-    }));
+    let factory: InspectionChatModelFactory = Arc::new(move |request| {
+        Box::pin(async move {
+            seen_roles.lock().unwrap().push(request.role.to_owned());
+            anyhow::bail!("test construction marker")
+        })
+    });
     register_inspection_chat_model(
         crate::inference::provider::factory::PROVIDER_OPENHUMAN,
         factory,

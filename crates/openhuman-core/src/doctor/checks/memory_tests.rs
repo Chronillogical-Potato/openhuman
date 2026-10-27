@@ -3,13 +3,13 @@ use crate::core::runtime::ComponentSet;
 use crate::core::runtime::{CoreContext, DomainSet};
 use crate::core::slots::Extensions;
 use crate::doctor::contract::{DoctorConfigSource, DoctorCtx, FindingSeverity};
-use crate::memory::engine::{Binding, EngineHealth, DISABLED_ENGINE};
+use crate::memory::engine::{Binding, DISABLED_ENGINE, EngineHealth};
 use crate::memory::engine_registry::{
-    register_memory_engine_in, register_memory_health_probe_in, EngineEntry, EngineFuture,
-    ReadOnlyHealthProbe,
+    EngineEntry, EngineFuture, ReadOnlyHealthProbe, register_memory_engine_in,
+    register_memory_health_probe_in,
 };
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 fn context(engine: &str) -> DoctorCtx {
     let mut config = crate::config::Config::default();
@@ -52,11 +52,13 @@ async fn selected_health_uses_the_read_only_probe_instead_of_the_cached_engine_b
         EngineEntry {
             build: Arc::new(move |_| {
                 builder_calls_in_closure.fetch_add(1, Ordering::SeqCst);
-                Box::pin(async move { Binding::Off {
-                    engine: Some(engine_id.to_owned()),
-                    endpoint: None,
-                    reason: "normal cached builder must not run in doctor".to_owned(),
-                }}) as EngineFuture<Binding>
+                Box::pin(async move {
+                    Binding::Off {
+                        engine: Some(engine_id.to_owned()),
+                        endpoint: None,
+                        reason: "normal cached builder must not run in doctor".to_owned(),
+                    }
+                }) as EngineFuture<Binding>
             }),
             free_background: None,
         },

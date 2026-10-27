@@ -1,14 +1,14 @@
 use super::*;
 
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use crate::core::runtime::{CoreContext, DomainSet};
 use crate::core::slots::Extensions;
 use crate::memory::engine::{Binding, EngineHealth};
 use crate::memory::engine_registry::{
-    register_memory_engine_in, register_memory_health_probe_in, EngineEntry, EngineFuture,
-    ReadOnlyHealthProbe,
+    EngineEntry, EngineFuture, ReadOnlyHealthProbe, register_memory_engine_in,
+    register_memory_health_probe_in,
 };
 
 #[tokio::test]
@@ -86,11 +86,13 @@ async fn a_legacy_memory_selector_does_not_resolve_the_normal_engine() {
         EngineEntry {
             build: Arc::new(move |_| {
                 normal_builds_in_closure.fetch_add(1, Ordering::SeqCst);
-                Box::pin(async move { Binding::Off {
-                    engine: Some(engine_id.to_owned()),
-                    endpoint: None,
-                    reason: "test engine must not be resolved by doctor options".to_owned(),
-                }}) as EngineFuture<Binding>
+                Box::pin(async move {
+                    Binding::Off {
+                        engine: Some(engine_id.to_owned()),
+                        endpoint: None,
+                        reason: "test engine must not be resolved by doctor options".to_owned(),
+                    }
+                }) as EngineFuture<Binding>
             }),
             free_background: None,
         },

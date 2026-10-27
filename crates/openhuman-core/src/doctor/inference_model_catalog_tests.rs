@@ -1,21 +1,21 @@
 use super::{
-    ops::{doctor_models, doctor_report_with_options},
     DoctorOptions, FindingSeverity, ModelProbeOutcome,
+    ops::{doctor_models, doctor_report_with_options},
 };
-use crate::config::schema::cloud_providers::{AuthStyle, CloudProviderCreds};
-use crate::config::schema::ModelRouteConfig;
 use crate::config::Config;
+use crate::config::schema::ModelRouteConfig;
+use crate::config::schema::cloud_providers::{AuthStyle, CloudProviderCreds};
 use crate::credentials::{AuthService, DEFAULT_AUTH_PROFILE_NAME};
 use axum::{
+    Json, Router,
     extract::State,
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
     routing::get,
-    Json, Router,
 };
 use std::sync::{
-    atomic::{AtomicUsize, Ordering},
     Arc,
+    atomic::{AtomicUsize, Ordering},
 };
 use std::time::Duration;
 
@@ -200,8 +200,8 @@ fn register_test_inspection_catalog(
     endpoint: String,
 ) -> Arc<AtomicUsize> {
     use crate::inference::registry::{
-        register_inspection_catalog_in, InspectionCatalogError, InspectionCatalogListing,
-        PreparedInspectionCatalog,
+        InspectionCatalogError, InspectionCatalogListing, PreparedInspectionCatalog,
+        register_inspection_catalog_in,
     };
 
     let requests = Arc::new(AtomicUsize::new(0));
@@ -340,10 +340,12 @@ async fn doctor_models_skips_a_provider_without_a_models_route() {
     assert_eq!(report.value.summary.skipped, 1);
     assert_eq!(report.value.summary.errors, 0);
     assert_eq!(report.value.entries[0].outcome, ModelProbeOutcome::Skipped);
-    assert!(report.value.entries[0]
-        .message
-        .as_deref()
-        .is_some_and(|message| message.to_ascii_lowercase().contains("models")));
+    assert!(
+        report.value.entries[0]
+            .message
+            .as_deref()
+            .is_some_and(|message| message.to_ascii_lowercase().contains("models"))
+    );
     assert_eq!(server.requests.load(Ordering::SeqCst), 1);
 }
 
@@ -377,11 +379,13 @@ async fn model_in_catalog_check_skips_a_provider_without_a_models_route() {
     .await
     .expect("scoped doctor report");
 
-    assert!(report
-        .value
-        .checks_run
-        .iter()
-        .any(|id| id == "inference/model-in-catalog"));
+    assert!(
+        report
+            .value
+            .checks_run
+            .iter()
+            .any(|id| id == "inference/model-in-catalog")
+    );
     assert!(report.value.findings.iter().any(|finding| {
         finding.check_id == "inference/model-in-catalog"
             && finding.severity == FindingSeverity::Skipped
@@ -454,11 +458,13 @@ async fn missing_default_and_route_models_are_warned_by_the_inference_check() {
 
     assert_eq!(catalog.value.entries[0].outcome, ModelProbeOutcome::Ok);
     assert_eq!(report.value.profile.as_deref(), Some("doctor-profile-b"));
-    assert!(report
-        .value
-        .checks_run
-        .iter()
-        .any(|id| id == "inference/model-in-catalog"));
+    assert!(
+        report
+            .value
+            .checks_run
+            .iter()
+            .any(|id| id == "inference/model-in-catalog")
+    );
     let missing_default = report.value.findings.iter().find(|finding| {
         finding.check_id == "inference/model-in-catalog"
             && finding.severity == FindingSeverity::Warn
