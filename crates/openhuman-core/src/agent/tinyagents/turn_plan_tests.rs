@@ -9,8 +9,8 @@ use tinyagents_harness::tool::ToolSnapshot;
 use tinyagents_harness::turn_policy::{
     DEFAULT_MODEL_CALL_TIMEOUT_SECS, LOCAL_MODEL_CALL_TIMEOUT_SECS,
 };
-use tinyagents_runtime::turn_driver::{SharedToolSet, TurnControls, TurnDriver};
 use tinyagents_runtime::DriverRequest;
+use tinyagents_runtime::turn_driver::{SharedToolSet, TurnControls, TurnDriver};
 use tinyinference_llm::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse};
 use tinytools::{Tool, ToolResult};
 
@@ -90,6 +90,7 @@ async fn prepare_with(
 ) -> tinyagents_runtime::turn_driver::PreparedTurn<(), OpenHumanRunContext> {
     let models = TurnModelSource::from_model(model)
         .build("assembly-test-model", 0.0, None, None)
+        .await
         .expect("scripted turn models build");
     let (policy, _) = turn_run_policy(
         "assembly-test-model",

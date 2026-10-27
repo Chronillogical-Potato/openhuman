@@ -119,7 +119,7 @@ async fn offline_local_session_fails_before_any_request() {
     let tmp = TempDir::new().unwrap();
     // Unroutable: a request here would fail loudly, not return the sentinel.
     let config = test_config(&tmp, "http://127.0.0.1:9");
-    store_session(&config, "desktop.test.local");
+    store_session(&config, "desktop.test.local").await;
     let err = HostedClient::from_config(&config)
         .await
         .err()

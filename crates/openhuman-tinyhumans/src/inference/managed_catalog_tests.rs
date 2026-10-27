@@ -40,7 +40,7 @@ fn catalog_config(tmp: &TempDir, base_url: &str) -> Config {
 }
 
 async fn without_session(config: &Config) {
-    crate::hosted::test_support::store_session(config, "fixture-session-to-remove");
+    crate::hosted::test_support::store_session(config, "fixture-session-to-remove").await;
     AuthService::from_config(config)
         .remove_profile(APP_SESSION_PROVIDER, "default")
         .await
@@ -151,7 +151,7 @@ async fn managed_catalog_treats_http_401_as_signed_out_only_for_an_attached_sess
         catalog_server(StatusCode::UNAUTHORIZED, "session token rejected").await;
     let tmp = TempDir::new().unwrap();
     let config = catalog_config(&tmp, &base_url);
-    crate::hosted::test_support::store_session(&config, "fixture-live-session");
+    crate::hosted::test_support::store_session(&config, "fixture-live-session").await;
 
     let result = list_models(
         &config,
@@ -201,7 +201,7 @@ async fn managed_catalog_does_not_infer_http_status_from_error_payload_text() {
         catalog_server(StatusCode::OK, r#"{"error":"401 session expired"}"#).await;
     let tmp = TempDir::new().unwrap();
     let config = catalog_config(&tmp, &base_url);
-    crate::hosted::test_support::store_session(&config, "fixture-live-session");
+    crate::hosted::test_support::store_session(&config, "fixture-live-session").await;
 
     let error = list_models(
         &config,

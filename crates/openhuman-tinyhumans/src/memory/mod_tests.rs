@@ -40,7 +40,7 @@ fn request<'a>(
 }
 
 fn store_key(config: &openhuman_embed::__host::config::Config, key: &str) {
-    test_support::store_session(config, key);
+    test_support::store_session(config, key).await;
 }
 
 fn off_reason(binding: Binding) -> String {
@@ -71,7 +71,7 @@ async fn without_a_credential_the_engine_is_off_and_reports_its_endpoint() {
 async fn a_local_session_token_is_off() {
     let tmp = tempfile::tempdir().unwrap();
     let config = config_with_endpoint(&tmp, "https://memory.example.test");
-    store_key(&config, "desktop.test.local");
+    store_key(&config, "desktop.test.local").await;
     let reason = off_reason(engine::bind(&request(&config, None)).await);
     assert!(reason.contains("sign in"), "{reason}");
 }
