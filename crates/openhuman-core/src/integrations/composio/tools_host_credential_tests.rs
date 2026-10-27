@@ -96,8 +96,9 @@ fn pinned(base: &Config, key: &str, entity: &str, mock: Option<&str>) -> Config 
     config
 }
 
-fn direct_key_fingerprint(config: &Config) -> u64 {
+async fn direct_key_fingerprint(config: &Config) -> u64 {
     match resolve_composio_route(config)
+        .await
         .expect("pinned credential resolves")
     {
         ComposioRoute::Direct(tool) => tool.auth_key_fingerprint(),
@@ -116,9 +117,9 @@ async fn pinned_credential_beats_the_shared_credential_store() {
     unpinned_direct.composio.api_key = Some(KEY_A.into());
 
     let fp = crate::integrations::composio::direct_auth::fingerprint_api_key;
-    assert_eq!(direct_key_fingerprint(&agent), fp(KEY_A));
+    assert_eq!(direct_key_fingerprint(&agent).await, fp(KEY_A));
     assert_eq!(
-        direct_key_fingerprint(&unpinned_direct),
+        direct_key_fingerprint(&unpinned_direct).await,
         fp(SHARED_STORE_KEY)
     );
 }
