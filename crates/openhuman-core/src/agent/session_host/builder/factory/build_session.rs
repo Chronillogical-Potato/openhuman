@@ -91,7 +91,7 @@ impl OpenHumanSessionHost {
                 agent_id,
                 target_def,
                 turn_model_source.as_ref(),
-            )?;
+            ).await?;
         // Resolve the user-configured vision flag for the (now-final) model while
         // the full `Config` / `model_registry` is in scope — the turn engine only
         // sees `MultimodalConfig`. Stored on the session and surfaced to the image
