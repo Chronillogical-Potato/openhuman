@@ -513,6 +513,7 @@ async fn handle_encrypted_rpc_frame(
             config,
             &session,
             frame,
+            connection_token,
             connection_nonce,
             expires_at_ms,
         )
@@ -650,9 +651,17 @@ async fn confirm_pairing(
     config: &crate::config::Config,
     session: &super::types::PairingSession,
     frame: &[u8],
+    connection_token: &str,
     connection_nonce: &str,
     expires_at_ms: u64,
 ) {
+    if session.channel_id != channel_id
+        || session.pairing_token != connection_token
+        || session.connection_nonce != connection_nonce
+        || !pairing_session_is_live(session)
+    {
+        return;
+    }
     let Ok((event_id, scope_id)) = crate::modules::security::device_pairing_socket_event(
         config,
         channel_id,
