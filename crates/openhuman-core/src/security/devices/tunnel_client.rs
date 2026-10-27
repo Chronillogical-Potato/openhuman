@@ -122,14 +122,6 @@ pub fn publish_tunnel_frame(channel_id: String, payload_b64: String) {
     });
 }
 
-pub(super) fn take_socket_attestation(channel_id: &str) -> Option<(String, u64)> {
-    SOCKET_ATTESTATIONS
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner)
-        .remove(channel_id)
-        .map(|attestation| (attestation.nonce, event_expiry_ms()))
-}
-
 fn event_expiry_ms() -> u64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)

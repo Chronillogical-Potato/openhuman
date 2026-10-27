@@ -72,7 +72,7 @@ impl EventHandler<DomainEvent> for DeviceTunnelSubscriber {
                 handle_peer_online(channel_id).await;
             }
             DomainEvent::DevicePeerOffline { channel_id } => {
-                handle_peer_offline(channel_id, &DispatchCtx::host_default()).await;
+                handle_peer_offline(channel_id).await;
             }
             DomainEvent::DeviceTunnelFrame {
                 channel_id,
@@ -134,38 +134,12 @@ async fn handle_peer_online(channel_id: &str) {
     // No re-publish: the event was already published by socket::event_handlers.
 }
 
-async fn handle_peer_offline(channel_id: &str, ctx: &DispatchCtx) {
+async fn handle_peer_offline(channel_id: &str) {
     log::info!("[devices/bus] peer offline channel_id={}", channel_id);
     super::lock_unpoisoned(&PEER_STATUS).insert(channel_id.to_string(), false);
-    let attestation = super::tunnel_client::take_socket_attestation(channel_id);
-    let active = ACTIVE_SESSIONS
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner)
-        .remove(channel_id);
-    if let (Some((nonce, expires_at_ms)), Some(active)) = (attestation, active) {
-        if let Ok(config) = ctx.load_config().await {
-            if let Ok((event_id, _)) = crate::modules::security::device_pairing_socket_closed_event(
-                &config,
-                channel_id,
-                &nonce,
-                expires_at_ms,
-            )
-            .await
-            {
-                if let Ok(client) = crate::modules::security::client(&config).await {
-                    let _ = client
-                        .device_pairing2(tinysecurity_bus::DevicePairingRequest2 {
-                            call_id: uuid::Uuid::new_v4().simple().to_string(),
-                            operation: tinysecurity_bus::DevicePairingOperation2::EndSession {
-                                session_id: active.session_id,
-                                host_event_id: event_id,
-                            },
-                        })
-                        .await;
-                }
-            }
-        }
-    }
+    // This backend event carries only a channel id, not the closed socket's
+    // connection nonce. Keep the module session until expiry rather than
+    // attesting a close against whichever connection is current now.
 }
 
 /// Route a socket frame through TinySecurity and preserve the existing wire envelope.
