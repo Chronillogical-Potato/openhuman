@@ -521,66 +521,66 @@ pub fn ensure_loaded_within<'a>(
     within: Option<Duration>,
 ) -> futures::future::BoxFuture<'a, Result<(), LoadError>> {
     Box::pin(async move {
-    let resolver = resolver(config);
-    let result = if needs_storage_callback(id) {
-        if let Some(component) = disabled_component(config, id) {
-            Err(LoadError::Disabled(component))
-        } else {
-            let load = ensure_loaded_with_storage_callback(&resolver, config, id);
-            match within {
-                Some(within) => tokio::time::timeout(within, load)
-                    .await
-                    .map_err(|_| LoadError::StillLoading)?
-                    .map_err(LoadError::Failed),
-                None => load.await.map_err(LoadError::Failed),
-            }
-        }
-    } else {
-        #[cfg(feature = "security-module")]
-        {
-            if id == super::security::MODULE_ID {
-                if let Some(component) = disabled_component(config, id) {
-                    Err(LoadError::Disabled(component))
-                } else {
-                    let load = ensure_loaded_with_security_callback(&resolver, config, id);
-                    match within {
-                        Some(within) => tokio::time::timeout(within, load)
-                            .await
-                            .map_err(|_| LoadError::StillLoading)?
-                            .map_err(LoadError::Failed),
-                        None => load.await.map_err(LoadError::Failed),
-                    }
-                }
-            } else if id == super::desktop::MODULE_ID {
-                if let Some(component) = disabled_component(config, id) {
-                    Err(LoadError::Disabled(component))
-                } else {
-                    let load = ensure_loaded_with_computer_callback(&resolver, config, id);
-                    match within {
-                        Some(within) => tokio::time::timeout(within, load)
-                            .await
-                            .map_err(|_| LoadError::StillLoading)?
-                            .map_err(LoadError::Failed),
-                        None => load.await.map_err(LoadError::Failed),
-                    }
-                }
+        let resolver = resolver(config);
+        let result = if needs_storage_callback(id) {
+            if let Some(component) = disabled_component(config, id) {
+                Err(LoadError::Disabled(component))
             } else {
+                let load = ensure_loaded_with_storage_callback(&resolver, config, id);
+                match within {
+                    Some(within) => tokio::time::timeout(within, load)
+                        .await
+                        .map_err(|_| LoadError::StillLoading)?
+                        .map_err(LoadError::Failed),
+                    None => load.await.map_err(LoadError::Failed),
+                }
+            }
+        } else {
+            #[cfg(feature = "security-module")]
+            {
+                if id == super::security::MODULE_ID {
+                    if let Some(component) = disabled_component(config, id) {
+                        Err(LoadError::Disabled(component))
+                    } else {
+                        let load = ensure_loaded_with_security_callback(&resolver, config, id);
+                        match within {
+                            Some(within) => tokio::time::timeout(within, load)
+                                .await
+                                .map_err(|_| LoadError::StillLoading)?
+                                .map_err(LoadError::Failed),
+                            None => load.await.map_err(LoadError::Failed),
+                        }
+                    }
+                } else if id == super::desktop::MODULE_ID {
+                    if let Some(component) = disabled_component(config, id) {
+                        Err(LoadError::Disabled(component))
+                    } else {
+                        let load = ensure_loaded_with_computer_callback(&resolver, config, id);
+                        match within {
+                            Some(within) => tokio::time::timeout(within, load)
+                                .await
+                                .map_err(|_| LoadError::StillLoading)?
+                                .map_err(LoadError::Failed),
+                            None => load.await.map_err(LoadError::Failed),
+                        }
+                    }
+                } else {
+                    resolver.ensure_loaded_within(id, within).await
+                }
+            }
+            #[cfg(not(feature = "security-module"))]
+            {
                 resolver.ensure_loaded_within(id, within).await
             }
+        };
+        if id == super::connectors::MODULE_ID && result.is_ok() {
+            super::connectors::note_load_resolution_ready();
         }
-        #[cfg(not(feature = "security-module"))]
-        {
-            resolver.ensure_loaded_within(id, within).await
+        #[cfg(feature = "security-module")]
+        if id == super::security::MODULE_ID && result.is_ok() {
+            super::security::text::arm(config);
         }
-    };
-    if id == super::connectors::MODULE_ID && result.is_ok() {
-        super::connectors::note_load_resolution_ready();
-    }
-    #[cfg(feature = "security-module")]
-    if id == super::security::MODULE_ID && result.is_ok() {
-        super::security::text::arm(config);
-    }
-    result
+        result
     })
 }
 
@@ -606,39 +606,39 @@ pub(super) fn module_config<'a>(
     id: &'a str,
 ) -> futures::future::BoxFuture<'a, serde_json::Value> {
     Box::pin(async move {
-    #[cfg(feature = "security-module")]
-    if id == super::security::MODULE_ID {
-        return serde_json::to_value(super::security::module_config(config))
-            .expect("TinySecurity module config is serializable");
-    }
-    if id == super::search::MODULE_ID {
-        return super::search::load_configuration(config).await;
-    }
-    if id == super::desktop::MODULE_ID {
-        return super::desktop::module_config(config).await;
-    }
-    // The queue manifest and pipeline the inbound event queues run; the
-    // storage host declares the same manifest on the module's scope.
-    #[cfg(feature = "inbound-queues")]
-    if id == super::event_queues::MODULE_ID {
-        return crate::inbound::module_config(config);
-    }
-    if id == super::connectors::MODULE_ID {
-        // The connector module takes its route and credential from here and
-        // reads one from nowhere else. A configuration that cannot be built —
-        // direct mode with no key, an unknown mode — loads the module with an
-        // empty blob rather than failing the load: the capability members need
-        // no route and must still answer, and every member that does need one
-        // reports the missing route when it is called.
-        return super::connectors::module_config(config).await.unwrap_or_else(|error| {
+        #[cfg(feature = "security-module")]
+        if id == super::security::MODULE_ID {
+            return serde_json::to_value(super::security::module_config(config))
+                .expect("TinySecurity module config is serializable");
+        }
+        if id == super::search::MODULE_ID {
+            return super::search::load_configuration(config).await;
+        }
+        if id == super::desktop::MODULE_ID {
+            return super::desktop::module_config(config).await;
+        }
+        // The queue manifest and pipeline the inbound event queues run; the
+        // storage host declares the same manifest on the module's scope.
+        #[cfg(feature = "inbound-queues")]
+        if id == super::event_queues::MODULE_ID {
+            return crate::inbound::module_config(config);
+        }
+        if id == super::connectors::MODULE_ID {
+            // The connector module takes its route and credential from here and
+            // reads one from nowhere else. A configuration that cannot be built —
+            // direct mode with no key, an unknown mode — loads the module with an
+            // empty blob rather than failing the load: the capability members need
+            // no route and must still answer, and every member that does need one
+            // reports the missing route when it is called.
+            return super::connectors::module_config(config).await.unwrap_or_else(|error| {
             tracing::info!(
                 error = %error,
                 "[connectors] no route configured; loading with the capability surface only"
             );
             serde_json::json!({ "offered_toolkits": super::connectors::offered_toolkits(config) })
         });
-    }
-    serde_json::json!({})
+        }
+        serde_json::json!({})
     })
 }
 
