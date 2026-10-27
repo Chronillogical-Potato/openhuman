@@ -26,9 +26,9 @@ pub use proxy::{execute_tool, list_tools, refresh_loaded};
 /// [`module_config`] as the JSON the module is loaded with, recorded as the
 /// configuration the module holds so the first call knows whether to
 /// reconfigure it.
-pub(crate) fn load_configuration(config: &Config) -> serde_json::Value {
-    let configuration =
-        serde_json::to_value(module_config(config)).expect("TinySearch config serializes");
+pub(crate) async fn load_configuration(config: &Config) -> serde_json::Value {
+    let configuration = serde_json::to_value(module_config(config).await)
+        .expect("TinySearch config serializes");
     proxy::record_load_configuration(&configuration);
     configuration
 }
@@ -95,7 +95,7 @@ fn provider_config(config: &Config, provider: &ResolvedProvider) -> ProviderConf
 }
 
 /// The complete private configuration for TinySearch.
-pub fn module_config(config: &Config) -> ModuleSearchConfig {
+pub async fn module_config(config: &Config) -> ModuleSearchConfig {
     let private = config
         .profile_providers
         .as_ref()
@@ -105,7 +105,9 @@ pub fn module_config(config: &Config) -> ModuleSearchConfig {
     let credential = if direct_profile {
         None
     } else {
-        crate::credentials::backend_credential::resolve_backend_credential(config).ok()
+        crate::credentials::backend_credential::resolve_backend_credential(config)
+            .await
+            .ok()
     };
     let resolved = providers::resolve_with(config, credential.is_some());
     let backend = if direct_profile {
@@ -169,8 +171,8 @@ pub fn module_config(config: &Config) -> ModuleSearchConfig {
 
 /// Deterministic declarations for synchronous tool registration, computed
 /// from the same configuration the module will receive.
-pub fn configured_tool_specs(config: &Config) -> Vec<tinysearch_bus::ToolSpec> {
-    let module = module_config(config);
+pub async fn configured_tool_specs(config: &Config) -> Vec<tinysearch_bus::ToolSpec> {
+    let module = module_config(config).await;
     if !module.enabled {
         return Vec::new();
     }
