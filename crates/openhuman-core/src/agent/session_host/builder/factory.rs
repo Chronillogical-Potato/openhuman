@@ -45,8 +45,8 @@ impl OpenHumanSessionHost {
     /// time (for example the Tauri web chat path, which routes to the
     /// welcome agent pre-onboarding) should call
     /// [`OpenHumanSessionHost::from_config_for_agent`] directly.
-    pub fn from_config(ctx: &DispatchCtx, config: &Config) -> Result<Self> {
-        Self::from_config_for_agent(ctx, config, "orchestrator")
+    pub async fn from_config(ctx: &DispatchCtx, config: &Config) -> Result<Self> {
+        Self::from_config_for_agent(ctx, config, "orchestrator").await
     }
 
     /// Constructs an `OpenHumanSessionHost` instance scoped to a specific agent
