@@ -251,6 +251,9 @@ impl Docs {
             let updated = compare_and_swap(&docs, DEVICES, &id, |doc| {
                 let mut next = doc.clone();
                 next["pairing_id"] = json!(pairing_id);
+                if let Some(fields) = next.as_object_mut() {
+                    fields.remove("core_private_key_encrypted");
+                }
                 Some(next)
             })
             .await?;

@@ -239,7 +239,6 @@ tinybus = { path = "../../vendor/tinybus/crates/tinybus", default-features = fal
 # cannot be created from a second version of the pairing types.
 tinysecurity-bus = { path = "../../vendor/tinysecurity/crates/tinysecurity-bus" }
 # TODO(#657): move existing device-pairing callers behind tinysecurity-bus, then drop this exception.
-tinysecurity-crypto = { path = "../../vendor/tinysecurity/crates/tinysecurity-crypto", default-features = false, features = ["device-pairing"] }
 tinysearch-bus = { path = "../../vendor/tinysearch/crates/tinysearch-bus", features = ["schemars"] }
 # Registry vocabulary is available even when the loader is disabled, so the
 # pre-core client can identify and report an unavailable module safely.

@@ -522,6 +522,12 @@ pub(super) async fn serve_on_binding(
     binding.serve_at(path.clone(), AuditSink).await?;
     binding.serve_at(path.clone(), ApprovalPrompt).await?;
     binding.serve_at(path, KeyringConsent).await?;
+    binding
+        .serve_at(
+            ObjectPath::new(callback_names2::OBJECT_PATH)?,
+            DevicePairingHost,
+        )
+        .await?;
     Ok(())
 }
 
