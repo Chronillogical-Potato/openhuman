@@ -117,11 +117,14 @@ async fn scenario() {
         .await;
 
     // Alice's chat turn is mid-model-call when the sweep fires.
-    let chat = tokio::spawn({
+    let mut chat = tokio::spawn({
         let alice = alice.clone();
         async move { alice.chat("t1", "alice slow chat").await }
     });
-    let chat_started = arrivals.wait_for("alice slow chat").await;
+    let chat_started = tokio::select! {
+        at = arrivals.wait_for("alice slow chat") => at,
+        result = &mut chat => panic!("alice chat exited before inference: {result:?}"),
+    };
 
     // Another profile is not held up by Alice's turn.
     tokio::time::timeout(Duration::from_secs(60), bob.chat("t1", "bob chat"))
