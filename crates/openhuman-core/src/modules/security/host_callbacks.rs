@@ -336,5 +336,19 @@ async fn register_scope(config: &Config, state: &SecurityCallbackState) -> Resul
     state
         .scope
         .ensure_registered_with_callback(config, &proxy, info.generation)
+        .await?;
+    let request = tinysecurity_bus::RegisterDevicePairingScopeRequest2 {
+        approval_scope_id: state.scope.scope_id().to_owned(),
+    };
+    let receipt: tinysecurity_bus::DevicePairingScopeReceipt2 = proxy
+        .call_confidential(
+            tinysecurity_bus::names::methods::REGISTER_DEVICE_PAIRING_SCOPE2,
+            (request,),
+        )
         .await
+        .map_err(|_| "device pairing scope registration failed".to_owned())?;
+    if !receipt.active || receipt.scope_id != state.scope.scope_id() {
+        return Err("device pairing scope registration refused".into());
+    }
+    Ok(())
 }
