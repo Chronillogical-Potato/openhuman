@@ -82,16 +82,22 @@ fn missing_pending_session_stops_handshake_before_cipher_installation() {
     lock_unpoisoned(&PENDING_KEYPAIRS).remove(channel_id);
 }
 
-#[test]
-fn a_restarted_host_opens_a_fresh_handshake_from_a_paired_row() {
+#[tokio::test]
+async fn a_restarted_host_opens_a_fresh_handshake_from_a_paired_row() {
     let original = DeviceKeypair::generate();
     let private = original.private_bytes();
     let data_dir = tempfile::tempdir().unwrap();
-    let secret_store = crate::security::secret_storage::SecretStore::new(data_dir.path(), true);
+    let config = crate::config::Config::default();
+    let secret_store = crate::security::secret_storage::SecretStore::new_with_config(
+        data_dir.path(),
+        true,
+        &config,
+    );
     let secret = secret_store
-        .encrypt(&crate::security::devices::crypto::base64url_encode(
+        .encrypt_via_security(&crate::security::devices::crypto::base64url_encode(
             &private,
         ))
+        .await
         .unwrap();
     let phone = KeyPair::generate().unwrap();
     let backend = crate::storage::test_support::memory_backend();
@@ -113,6 +119,7 @@ fn a_restarted_host_opens_a_fresh_handshake_from_a_paired_row() {
         .unwrap()
         .expect("paired row persisted");
     let restored = restore_live_pairing_key(&device, &secret_store)
+        .await
         .unwrap()
         .expect("non-revoked paired identity");
     assert_eq!(restored.pubkey_b64, original.pubkey_b64);
@@ -184,16 +191,17 @@ fn a_restarted_host_opens_a_fresh_handshake_from_a_paired_row() {
     );
 }
 
-#[test]
-fn restarted_pairing_rejects_mismatched_or_revoked_device_rows() {
+#[tokio::test]
+async fn restarted_pairing_rejects_mismatched_or_revoked_device_rows() {
     let original = DeviceKeypair::generate();
     let data_dir = tempfile::tempdir().unwrap();
-    let secret_store = crate::security::secret_storage::SecretStore::new(data_dir.path(), true);
-    let secret = secret_store
-        .encrypt(&crate::security::devices::crypto::base64url_encode(
-            &original.private_bytes(),
-        ))
-        .unwrap();
+    let config = crate::config::Config::default();
+    let secret_store = crate::security::secret_storage::SecretStore::new_with_config(
+        data_dir.path(),
+        true,
+        &config,
+    );
+    let secret = "enc2:placeholder".to_string();
     let mut device = super::super::types::PairedDevice {
         channel_id: "restart-channel-revoked".to_string(),
         label: "phone".to_string(),
@@ -207,6 +215,7 @@ fn restarted_pairing_rejects_mismatched_or_revoked_device_rows() {
     assert!(!matches_paired_device_key(&device, "different-device-key"));
     device.revoked = true;
     assert!(restore_live_pairing_key(&device, &secret_store)
+        .await
         .unwrap()
         .is_none());
     assert!(!matches_paired_device_key(&device, "paired-device-key"));
