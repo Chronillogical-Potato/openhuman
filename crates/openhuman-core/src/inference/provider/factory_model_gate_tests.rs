@@ -32,6 +32,7 @@ async fn turn_factory_checks_privacy_then_explicit_host_session_before_building_
         egress: &egress,
         thread_id: None,
         attach_host_attachments: false,
+        credentials: super::credentials::RuntimeCredentialSnapshot::default(),
     };
 
     crate::core::runtime::CoreContext::scope(ambient_library, async {

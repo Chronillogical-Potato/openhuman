@@ -32,6 +32,7 @@ fn build_native_factory_model(
         egress,
         thread_id: None,
         attach_host_attachments: false,
+        credentials: super::credentials::RuntimeCredentialSnapshot::default(),
     };
     let request = ModelBuildRequest {
         role: "chat".to_owned(),
