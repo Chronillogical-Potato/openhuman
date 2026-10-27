@@ -317,7 +317,7 @@ async fn begin_device_renewal_once(
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
         .get(channel_id)
-        .is_some_and(|active| active.connection_nonce == connection_nonce);
+        .is_some_and(|active| active_session_matches_connection(active, connection_nonce));
     let peer_online = PEER_STATUS
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
@@ -434,6 +434,13 @@ fn renewal_device_matches(
         && existing.device_pubkey == returned_device_key
 }
 
+fn active_session_matches_connection(
+    active: &super::rpc::ActiveDeviceSession,
+    connection_nonce: &str,
+) -> bool {
+    active.connection_nonce == connection_nonce
+}
+
 fn valid_handshake_reply(
     response: tinysecurity_bus::DevicePairingResponse2,
 ) -> Option<Vec<u8>> {
@@ -507,7 +514,7 @@ async fn handle_encrypted_rpc_frame(
         log::warn!("[devices/bus] encrypted frame without active session channel_id={channel_id}");
         return;
     };
-    if active.connection_nonce != connection_nonce {
+    if !active_session_matches_connection(&active, connection_nonce) {
         ACTIVE_SESSIONS
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)

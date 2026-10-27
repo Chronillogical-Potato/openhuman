@@ -108,6 +108,38 @@ fn process_restart_unlock_then_peer_online_renews_only_the_same_device() {
         "module-pairing-id",
         "different-device-key"
     ));
+    let stale_active = super::super::rpc::ActiveDeviceSession {
+        scope_id: "scope".into(),
+        session_id: "old-session".into(),
+        pairing_token: "old-connection-token".into(),
+        connection_nonce: "old-connection-nonce".into(),
+    };
+    assert!(!active_session_matches_connection(
+        &stale_active,
+        "fresh-connection-nonce"
+    ));
+}
+
+#[tokio::test]
+async fn uncorrelated_offline_status_does_not_end_the_current_module_session() {
+    let channel_id = "offline-status-without-connection-id";
+    let active = super::super::rpc::ActiveDeviceSession {
+        scope_id: "scope".into(),
+        session_id: "module-session".into(),
+        pairing_token: "connection-token".into(),
+        connection_nonce: "current-connection-nonce".into(),
+    };
+    ACTIVE_SESSIONS
+        .lock()
+        .unwrap()
+        .insert(channel_id.into(), active.clone());
+
+    handle_peer_offline(channel_id).await;
+
+    assert_eq!(ACTIVE_SESSIONS.lock().unwrap().get(channel_id), Some(&active));
+    assert_eq!(PEER_STATUS.lock().unwrap().get(channel_id), Some(&false));
+    ACTIVE_SESSIONS.lock().unwrap().remove(channel_id);
+    PEER_STATUS.lock().unwrap().remove(channel_id);
 }
 
 #[test]
