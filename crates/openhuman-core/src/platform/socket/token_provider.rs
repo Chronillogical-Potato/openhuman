@@ -1,16 +1,12 @@
-//! Token-provider abstraction for the WebSocket reconnect loop.
+//! Core credential callback passed through the hosted socket port.
 //!
-//! Separating this into its own module isolates the token contract for unit
-//! testing and keeps token-refresh logic out of the connection-loop hot path.
+//! Keeping credential lookup at this seam lets the host refresh credentials
+//! before each SDK-owned connection attempt.
 //!
 //! ## Why a callback instead of `String`?
 //!
-//! The original `ws_loop` captured the session token once at spawn time and
-//! reused it for every retry. When the backend invalidates a JWT mid-session
-//! (rotation, explicit sign-out, server-side expiry), all subsequent reconnect
-//! attempts carry the same dead token — exactly the "Invalid token" retry storm
-//! tracked as TAURI-RUST-9C (#2892). A callback lets the loop re-read the
-//! latest token from the profile store before each attempt.
+//! The connection transport receives the latest session token before each
+//! attempt rather than retaining an expired credential across reconnects.
 
 use std::sync::Arc;
 pub(super) use super::TokenProvider;
@@ -21,29 +17,9 @@ pub(super) use super::TokenProvider;
 /// `Err(reason)` — no token is stored (user logged out, profile corrupt); the
 ///   caller should surface `reason` and exit the reconnect loop.
 ///
-/// The provider is intentionally **synchronous** — reading a token from the
-/// profile store is a lock + disk read, not an async I/O round-trip. Wrapping
-/// it in `Arc` lets it be cheaply cloned into the spawned task without
-/// requiring `async_fn_in_trait` or boxing.
-/// Returns `true` iff the failure reason carries both the Socket.IO CONNECT
-/// prefix AND the `"invalid token"` sentinel — a strict double anchor to avoid
-/// misclassifying unrelated bare 401s (e.g. an upstream HTTP error message
-/// that happens to contain `"invalid token"`).
-///
-/// The upstream shape produced by `read_sio_connect_ack()` is:
-/// ```text
-/// Socket.IO connect error: Invalid token
-/// ```
-/// Matching is case-insensitive so capitalisation variants are also caught.
-///
-/// This function is `pub(super)` so `ws_loop.rs` and the tests module can call
-/// it without exporting it beyond the `socket` domain.
-pub(super) fn is_invalid_token_error(reason: &str) -> bool {
-    let lower = reason.to_ascii_lowercase();
-    // Primary anchor: "invalid token" preceded by "socket.io connect error"
-    // produced by our own `read_sio_connect_ack()`.
-    lower.contains("socket.io connect error") && lower.contains("invalid token")
-}
+/// The provider is asynchronous because session lookup may use the configured
+/// credential store. TinyHumans bridges it to the SDK callback via the shared
+/// storage blocking runtime.
 
 /// Build a static provider that always returns the same token value.
 ///
