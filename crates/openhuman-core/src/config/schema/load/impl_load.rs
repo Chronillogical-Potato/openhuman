@@ -161,6 +161,38 @@ impl Config {
         default_workspace_dir: &Path,
         env: &(dyn EnvLookup + Send + Sync),
     ) -> Result<Self> {
+        Self::load_or_init_with_env_lookup_mode(
+            default_openhuman_dir,
+            default_workspace_dir,
+            env,
+            true,
+        )
+        .await
+    }
+
+    /// Load config structure while leaving encrypted values sealed. Hosts use
+    /// this during the restricted security preflight, before the cipher module
+    /// and approval surface are available.
+    pub(crate) async fn load_or_init_unsealed_with_env_lookup(
+        default_openhuman_dir: &Path,
+        default_workspace_dir: &Path,
+        env: &(dyn EnvLookup + Send + Sync),
+    ) -> Result<Self> {
+        Self::load_or_init_with_env_lookup_mode(
+            default_openhuman_dir,
+            default_workspace_dir,
+            env,
+            false,
+        )
+        .await
+    }
+
+    async fn load_or_init_with_env_lookup_mode(
+        default_openhuman_dir: &Path,
+        default_workspace_dir: &Path,
+        env: &(dyn EnvLookup + Send + Sync),
+        decrypt_secrets: bool,
+    ) -> Result<Self> {
         let (openhuman_dir, workspace_dir, resolution_source) = Box::pin(
             resolve_runtime_config_dirs_with(default_openhuman_dir, default_workspace_dir, env),
         )
@@ -212,6 +244,7 @@ impl Config {
                 config_path,
                 resolution_source,
                 env,
+                decrypt_secrets,
             ))
             .await
         } else {
