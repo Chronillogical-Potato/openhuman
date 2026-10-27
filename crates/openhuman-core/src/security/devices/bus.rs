@@ -215,12 +215,8 @@ async fn handle_handshake(
             session
         }
     };
-    if !pending_session_matches_socket(
-        &session,
-        channel_id,
-        connection_token,
-        connection_nonce,
-    ) || !pairing_session_is_live(&session)
+    if !pending_session_matches_socket(&session, channel_id, connection_token, connection_nonce)
+        || !pairing_session_is_live(&session)
     {
         return;
     }
@@ -670,12 +666,8 @@ async fn confirm_pairing(
     connection_nonce: &str,
     expires_at_ms: u64,
 ) {
-    if !pending_session_matches_socket(
-        session,
-        channel_id,
-        connection_token,
-        connection_nonce,
-    ) || !pairing_session_is_live(session)
+    if !pending_session_matches_socket(session, channel_id, connection_token, connection_nonce)
+        || !pairing_session_is_live(session)
     {
         return;
     }
