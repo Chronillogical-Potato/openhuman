@@ -224,7 +224,7 @@ async fn handle_tunnel_frame(
     connection_nonce: &str,
     expires_at_ms: u64,
 ) {
-    let Some(frame_bytes) = tunnel_rpc::decode_frame(payload_b64) else {
+    let Some(frame_bytes) = decode_frame(payload_b64) else {
         log::warn!("[devices/bus] invalid tunnel frame encoding channel_id={channel_id}");
         return;
     };
@@ -456,13 +456,13 @@ async fn begin_device_renewal_once(
     Some(session)
 }
 
-fn renewal_pairing_id<'a>(
+fn renewal_pairing_id(
     peer_online: bool,
     scope_unlocked: bool,
     has_pending_session: bool,
     has_current_session: bool,
-    device: &'a super::types::PairedDevice,
-) -> Option<&'a str> {
+    device: &super::types::PairedDevice,
+) -> Option<&str> {
     if !peer_online
         || !scope_unlocked
         || has_pending_session
