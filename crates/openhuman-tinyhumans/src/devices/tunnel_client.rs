@@ -316,6 +316,13 @@ fn build_core_connect_payload(channel_id: &str) -> serde_json::Value {
     })
 }
 
+fn build_frame_payload(channel_id: &str, payload_b64: &str) -> serde_json::Value {
+    json!({
+        "channelId": channel_id,
+        "payload": payload_b64,
+    })
+}
+
 /// Emit a `tunnel:frame` carrying an encrypted payload for the peer.
 ///
 /// `payload_b64` is the base64url-encoded sealed frame from TinySecurity's `Tunnel::seal`.
@@ -329,10 +336,7 @@ pub async fn emit_frame(channel_id: &str, payload_b64: &str) -> Result<(), Strin
     let mgr = global_socket_manager()
         .ok_or_else(|| "[devices/tunnel] SocketManager not initialized".to_string())?;
 
-    let payload = json!({
-        "channelId": channel_id,
-        "payload": payload_b64,
-    });
+    let payload = build_frame_payload(channel_id, payload_b64);
 
     mgr.emit("tunnel:frame", payload)
         .await
