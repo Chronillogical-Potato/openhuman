@@ -56,11 +56,8 @@ fn embedded_secrets_default_to_memory_without_key_files() {
                         "in-memory storage must not write {name}"
                     );
                 }
-                let store = secret_storage::SecretStore::new_with_config(
-                    &legacy_dir,
-                    true,
-                    &store_config,
-                );
+                let store =
+                    secret_storage::SecretStore::new_with_config(&legacy_dir, true, &store_config);
                 let ciphertext = store
                     .encrypt_via_security("legacy-compatible")
                     .await

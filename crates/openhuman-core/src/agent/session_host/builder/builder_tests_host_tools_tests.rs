@@ -130,11 +130,12 @@ async fn a_host_can_withhold_a_config_tool_for_one_turn() {
     let host: crate::agent::HostTools = {
         let normally_visible = normally_visible.clone();
         Arc::new(move |turn| {
+            let normally_visible = normally_visible.clone();
             Box::pin(async move {
                 crate::agent::HostTurnTools {
                     withheld: match turn.session_id() {
                         Some("hidden-turn") => {
-                            std::collections::HashSet::from([normally_visible.clone()])
+                            std::collections::HashSet::from([normally_visible])
                         }
                         _ => std::collections::HashSet::new(),
                     },
@@ -223,6 +224,7 @@ async fn the_factory_runs_once_per_session_build() {
     let host: crate::agent::HostTools = {
         let calls = Arc::clone(&calls);
         Arc::new(move |_| {
+            let calls = Arc::clone(&calls);
             Box::pin(async move {
                 calls.fetch_add(1, Ordering::SeqCst);
                 crate::agent::HostTurnTools::advertised(vec![Box::new(Marker("oc_marker_tool"))])
@@ -260,6 +262,7 @@ async fn invalid_dynamic_prompt_fails_before_the_host_tool_factory_runs() {
     let host: crate::agent::HostTools = {
         let calls = Arc::clone(&calls);
         Arc::new(move |_| {
+            let calls = Arc::clone(&calls);
             Box::pin(async move {
                 calls.fetch_add(1, Ordering::SeqCst);
                 crate::agent::HostTurnTools::default()
@@ -327,6 +330,7 @@ async fn the_factory_is_told_the_session_it_is_building_for() {
     let host: crate::agent::HostTools = {
         let seen = Arc::clone(&seen);
         Arc::new(move |turn: crate::agent::TurnContext<'_>| {
+            let seen = Arc::clone(&seen);
             Box::pin(async move {
                 seen.lock().unwrap().push((
                     turn.agent_id().to_owned(),
@@ -419,9 +423,10 @@ async fn a_host_tool_overrides_a_config_tool_of_the_same_name() {
     let host: crate::agent::HostTools = {
         let contested = contested.clone();
         Arc::new(move |_| {
+            let contested = contested.clone();
             Box::pin(async move {
                 crate::agent::HostTurnTools::advertised(vec![Box::new(Marker(Box::leak(
-                    contested.clone().into_boxed_str(),
+                    contested.into_boxed_str(),
                 )))])
             })
         })
@@ -563,6 +568,7 @@ async fn the_factory_is_told_the_context_the_session_is_built_under() {
     let host: crate::agent::HostTools = {
         let seen = Arc::clone(&seen);
         Arc::new(move |turn: crate::agent::TurnContext<'_>| {
+            let seen = Arc::clone(&seen);
             Box::pin(async move {
                 seen.lock().unwrap().push(turn.dispatch_ctx());
                 crate::agent::HostTurnTools::advertised(vec![Box::new(Marker("oc_ctx_tool"))])

@@ -1,7 +1,7 @@
 use super::*;
-use crate::credentials::backend_credential::{resolve_backend_credential, BackendCredential};
-use crate::profiles::layout::{profile_config, ProfileLayout};
+use crate::credentials::backend_credential::{BackendCredential, resolve_backend_credential};
 use crate::profiles::ProfileId;
+use crate::profiles::layout::{ProfileLayout, profile_config};
 
 /// Credential secrets live in the process keyring keyed by agent id, which
 /// every test in this binary shares; each test therefore uses its own users.
@@ -75,12 +75,16 @@ async fn an_expired_session_is_rejected_locally() {
 async fn bad_input_is_refused() {
     let tmp = tempfile::tempdir().unwrap();
     let alice = profile(&tmp, "alice");
-    assert!(store(&alice, UserCredentialKind::Session, "  ", None)
-        .await
-        .is_err());
-    assert!(store(&alice, UserCredentialKind::Session, "t", Some("tomorrow"))
-        .await
-        .is_err());
+    assert!(
+        store(&alice, UserCredentialKind::Session, "  ", None)
+            .await
+            .is_err()
+    );
+    assert!(
+        store(&alice, UserCredentialKind::Session, "t", Some("tomorrow"))
+            .await
+            .is_err()
+    );
     assert!(!has(&alice).await);
 }
 
@@ -157,7 +161,8 @@ async fn concurrent_stores_of_different_kinds_leave_exactly_one_kind() {
         let provider_present = |provider: &str| async {
             let auth = AuthService::from_config(&user);
             let id = crate::credentials::normalize_provider(provider).unwrap();
-            auth.load_profiles().await
+            auth.load_profiles()
+                .await
                 .unwrap()
                 .profiles
                 .values()
