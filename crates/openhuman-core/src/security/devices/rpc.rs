@@ -222,7 +222,7 @@ pub async fn devices_import_legacy(
             return Err("TinySecurity did not recover the imported device id".to_owned());
         };
         if recovered.device_public_key.as_deref() != Some(row.device_pubkey.as_str())
-            || recovered.frame.len() > 0
+            || !recovered.frame.is_empty()
             || recovered.session_id.is_some()
         {
             return Err("TinySecurity returned mismatched imported device metadata".to_owned());
