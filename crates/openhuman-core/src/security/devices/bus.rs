@@ -145,7 +145,6 @@ fn should_lock_pairings_after_credential_event(event: &DomainEvent) -> bool {
 
 async fn lock_device_pairings_after_logout() {
     clear_device_pairing_runtime_state();
-    crate::modules::security::clear_device_pairing_unlock_cache();
     let host_context = DispatchCtx::host_default();
     let Ok(config) = host_context.load_config().await else {
         log::warn!("[devices/bus] unable to load config to lock TinySecurity after logout");
@@ -181,6 +180,7 @@ fn clear_device_pairing_runtime_state() {
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
         .clear();
+    crate::modules::security::clear_device_pairing_unlock_cache();
 }
 
 // ---------------------------------------------------------------------------

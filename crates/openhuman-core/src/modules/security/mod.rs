@@ -34,7 +34,7 @@ static UNLOCKED_PAIRING_SCOPES: std::sync::LazyLock<
     std::sync::Mutex<std::collections::HashMap<String, u64>>,
 > = std::sync::LazyLock::new(Default::default);
 
-fn pairing_scope_is_unlocked(scope_id: &str, generation: u64) -> bool {
+pub(crate) fn pairing_scope_is_unlocked(scope_id: &str, generation: u64) -> bool {
     UNLOCKED_PAIRING_SCOPES
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
@@ -42,7 +42,7 @@ fn pairing_scope_is_unlocked(scope_id: &str, generation: u64) -> bool {
         == Some(&generation)
 }
 
-fn remember_unlocked_pairing_scope(scope_id: &str, generation: u64) {
+pub(crate) fn remember_unlocked_pairing_scope(scope_id: &str, generation: u64) {
     UNLOCKED_PAIRING_SCOPES
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
@@ -274,8 +274,8 @@ pub(crate) async fn lock_device_pairing_scope(config: &Config) -> Result<(), Str
         .await
         .map_err(|error| error.to_string())?
         .generation;
-    let host_event_id = callbacks::issue_pairing_event(
-        tinysecurity_bus::DevicePairingContextResponse2 {
+    let host_event_id =
+        callbacks::issue_pairing_event(tinysecurity_bus::DevicePairingContextResponse2 {
             scope_id: scope.scope_id().to_owned(),
             user_binding: scope.scope_id().to_owned(),
             secret_master_handle: None,
@@ -286,8 +286,7 @@ pub(crate) async fn lock_device_pairing_scope(config: &Config) -> Result<(), Str
             generation,
             source: tinysecurity_bus::DevicePairingSource2::AuthenticatedUserLogout,
             expires_at_ms: now_plus_pairing_event_ttl()?,
-        },
-    )?;
+        })?;
     let response = client
         .device_pairing2(tinysecurity_bus::DevicePairingRequest2 {
             call_id: uuid::Uuid::new_v4().simple().to_string(),

@@ -113,6 +113,8 @@ fn only_global_credential_clear_is_a_pairing_logout_event() {
 #[test]
 fn logout_clears_volatile_tunnel_sessions_and_pairing_handles() {
     let channel = "logout-test-channel".to_owned();
+    let scope = "logout-test-scope-012345678901234";
+    crate::modules::security::remember_unlocked_pairing_scope(scope, 7);
     PENDING_SESSIONS
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
@@ -137,6 +139,10 @@ fn logout_clears_volatile_tunnel_sessions_and_pairing_handles() {
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
         .insert(channel.clone(), true);
+    PENDING_HANDSHAKES
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .insert(channel.clone());
 
     clear_device_pairing_runtime_state();
 
@@ -156,6 +162,14 @@ fn logout_clears_volatile_tunnel_sessions_and_pairing_handles() {
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
         .contains_key(&channel));
+    assert!(!PENDING_HANDSHAKES
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .contains(&channel));
+    assert!(!crate::modules::security::pairing_scope_is_unlocked(
+        scope, 7
+    ));
+    assert!(renewal_pairing_id(true, false, false, false, &paired_device()).is_none());
 }
 
 #[test]

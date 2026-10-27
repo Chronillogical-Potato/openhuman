@@ -123,6 +123,32 @@ fn direct_recovery_event_is_bound_to_its_exact_channel() {
         .is_err());
 }
 
+#[test]
+fn authenticated_logout_event_has_no_socket_or_pairing_fields() {
+    use tinysecurity_bus::{DevicePairingPurpose2, DevicePairingSource2};
+
+    let events = PairingEventRegistry::default();
+    let mut context = pairing_context("", DevicePairingSource2::AuthenticatedUserLogout);
+    context.channel_id.clear();
+    context.pairing_token = None;
+    context.connection_nonce.clear();
+    let event = events.issue(context, 1_000).unwrap();
+    let request = tinysecurity_bus::DevicePairingContextRequest2 {
+        host_event_id: event,
+        purpose: DevicePairingPurpose2::UserLogout,
+        requested_channel_id: None,
+    };
+    assert!(events.resolve(&request, 1_000).is_ok());
+
+    let mut forged = pairing_context(
+        "logout-channel",
+        DevicePairingSource2::AuthenticatedUserLogout,
+    );
+    forged.pairing_token = None;
+    forged.connection_nonce = "socket-nonce".into();
+    assert!(events.issue(forged, 1_000).is_err());
+}
+
 #[tokio::test]
 async fn device_pairing_host_is_served_on_the_module_binding() {
     use tinybus::broker::Broker;
