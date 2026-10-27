@@ -426,6 +426,7 @@ async fn agent_node_runtime_resolves_to_the_definitions_effective_iteration_cap(
             &config,
             agent_ref,
         )
+        .await
         .expect("build planner agent");
         assert_eq!(agent.agent_config().max_tool_iterations, expected);
 

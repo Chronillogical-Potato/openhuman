@@ -340,7 +340,7 @@ fn seed_suggestion(config: &Config, id: &str) {
 // purely on a config lookup (`resolve_cloud_slug`'s "no cloud provider
 // configured for slug" branch), before any HTTP client is built.
 
-fn seed_app_session_for_gate_test(tmp: &TempDir) {
+async fn seed_app_session_for_gate_test(tmp: &TempDir) {
     use crate::credentials::{AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME};
     // `verify_session_active` reads from `config.config_path.parent()`, which
     // `test_config` sets to `tmp.path()` itself (distinct from
@@ -353,6 +353,7 @@ fn seed_app_session_for_gate_test(tmp: &TempDir) {
             std::collections::HashMap::new(),
             true,
         )
+        .await
         .expect("seed app-session token");
 }
 
