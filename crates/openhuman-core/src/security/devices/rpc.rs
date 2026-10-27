@@ -282,7 +282,8 @@ fn pairing_begin_result(
         .receipt
         .filter(|receipt| !receipt.is_empty())
         .ok_or_else(|| "TinySecurity did not return a pairing receipt".to_owned())?;
-    if !response.frame.is_empty() || response.pairing_id.is_some() || response.session_id.is_some() {
+    if !response.frame.is_empty() || response.pairing_id.is_some() || response.session_id.is_some()
+    {
         return Err("TinySecurity returned an unexpected result for pairing begin".to_owned());
     }
     Ok((public_key, receipt))
