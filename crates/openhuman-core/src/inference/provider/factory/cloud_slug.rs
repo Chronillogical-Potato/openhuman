@@ -60,7 +60,7 @@ pub(super) fn inspection_output_budget_capability(
     }
 }
 
-pub(crate) fn resolve_cloud_slug_for<'a>(
+pub(crate) async fn resolve_cloud_slug_for<'a>(
     role: &str,
     slug: &str,
     model: &str,
@@ -75,7 +75,7 @@ pub(crate) fn resolve_cloud_slug_for<'a>(
         extensions,
         CredentialAccess::Runtime,
         None,
-    )
+    ).await
 }
 
 /// The user-facing error for a failed credential lookup: the guidance, plus
@@ -102,7 +102,7 @@ pub(super) fn lookup_failure(error: &anyhow::Error, guidance: String) -> anyhow:
 /// classifier recognises.
 const CODEX_TOKEN_EXPIRED: &str = "Codex authentication token is expired";
 
-pub(super) fn resolve_cloud_slug_with_access<'a>(
+pub(super) async fn resolve_cloud_slug_with_access<'a>(
     role: &str,
     slug: &str,
     model: &str,
@@ -259,9 +259,9 @@ pub(super) fn resolve_cloud_slug_with_access<'a>(
         )
     } else {
         let key = credential_access
-            .lookup_key_for_slug(slug, config)
+            .lookup_key_for_slug(slug, config).await
             .map_err(|error| lookup_failure(&error, missing_credentials()))?;
-        let is_oauth = slug == "openai" && credential_access.openai_bearer_is_oauth(config);
+        let is_oauth = slug == "openai" && credential_access.openai_bearer_is_oauth(config).await;
         (key, is_oauth, None)
     };
 
@@ -286,8 +286,8 @@ pub(super) fn resolve_cloud_slug_with_access<'a>(
     }
     let codex = match credential_access {
         CredentialAccess::Runtime => {
-            let bearer_is_oauth = slug == "openai" && openai_bearer_is_oauth(config);
-            resolve_codex_routing(config, slug, &entry.endpoint, &key, bearer_is_oauth)
+            let bearer_is_oauth = slug == "openai" && openai_bearer_is_oauth(config).await;
+            resolve_codex_routing(config, slug, &entry.endpoint, &key, bearer_is_oauth).await
                 .map_err(anyhow::Error::msg)?
         }
         CredentialAccess::Inspection => resolve_openai_codex_routing_for_inspection(
@@ -330,7 +330,7 @@ pub(super) fn resolve_cloud_slug_with_access<'a>(
 /// `ModelRequest` (managed/local parity; the `@<temp>` suffix still bakes a fixed
 /// override).
 #[cfg(test)]
-pub(super) fn try_create_cloud_slug_chat_model(
+pub(super) async fn try_create_cloud_slug_chat_model(
     role: &str,
     config: &Config,
     egress: &EgressLedger,
@@ -342,10 +342,10 @@ pub(super) fn try_create_cloud_slug_chat_model(
         true,
         egress,
         extensions.as_ref(),
-    )
+    ).await
 }
 
-pub(super) fn try_create_cloud_slug_chat_model_with_native_tools_for(
+pub(super) async fn try_create_cloud_slug_chat_model_with_native_tools_for(
     role: &str,
     config: &Config,
     native_tool_calling: bool,
@@ -361,7 +361,7 @@ pub(super) fn try_create_cloud_slug_chat_model_with_native_tools_for(
         CredentialAccess::Runtime,
         None,
         None,
-    )
+    ).await
 }
 
 pub(super) async fn try_create_cloud_slug_chat_model_for_inspection_with_identity(
@@ -412,7 +412,7 @@ pub(super) async fn try_create_cloud_slug_chat_model_for_inspection_with_identit
     }))
 }
 
-fn try_create_cloud_slug_chat_model_with_native_tools_and_access(
+async fn try_create_cloud_slug_chat_model_with_native_tools_and_access(
     role: &str,
     config: &Config,
     native_tool_calling: bool,
@@ -440,10 +440,10 @@ fn try_create_cloud_slug_chat_model_with_native_tools_and_access(
         credential_access,
         inspection_credential,
         inspection_identity,
-    )
+    ).await
 }
 
-pub(super) fn try_create_cloud_slug_chat_model_from_string(
+pub(super) async fn try_create_cloud_slug_chat_model_from_string(
     role: &str,
     provider: &str,
     config: &Config,
@@ -451,10 +451,10 @@ pub(super) fn try_create_cloud_slug_chat_model_from_string(
 ) -> OptionalChatModelResult {
     try_create_cloud_slug_chat_model_from_string_with_native_tools(
         role, provider, config, true, egress,
-    )
+    ).await
 }
 
-pub(super) fn try_create_cloud_slug_chat_model_from_string_with_native_tools(
+pub(super) async fn try_create_cloud_slug_chat_model_from_string_with_native_tools(
     role: &str,
     provider: &str,
     config: &Config,
@@ -472,10 +472,10 @@ pub(super) fn try_create_cloud_slug_chat_model_from_string_with_native_tools(
         CredentialAccess::Runtime,
         None,
         None,
-    )
+    ).await
 }
 
-pub(super) fn try_create_cloud_slug_chat_model_from_string_with_native_tools_for(
+pub(super) async fn try_create_cloud_slug_chat_model_from_string_with_native_tools_for(
     role: &str,
     provider: &str,
     config: &Config,
@@ -493,10 +493,10 @@ pub(super) fn try_create_cloud_slug_chat_model_from_string_with_native_tools_for
         CredentialAccess::Runtime,
         None,
         None,
-    )
+    ).await
 }
 
-fn try_create_cloud_slug_chat_model_from_string_with_native_tools_and_access(
+async fn try_create_cloud_slug_chat_model_from_string_with_native_tools_and_access(
     role: &str,
     provider: &str,
     config: &Config,
@@ -558,7 +558,7 @@ fn try_create_cloud_slug_chat_model_from_string_with_native_tools_and_access(
         extensions,
         credential_access,
         inspection_credential,
-    ) {
+    ).await {
         Ok(r) => r,
         Err(e) => return Some(Err(e)),
     };
