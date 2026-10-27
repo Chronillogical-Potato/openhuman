@@ -7,10 +7,7 @@ use std::time::Duration;
 use async_trait::async_trait;
 use parking_lot::RwLock;
 use serde_json::Value;
-use tinyhumans_sdk::{
-    socket::{SocketConnection, SocketEmitter},
-    TinyHumansClient,
-};
+use tinyhumans_sdk::{socket::SocketConnection, TinyHumansClient};
 use tokio::sync::{mpsc, oneshot, watch, Mutex};
 use tokio::task::JoinSet;
 
@@ -391,3 +388,7 @@ async fn run_socket_actor(
     loop_active.store(false, Ordering::Release);
     let _ = done.send(());
 }
+
+#[cfg(test)]
+#[path = "port_tests.rs"]
+mod tests;
