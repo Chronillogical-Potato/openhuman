@@ -369,7 +369,7 @@ async fn managed_auth_failure_expires_the_session_only_on_a_session_401() {
             .expect("event bus initialized")
             .receiver();
         let tmp = tempfile::TempDir::new().expect("temporary credentials");
-        seed_app_session(tmp.path(), Some("2999-01-01T00:00:00Z"));
+        seed_app_session(tmp.path(), Some("2999-01-01T00:00:00Z")).await;
         if api_key {
             openhuman_embed::__host::credentials::api_key::store_api_key_in(
                 tmp.path(),
@@ -448,12 +448,13 @@ async fn a_late_api_key_401_after_a_session_request_keeps_the_session() {
         .expect("event bus initialized")
         .receiver();
     let tmp = tempfile::TempDir::new().expect("temporary credentials");
-    seed_app_session(tmp.path(), Some("2999-01-01T00:00:00Z"));
+        seed_app_session(tmp.path(), Some("2999-01-01T00:00:00Z")).await;
     let api_key_profile = openhuman_embed::__host::credentials::api_key::store_api_key_in(
         tmp.path(),
         false,
         "test-managed-key",
     )
+    .await
     .expect("store test API key");
 
     // The API-key request is held until the session request has resolved its
@@ -515,6 +516,7 @@ async fn a_late_api_key_401_after_a_session_request_keeps_the_session() {
         // The stored credential switches to the session mid-flight.
         assert!(AuthService::new(tmp.path(), false)
             .remove_profile(&api_key_profile.provider, &api_key_profile.profile_name)
+            .await
             .expect("remove test API key"));
         assert!(model
             .invoke(&(), ModelRequest::new(vec![Message::user("ping")]))
