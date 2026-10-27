@@ -318,7 +318,7 @@ fn config_for_api_key_fallback(tmp: &TempDir) -> Config {
 
 /// Store a usable provider key under the new-style `provider:<slug>` profile so
 /// `lookup_key_for_slug` resolves it.
-fn store_byo_key(config: &Config, slug: &str, token: &str) {
+async fn store_byo_key(config: &Config, slug: &str, token: &str) {
     let auth = AuthService::from_config(config);
     auth.store_provider_token(
         &format!("provider:{slug}"),
@@ -326,7 +326,8 @@ fn store_byo_key(config: &Config, slug: &str, token: &str) {
         token,
         Default::default(),
         true,
-    ).await
+    )
+    .await
     .expect("store provider token");
 }
 

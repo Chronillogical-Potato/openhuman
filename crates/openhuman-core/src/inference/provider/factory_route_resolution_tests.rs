@@ -391,7 +391,7 @@ async fn byo_chat_tier_with_key_bypasses() {
     // Quick mode runs on `chat`; routed to the user's own OpenAI provider + key.
     let mut config = config_with_providers_in_tempdir(&tmp, vec![openai_entry("p_oai", "openai")]);
     config.chat_provider = Some("openai:gpt-4o".to_string());
-    store_byo_key(&config, "openai", "sk-byo-test");
+    store_byo_key(&config, "openai", "sk-byo-test").await;
 
     assert!(role_bypasses_managed_credits("chat", &config).await);
 }
@@ -402,7 +402,7 @@ async fn byo_reasoning_tier_with_key_bypasses() {
     // Reasoning mode runs on `reasoning`; routed to the user's own provider + key.
     let mut config = config_with_providers_in_tempdir(&tmp, vec![openai_entry("p_oai", "openai")]);
     config.reasoning_provider = Some("openai:gpt-4o".to_string());
-    store_byo_key(&config, "openai", "sk-byo-test");
+    store_byo_key(&config, "openai", "sk-byo-test").await;
 
     assert!(role_bypasses_managed_credits("reasoning", &config).await);
 }
@@ -415,7 +415,7 @@ async fn per_tier_diverges_chat_byo_reasoning_managed() {
     let mut config = config_with_providers_in_tempdir(&tmp, vec![openai_entry("p_oai", "openai")]);
     config.chat_provider = Some("openai:gpt-4o".to_string());
     config.reasoning_provider = Some("openhuman".to_string());
-    store_byo_key(&config, "openai", "sk-byo-test");
+    store_byo_key(&config, "openai", "sk-byo-test").await;
 
     assert!(role_bypasses_managed_credits("chat", &config).await);
     assert!(!role_bypasses_managed_credits("reasoning", &config).await);
@@ -439,7 +439,7 @@ async fn managed_chat_with_byo_agentic_stays_gated() {
     config.chat_provider = Some("openhuman".to_string());
     config.reasoning_provider = Some("openhuman".to_string());
     config.agentic_provider = Some("openai:gpt-4o".to_string());
-    store_byo_key(&config, "openai", "sk-byo-test");
+    store_byo_key(&config, "openai", "sk-byo-test").await;
 
     assert!(!role_bypasses_managed_credits("chat", &config).await);
     assert!(!role_bypasses_managed_credits("reasoning", &config).await);
@@ -453,7 +453,7 @@ async fn managed_chat_with_byo_vision_stays_gated() {
     config.chat_provider = Some("openhuman".to_string());
     config.reasoning_provider = Some("openhuman".to_string());
     config.vision_provider = Some("openai:gpt-4o".to_string());
-    store_byo_key(&config, "openai", "sk-byo-test");
+    store_byo_key(&config, "openai", "sk-byo-test").await;
 
     assert!(!role_bypasses_managed_credits("chat", &config).await);
     assert!(!role_bypasses_managed_credits("reasoning", &config).await);
