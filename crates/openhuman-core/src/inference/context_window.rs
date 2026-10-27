@@ -88,7 +88,11 @@ async fn resolve_context_window_inner(
     extensions: Option<Option<&crate::core::slots::Extensions>>,
 ) -> ResolvedWindow {
     let local_kind = tinyinference_local::profile::kind_from_provider_string(provider);
-    let route = route_input(role, provider, model, config, extensions, local_kind);
+    let mut route = route_input(role, provider, model, config, extensions, local_kind);
+    route.discovery = match extensions {
+        Some(Some(extensions)) => model_limits_request_for(role, provider, model, config, extensions).await,
+        _ => model_limits_request(role, provider, model, config).await,
+    };
     #[cfg(test)]
     {
         resolver()
@@ -148,7 +152,8 @@ pub(crate) async fn resolve_context_window_with(
     config: &Config,
 ) -> ResolvedWindow {
     let local_kind = tinyinference_local::profile::kind_from_provider_string(provider);
-    let route = route_input(role, provider, model, config, None, local_kind);
+    let mut route = route_input(role, provider, model, config, None, local_kind);
+    route.discovery = model_limits_request(role, provider, model, config).await;
     resolver()
         .resolve_for_route_with_fetcher(
             provider,
@@ -176,14 +181,6 @@ fn route_input(
     route.local_window = local_kind.and_then(|kind| {
         tinyinference_local::profile::context_window_with_local_fallback(model, None, Some(kind))
     });
-    route.discovery = match local_kind {
-        None => match extensions {
-            Some(extensions) => model_limits_request_for(role, provider, model, config, extensions),
-            None => model_limits_request(role, provider, model, config),
-        },
-        Some(LocalProviderKind::Ollama) => None,
-        Some(_) => None,
-    };
     if local_kind == Some(LocalProviderKind::Ollama) {
         route.endpoint = Some(tinyinference_local::ollama::ollama_base_url_from_override(
             config.local_ai.base_url.as_deref(),
@@ -196,17 +193,17 @@ fn route_input(
 /// TinyInference's provider registry to construct its native listing request.
 /// The host supplies only policy it owns: managed catalog selection, stored
 /// cloud credentials, and hosted-auth routing.
-pub(crate) fn model_limits_request(
+pub(crate) async fn model_limits_request(
     role: &str,
     provider: &str,
     model: &str,
     config: &Config,
 ) -> Option<DiscoveryRequest> {
     let extensions = crate::core::runtime::CoreContext::current_extensions();
-    model_limits_request_for(role, provider, model, config, extensions.as_ref())
+    model_limits_request_for(role, provider, model, config, extensions.as_ref()).await
 }
 
-pub(crate) fn model_limits_request_for(
+pub(crate) async fn model_limits_request_for(
     role: &str,
     provider: &str,
     model: &str,
