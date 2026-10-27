@@ -103,9 +103,44 @@ impl DevicePairingHost {
     #[tinybus(confidential)]
     async fn persist_device_pairing(
         &self,
-        _request: tinysecurity_bus::DevicePairingPersistenceRequest2,
+        request: tinysecurity_bus::DevicePairingPersistenceRequest2,
     ) -> tinybus::Result<tinysecurity_bus::DevicePairingPersistenceResponse2> {
-        Err(unavailable())
+        let binding = PAIRING_STORES
+            .lock()
+            .get(&request.scope_id)
+            .cloned()
+            .ok_or_else(unavailable)?;
+        if request.backend_id != binding.backend_id
+            || request.secret_registration_id != binding.secret_registration_id
+        {
+            return Err(unavailable());
+        }
+        let (ciphertext, revision) = match request.operation {
+            tinysecurity_bus::DevicePairingPersistenceOperation2::Load => binding
+                .store
+                .load(&request.scope_id)
+                .map_err(|_| unavailable())?,
+            tinysecurity_bus::DevicePairingPersistenceOperation2::Store {
+                expected_revision,
+                ciphertext,
+            } => {
+                if ciphertext.len() > 4 * 1024 * 1024 {
+                    return Err(unavailable());
+                }
+                let revision = binding
+                    .store
+                    .store(&request.scope_id, &expected_revision, &ciphertext)
+                    .map_err(|_| unavailable())?;
+                (None, revision)
+            }
+        };
+        Ok(tinysecurity_bus::DevicePairingPersistenceResponse2 {
+            backend_id: binding.backend_id,
+            scope_id: request.scope_id,
+            secret_registration_id: binding.secret_registration_id,
+            revision,
+            ciphertext,
+        })
     }
 
     #[tinybus(confidential)]
@@ -115,6 +150,28 @@ impl DevicePairingHost {
     ) -> tinybus::Result<tinysecurity_bus::DevicePairingLegacyLoadResponse2> {
         Err(unavailable())
     }
+}
+
+#[derive(Clone)]
+struct PairingPersistenceBinding {
+    store: super::device_pairing_store::DevicePairingStore,
+    backend_id: String,
+    secret_registration_id: String,
+}
+
+static PAIRING_STORES: LazyLock<parking_lot::Mutex<HashMap<String, PairingPersistenceBinding>>> =
+    LazyLock::new(Default::default);
+
+pub(crate) fn register_pairing_store(
+    scope_id: String,
+    store: super::device_pairing_store::DevicePairingStore,
+) {
+    let binding = PairingPersistenceBinding {
+        backend_id: store.backend_id().to_owned(),
+        secret_registration_id: store.secret_registration_id().to_owned(),
+        store,
+    };
+    PAIRING_STORES.lock().insert(scope_id, binding);
 }
 
 /// A capability registry for host-observed pairing events. Keep it separate
