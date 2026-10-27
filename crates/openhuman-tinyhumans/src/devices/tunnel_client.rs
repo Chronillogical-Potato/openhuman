@@ -141,7 +141,10 @@ enum TunnelEvent {
     Evicted { channel_id: String },
 }
 
-fn parse_inbound_event(event_name: &str, data: serde_json::Value) -> Option<Result<TunnelEvent, String>> {
+fn parse_inbound_event(
+    event_name: &str,
+    data: serde_json::Value,
+) -> Option<Result<TunnelEvent, String>> {
     match event_name {
         "tunnel:peer-status" => Some(
             serde_json::from_value::<TunnelPeerStatus>(data)
@@ -182,7 +185,10 @@ pub(crate) fn dispatch_backend_event(event_name: &str, data: serde_json::Value) 
             log::info!("[devices/tunnel] peer status channel_id={channel_id} online={online}");
             publish_peer_status(channel_id, online);
         }
-        Ok(TunnelEvent::Frame { channel_id, payload }) => {
+        Ok(TunnelEvent::Frame {
+            channel_id,
+            payload,
+        }) => {
             log::debug!(
                 "[devices/tunnel] frame received channel_id={channel_id} payload_len={}",
                 payload.len()
