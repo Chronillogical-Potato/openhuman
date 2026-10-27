@@ -134,6 +134,7 @@ impl ScopeEntry {
         proxy: &SecurityProxy,
         posture: &Posture,
         generation: u64,
+        preconfigured: bool,
     ) -> Result<(), String> {
         let grants = grants();
         let fingerprint = serde_json::to_string(&(
@@ -162,11 +163,7 @@ impl ScopeEntry {
             // The handle keys every callback the module makes for this subject.
             report_handle: true,
         };
-        let member = if first {
-            names::methods::REGISTER_APPROVAL_SCOPE2
-        } else {
-            names::methods::REPLACE_APPROVAL_SCOPE2
-        };
+        let member = registration_method(first, preconfigured);
         let receipt: ApprovalScopeReceipt2 = proxy
             .call_confidential(member, (request,))
             .await
@@ -229,11 +226,7 @@ impl ScopeEntry {
             audit_stream_id: self.stream_id.clone(),
             report_handle: true,
         };
-        let member = if first {
-            names::methods::REGISTER_APPROVAL_SCOPE2
-        } else {
-            names::methods::REPLACE_APPROVAL_SCOPE2
-        };
+        let member = registration_method(first, false);
         let receipt: ApprovalScopeReceipt2 = proxy
             .call_confidential(member, (request,))
             .await
@@ -247,6 +240,14 @@ impl ScopeEntry {
         self.bind(handle).await;
         *registered = Some(fingerprint);
         Ok(())
+    }
+}
+
+fn registration_method(first: bool, preconfigured: bool) -> &'static str {
+    if first && !preconfigured {
+        names::methods::REGISTER_APPROVAL_SCOPE2
+    } else {
+        names::methods::REPLACE_APPROVAL_SCOPE2
     }
 }
 
@@ -270,6 +271,30 @@ pub(super) async fn ensure(
     posture: &Posture,
     generation: u64,
 ) -> Result<Arc<ScopeEntry>, String> {
+    ensure_with_registration(config, proxy, subject, posture, generation, false).await
+}
+
+/// Register a scope that TinySecurity already created from module init config.
+/// Its init-time scope has no audit stream, so attach the persisted stream with
+/// `ReplaceApprovalScope2` on first use.
+pub(super) async fn ensure_preconfigured(
+    config: &Config,
+    proxy: &SecurityProxy,
+    subject: SubjectScope,
+    posture: &Posture,
+    generation: u64,
+) -> Result<Arc<ScopeEntry>, String> {
+    ensure_with_registration(config, proxy, subject, posture, generation, true).await
+}
+
+async fn ensure_with_registration(
+    config: &Config,
+    proxy: &SecurityProxy,
+    subject: SubjectScope,
+    posture: &Posture,
+    generation: u64,
+    preconfigured: bool,
+) -> Result<Arc<ScopeEntry>, String> {
     let key = subject_key(&subject);
     let entry = {
         let mut scopes = host().scopes.lock().await;
@@ -284,7 +309,9 @@ pub(super) async fn ensure(
             }
         }
     };
-    entry.register(proxy, posture, generation).await?;
+    entry
+        .register(proxy, posture, generation, preconfigured)
+        .await?;
     Ok(entry)
 }
 

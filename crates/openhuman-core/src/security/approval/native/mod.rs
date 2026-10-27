@@ -140,7 +140,21 @@ impl SecretScope {
         generation: u64,
     ) -> Result<(), String> {
         let proxy = crate::modules::security::SecurityProxy::callback(proxy.clone());
-        self.ensure_registered(config, &proxy, generation).await
+        let entry = scopes::ensure_preconfigured(
+            config,
+            &proxy,
+            self.entry.subject.clone(),
+            &super::engine::Posture {
+                require_approval: true,
+                ..Default::default()
+            },
+            generation,
+        )
+        .await?;
+        if !std::sync::Arc::ptr_eq(&entry, &self.entry) {
+            return Err("TinySecurity approval scope changed during initialization".into());
+        }
+        Ok(())
     }
 }
 
