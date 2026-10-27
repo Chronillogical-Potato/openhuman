@@ -38,6 +38,58 @@ pub(crate) async fn resolve_user_master(
     secret_cipher::resolve_user_master(client, scope, registration_id).await
 }
 
+/// Resolve the admitted TinySecurity client, subject, and short-lived User
+/// master handle for a direct paired-device controller action.
+pub(crate) async fn device_pairing_master(
+    config: &Config,
+) -> Result<(Client, crate::security::approval::native::SecretScope, String, u64), String> {
+    let client = client(config)
+        .await
+        .map_err(|error| error.to_string())?;
+    let scope = host_callbacks::secret_scope()
+        .await
+        .ok_or_else(|| "security secret scope unavailable".to_owned())?;
+    let registration_id = host_callbacks::secret_registration_id()
+        .await
+        .ok_or_else(|| "security master registration unavailable".to_owned())?;
+    let master = resolve_user_master(&client, &scope, &registration_id)
+        .await
+        .map_err(|error| error.to_string())?;
+    let generation = client
+        .policy_info()
+        .await
+        .map_err(|error| error.to_string())?
+        .generation;
+    Ok((client, scope, master, generation))
+}
+
+/// Mint the event id that binds a direct user controller call to one trusted
+/// pairing operation.
+pub(crate) fn device_pairing_controller_event(
+    scope: &crate::security::approval::native::SecretScope,
+    master_handle: String,
+    generation: u64,
+) -> Result<String, String> {
+    let expires_at_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_err(|_| "system clock unavailable".to_owned())?
+        .as_millis()
+        .saturating_add(30_000)
+        .min(u128::from(u64::MAX)) as u64;
+    callbacks::issue_pairing_event(tinysecurity_bus::DevicePairingContextResponse2 {
+        scope_id: scope.scope_id().to_owned(),
+        user_binding: scope.scope_id().to_owned(),
+        secret_master_handle: Some(master_handle),
+        legacy_import_handle: None,
+        channel_id: String::new(),
+        pairing_token: None,
+        connection_nonce: String::new(),
+        generation,
+        source: tinysecurity_bus::DevicePairingSource2::AuthenticatedUserController,
+        expires_at_ms,
+    })
+}
+
 pub(crate) async fn resolve_user_master_with_existing_key(
     client: &Client,
     scope: &crate::security::approval::native::SecretScope,
