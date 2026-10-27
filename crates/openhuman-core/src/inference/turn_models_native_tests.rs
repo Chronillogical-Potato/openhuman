@@ -26,6 +26,7 @@ async fn native_turn_factory_applies_default_temperature_and_preserves_explicit_
     let ctx = crate::core::runtime::DispatchCtx::unbound();
     let models = TurnModelSource::new_crate_native(&ctx, "chat", config)
         .build("hint:chat", 0.3, None, None)
+        .await
         .expect("native model set");
 
     models
@@ -83,6 +84,7 @@ async fn native_budget_wrapping_keeps_owner_error_slots_for_primary_tiers_and_su
     );
     let models = TurnModelSource::new_crate_native(&ctx, "chat", config)
         .build("hint:chat", 0.0, None, None)
+        .await
         .expect("native model set")
         .with_host_controls(Some(&budget), None);
     let owner = models
@@ -174,6 +176,7 @@ async fn explicit_provider_string_turn_source_uses_scoped_managed_model() {
         );
         let models = source
             .build("explicit-turn-model", 0.0, None, None)
+            .await
             .expect("explicit provider string should construct through the scoped model");
         assert_eq!(name_of(&models.primary).await, "explicit-provider-model");
     })
@@ -218,6 +221,7 @@ async fn native_turn_preserves_deepseek_route_metadata_after_cloud_resolution() 
     let ctx = DispatchCtx::new(context);
     let models = TurnModelSource::new_crate_native(&ctx, "chat", Arc::new(config))
         .build("hint:chat", 0.2, None, None)
+        .await
         .expect("configured DeepSeek turn model builds");
 
     assert_eq!(models.provider_id(), "deepseek");
@@ -303,6 +307,7 @@ async fn injected_turn_profile_is_authoritative_and_skips_unselected_routes() {
     let ctx = DispatchCtx::new(context);
     let models = TurnModelSource::new_crate_native(&ctx, "chat", Arc::new(Default::default()))
         .build("hint:chat", 0.2, None, None)
+        .await
         .expect("host injected model builds");
 
     assert_eq!(models.provider_id(), "ollama:injected");
@@ -348,6 +353,7 @@ async fn injected_turn_without_profile_keeps_conservative_capabilities() {
     let models = CoreContext::scope(context, async {
         TurnModelSource::new_crate_native(&ctx, "chat", Arc::new(Default::default()))
             .build("hint:chat", 0.2, None, None)
+            .await
             .expect("profileless host-injected model builds")
     })
     .await;
