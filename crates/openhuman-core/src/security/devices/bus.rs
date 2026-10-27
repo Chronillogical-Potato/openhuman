@@ -6,14 +6,18 @@
 use crate::core::runtime::DispatchCtx;
 use std::sync::{Arc, OnceLock};
 
+#[cfg(feature = "security-module")]
 use crate::core::bus::BUS;
 use crate::core::events::DomainEvent;
 use crate::security::devices::rpc::{
     ACTIVE_SESSIONS, PEER_STATUS, PENDING_RENEWALS, PENDING_SESSIONS, RECONNECTING,
 };
+#[cfg(feature = "security-module")]
 use crate::security::devices::store;
+#[cfg(feature = "security-module")]
 use crate::security::devices::tunnel_client::emit_frame;
 use async_trait::async_trait;
+#[cfg(feature = "security-module")]
 use serde_json::Value;
 use tinybus::EventHandler;
 use tinybus::SubscriptionHandle;

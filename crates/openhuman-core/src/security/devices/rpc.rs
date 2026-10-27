@@ -16,6 +16,7 @@ use std::sync::Mutex;
 use crate::config::Config;
 use crate::core::Outcome;
 use crate::security::devices::store;
+#[cfg(feature = "security-module")]
 use crate::security::devices::tunnel_client;
 use crate::security::devices::types::{
     CreatePairingResponse, ImportLegacyResponse, ListDevicesResponse, PairingSession,
