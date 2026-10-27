@@ -94,8 +94,7 @@ pub async fn build_runtime_tools_with_security(
     debug!(
         workspace = %config.workspace_dir.display(),
         "[native_ops] build_runtime_tools: start"
-    )
-    .await;
+    );
     // Phase 1 of #1401: see comment in channels/runtime/startup.rs.
     let audit = crate::security::get_or_create_workspace_audit_sink(
         config.audit.clone(),
@@ -114,7 +113,8 @@ pub async fn build_runtime_tools_with_security(
         &config.action_dir,
         config,
         None,
-    );
+    )
+    .await;
     debug!(
         tool_count = built.len(),
         "[native_ops] build_runtime_tools: done"
