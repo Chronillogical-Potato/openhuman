@@ -95,22 +95,16 @@ pub async fn transcribe_bytes(
     })
 }
 
-type ConfiguredProviderFactory<'a> =
-    dyn Fn(&Config) -> Result<Box<dyn SttProvider>, String> + Send + Sync + 'a;
-
 fn selected_stt_provider<'a>(config: &'a Config, provider_name: &str) -> ConfiguredSttProvider<'a> {
-    let provider_name = provider_name.to_owned();
     ConfiguredSttProvider {
         config,
-        provider_factory: Box::new(move |config| {
-            create_stt_provider(&provider_name, "", config).map_err(|error| error.to_string())
-        }),
+        provider_name: provider_name.to_owned(),
     }
 }
 
 struct ConfiguredSttProvider<'a> {
     config: &'a Config,
-    provider_factory: Box<ConfiguredProviderFactory<'a>>,
+    provider_name: String,
 }
 
 #[async_trait::async_trait]
@@ -121,7 +115,9 @@ impl tinyinference_voice::transcription::TranscriptionProvider for ConfiguredStt
         mime_type: &str,
         file_name: &str,
     ) -> Result<String, String> {
-        let provider = (self.provider_factory)(self.config)?;
+        let provider = create_stt_provider(&self.provider_name, "", self.config)
+            .await
+            .map_err(|error| error.to_string())?;
         let audio_base64 = BASE64.encode(audio);
         let outcome = provider
             .transcribe(
