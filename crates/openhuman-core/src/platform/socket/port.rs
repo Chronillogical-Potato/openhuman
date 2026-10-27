@@ -37,12 +37,16 @@ pub trait SocketPort: Send + Sync + 'static {
 
     async fn lock_identity_rebind(&self) -> SocketIdentityRebindGuard {
         let lock = IDENTITY_REBIND.get_or_init(|| Arc::new(tokio::sync::Mutex::new(())));
-        SocketIdentityRebindGuard(lock.clone().lock_owned().await)
+        SocketIdentityRebindGuard {
+            _guard: lock.clone().lock_owned().await,
+        }
     }
 }
 
 /// Keeps concurrent identity-sensitive reconnect transactions serialized.
-pub struct SocketIdentityRebindGuard(tokio::sync::OwnedMutexGuard<()>);
+pub struct SocketIdentityRebindGuard {
+    _guard: tokio::sync::OwnedMutexGuard<()>,
+}
 
 static IDENTITY_REBIND: OnceLock<Arc<tokio::sync::Mutex<()>>> = OnceLock::new();
 static SOCKET_PORT: OnceLock<Arc<dyn SocketPort>> = OnceLock::new();
