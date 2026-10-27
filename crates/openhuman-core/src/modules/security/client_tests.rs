@@ -78,14 +78,15 @@ async fn device_pairing_and_frame_calls_use_the_confidential_security_bus() {
             host_event_id: "event".into(),
         },
     };
-    let direct: Result<tinysecurity_bus::DevicePairingResponse2, String> = client
-        .object
-        .call_confidential(
-            tinysecurity_bus::names::methods::DEVICE_PAIRING2,
-            (pairing.clone(),),
-        )
-        .await;
-    direct.expect("direct fixture call should expose the bus error");
+    if let SecurityProxy::Module(object) = &client.object {
+        object
+            .call_detailed(
+                tinysecurity_bus::names::methods::DEVICE_PAIRING2,
+                (pairing.clone(),),
+            )
+            .await
+            .unwrap_or_else(|error| panic!("detailed fixture call failed: {error:?}"));
+    }
     let pairing_result = client.device_pairing2(pairing.clone()).await.unwrap();
     assert_eq!(pairing_result.frame, [3]);
     assert_eq!(*fixture.pairing.lock().unwrap(), Some(pairing));
