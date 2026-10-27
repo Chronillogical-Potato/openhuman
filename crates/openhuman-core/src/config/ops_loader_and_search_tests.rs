@@ -322,7 +322,9 @@ async fn snapshot_config_json_emits_config_and_workspace_and_config_path() {
     cfg.workspace_dir = tmp.path().join("workspace");
     cfg.config_path = tmp.path().join("config.toml");
 
-    let snap = snapshot_config_json(&cfg).await.expect("snapshot should succeed");
+    let snap = snapshot_config_json(&cfg)
+        .await
+        .expect("snapshot should succeed");
     assert!(snap.get("config").is_some());
     assert!(snap.get("workspace_dir").is_some());
     assert!(snap.get("config_path").is_some());

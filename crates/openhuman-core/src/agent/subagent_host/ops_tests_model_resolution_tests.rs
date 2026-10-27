@@ -386,7 +386,8 @@ async fn resolve_subagent_source_inherit_uses_parent_source_and_model() {
         false,
         None,
         0.0,
-    ).await;
+    )
+    .await;
     assert_eq!(resolved_model, "parent-model-x");
 }
 
@@ -405,7 +406,8 @@ async fn resolve_subagent_source_exact_overrides_only_model() {
         false,
         None,
         0.0,
-    ).await;
+    )
+    .await;
     assert_eq!(resolved_model, "haiku-mini");
 }
 
@@ -421,7 +423,8 @@ async fn resolve_subagent_source_spawn_override_wins_over_definition_model() {
         false,
         Some("spawn-model-y"),
         0.0,
-    ).await;
+    )
+    .await;
     assert_eq!(resolved_model, "spawn-model-y");
 }
 
@@ -448,7 +451,8 @@ async fn resolve_subagent_source_config_model_wins_over_definition_model() {
         false,
         None,
         0.0,
-    ).await;
+    )
+    .await;
     assert_eq!(resolved_model, "configured-agent-model");
 }
 
@@ -475,7 +479,8 @@ async fn resolve_subagent_source_inline_override_wins_over_config_model() {
         false,
         Some("inline-model"),
         0.0,
-    ).await;
+    )
+    .await;
     assert_eq!(resolved_model, "inline-model");
 }
 
@@ -502,7 +507,8 @@ async fn resolve_subagent_source_agent_suffix_resolves_its_team_pin() {
         false,
         None,
         0.0,
-    ).await;
+    )
+    .await;
     assert_eq!(resolved_model, "research-agent-model");
 }
 
@@ -523,7 +529,8 @@ async fn resolve_subagent_source_hint_with_no_config_falls_back() {
         false,
         None,
         0.0,
-    ).await;
+    )
+    .await;
     assert_eq!(
         resolved_model, "real-claude-id",
         "model must be parent's current model — NOT '{{workload}}-v1'"
@@ -562,7 +569,8 @@ async fn resolve_subagent_source_hint_with_config_routes_via_factory() {
         false,
         None,
         0.0,
-    ).await;
+    )
+    .await;
     assert_eq!(
         resolved_model, "test/session-fixture",
         "Hint must resolve through the registered provider model policy, not a retired tier \
@@ -591,7 +599,8 @@ async fn resolve_subagent_source_hint_falls_back_on_factory_error() {
         false,
         None,
         0.0,
-    ).await;
+    )
+    .await;
     assert_eq!(resolved_model, "fallback-model");
 }
 
