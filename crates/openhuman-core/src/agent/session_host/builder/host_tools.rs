@@ -253,7 +253,9 @@ pub(super) async fn merge_for_turn(
     visible: &mut HashSet<String>,
 ) -> Result<MergedHostTurnTools> {
     let host_tools = match host {
-        Some(build) => Some(build(TurnContext::new(agent_id, session_id).with_dispatch(dispatch)).await),
+        Some(build) => {
+            Some(build(TurnContext::new(agent_id, session_id).with_dispatch(dispatch)).await)
+        }
         None => None,
     };
     match host_tools.map(|host_tools| host_tools.merge_into(agent_id, tools, visible)) {
@@ -371,9 +373,7 @@ impl<'a> TurnContext<'a> {
 ///
 /// See [`TurnContext`] for what the factory is told about the occasion.
 pub type HostTools = Arc<
-    dyn for<'a> Fn(TurnContext<'a>) -> futures::future::BoxFuture<'a, HostTurnTools>
-        + Send
-        + Sync,
+    dyn for<'a> Fn(TurnContext<'a>) -> futures::future::BoxFuture<'a, HostTurnTools> + Send + Sync,
 >;
 
 /// The constructor the host-tools seam exists for, kept beside the types it

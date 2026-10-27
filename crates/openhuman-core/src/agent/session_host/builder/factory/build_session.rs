@@ -76,7 +76,8 @@ impl OpenHumanSessionHost {
                         .as_ref()
                         .map(|descriptor| descriptor.root.as_path()),
                 )
-            });
+            })
+            .await;
 
         // Filter tools by the user preference loaded above.
         if !enabled_tools.is_empty() {
@@ -401,7 +402,8 @@ impl OpenHumanSessionHost {
             session_id,
             &mut tools,
             &mut visible,
-        )?;
+        )
+        .await?;
         let session_definition =
             super::super::host_tools::scope_def(target_def, &merged_host_tools);
         let host_policy =
