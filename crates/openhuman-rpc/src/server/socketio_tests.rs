@@ -360,18 +360,21 @@ async fn startup_preflight_socket_gate() {
     let base = format!("http://{}", listener.local_addr().unwrap());
     tokio::spawn(async move { axum::serve(listener, router).await.unwrap() });
 
-    let denied = polling_handshake(&base, serde_json::json!({ "token": token })).await;
+    let client = reqwest::Client::new();
+    let denied = client
+        .get(format!("{base}/socket.io/?EIO=4&transport=polling"))
+        .send()
+        .await
+        .expect("preflight Engine.IO open");
     assert!(
-        !denied.contains("\"ready\""),
-        "preflight handshake: {denied}"
+        denied.status() == reqwest::StatusCode::SERVICE_UNAVAILABLE,
+        "initial Engine.IO request must be denied before allocating a session: {}",
+        denied.status()
     );
-    assert!(
-        denied.split('\u{1e}').any(|packet| packet == "41"),
-        "authenticated handshake must be rejected during preflight: {denied}"
-    );
+    let denial = denied.text().await.unwrap();
+    assert!(denial.contains("startup_preflight"), "preflight body: {denial}");
 
     gate.open();
-    let client = reqwest::Client::new();
     let open = client
         .get(format!("{base}/socket.io/?EIO=4&transport=polling"))
         .send()
