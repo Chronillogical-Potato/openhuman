@@ -12,6 +12,7 @@ pub(crate) fn register() {
     ));
 }
 
+#[cfg(test)]
 fn sdk_token_provider(
     provider: TokenProvider,
 ) -> impl Fn() -> Option<String> + Send + Sync + 'static {
