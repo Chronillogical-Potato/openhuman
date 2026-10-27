@@ -38,7 +38,7 @@ pub fn snapshot_config_json(config: &Config) -> Result<serde_json::Value, String
 }
 
 /// Serializes the client-facing AI config slice consumed by the settings UI.
-pub fn client_config_json(config: &Config) -> serde_json::Value {
+pub async fn client_config_json(config: &Config) -> serde_json::Value {
     let app_version =
         std::env::var("OPENHUMAN_APP_VERSION").unwrap_or_else(|_| "unknown".to_string());
     let api_key_set = config
@@ -80,6 +80,8 @@ pub fn client_config_json(config: &Config) -> serde_json::Value {
             })
         })
         .collect();
+    let credits_bypass_chat = crate::inference::provider::factory::role_bypasses_managed_credits("chat", config).await;
+    let credits_bypass_reasoning = crate::inference::provider::factory::role_bypasses_managed_credits("reasoning", config).await;
 
     serde_json::json!({
         "api_url": config.api_url,
@@ -105,13 +107,8 @@ pub fn client_config_json(config: &Config) -> serde_json::Value {
         // claude-code) with usable creds. Managed tiers that run anyway surface
         // credit errors per-call.
         "credits_bypass": {
-            "chat": crate::inference::provider::factory::role_bypasses_managed_credits(
-                "chat", config,
-            ),
-            "reasoning":
-                crate::inference::provider::factory::role_bypasses_managed_credits(
-                    "reasoning", config,
-                ),
+            "chat": credits_bypass_chat,
+            "reasoning": credits_bypass_reasoning,
         },
         "chat_provider": config.chat_provider,
         "reasoning_provider": config.reasoning_provider,
@@ -144,7 +141,7 @@ pub async fn load_and_get_client_config_snapshot(
     ctx: &DispatchCtx,
 ) -> Result<Outcome<serde_json::Value>, String> {
     let config = ctx.load_config().await?;
-    let snapshot = client_config_json(&config);
+    let snapshot = client_config_json(&config).await;
     Ok(Outcome::new(
         snapshot,
         vec!["client config read".to_string()],
