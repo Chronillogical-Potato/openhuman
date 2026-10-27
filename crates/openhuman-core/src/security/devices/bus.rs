@@ -148,15 +148,6 @@ struct JsonHandshakePayload {
     client_ephemeral_pubkey: Option<String>,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
-struct TunnelEnvelope {
-    #[serde(rename = "requestId")]
-    request_id: String,
-    kind: String,
-    seq: u64,
-    payload: Value,
-}
-
 async fn handle_peer_online(channel_id: &str) {
     log::info!("[devices/bus] peer online channel_id={}", channel_id);
     super::lock_unpoisoned(&PEER_STATUS).insert(channel_id.to_string(), true);
@@ -484,7 +475,7 @@ async fn handle_encrypted_rpc_frame(ctx: &DispatchCtx, channel_id: &str, frame_b
         }
     };
 
-    let envelope = match serde_json::from_slice::<TunnelEnvelope>(&plaintext) {
+    let envelope = match serde_json::from_slice::<super::tunnel_rpc::TunnelEnvelope>(&plaintext) {
         Ok(envelope) => envelope,
         Err(e) => {
             log::warn!(
@@ -568,12 +559,7 @@ async fn emit_tunnel_response(
     kind: &str,
     payload: Value,
 ) {
-    let response = TunnelEnvelope {
-        request_id: request_id.to_string(),
-        kind: kind.to_string(),
-        seq: 0,
-        payload,
-    };
+    let response = super::tunnel_rpc::response_envelope(request_id, kind, payload);
     let plaintext = match serde_json::to_vec(&response) {
         Ok(bytes) => bytes,
         Err(e) => {

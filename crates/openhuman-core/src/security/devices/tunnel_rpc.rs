@@ -4,8 +4,17 @@
 //! keeps only the host's controller invocation and response semantics.
 
 use crate::core::runtime::DispatchCtx;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
+
+#[derive(Debug, Deserialize, Serialize)]
+pub(super) struct TunnelEnvelope {
+    #[serde(rename = "requestId")]
+    pub(super) request_id: String,
+    pub(super) kind: String,
+    pub(super) seq: u64,
+    pub(super) payload: Value,
+}
 
 #[derive(Debug, Deserialize)]
 pub(super) struct TunnelRpcPayload {
@@ -16,6 +25,15 @@ pub(super) struct TunnelRpcPayload {
 
 pub(super) fn parse_tunnel_rpc_payload(payload: Value) -> Result<TunnelRpcPayload, String> {
     serde_json::from_value(payload).map_err(|error| format!("invalid tunnel RPC payload: {error}"))
+}
+
+pub(super) fn response_envelope(request_id: &str, kind: &str, payload: Value) -> TunnelEnvelope {
+    TunnelEnvelope {
+        request_id: request_id.to_string(),
+        kind: kind.to_string(),
+        seq: 0,
+        payload,
+    }
 }
 
 pub(super) async fn dispatch_tunnel_rpc(
