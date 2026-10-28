@@ -10,7 +10,10 @@ use openhuman_core::{
         gate::ApprovalGate, ApprovalChatContext, ApprovalTurnContext, GateOutcome,
     },
 };
-use openhuman_rpc::host::{desktop, DesktopOptions, EmbeddedReadySignal};
+use openhuman_rpc::{
+    embed::ServiceSet,
+    host::{desktop_builder, serve_desktop, DesktopOptions, EmbeddedReadySignal},
+};
 use serde_json::{json, Value};
 use std::path::PathBuf;
 use tinysecurity_bus::{
@@ -69,7 +72,7 @@ async fn rpc_http(port: u16, method: &str, params: Value) -> Value {
     response.json().await.expect("JSON-RPC response")
 }
 
-async fn start_desktop_fixture() -> (
+async fn start_desktop_fixture(config: Config) -> (
     u16,
     ShutdownOnDrop,
     tokio::task::JoinHandle<anyhow::Result<()>>,
@@ -89,7 +92,24 @@ async fn start_desktop_fixture() -> (
     };
     let shutdown = CancellationToken::new();
     let (ready_tx, ready_rx) = tokio::sync::oneshot::channel::<EmbeddedReadySignal>();
-    let mut server = tokio::spawn(desktop(options, shutdown.clone(), ready_tx));
+    let services = ServiceSet {
+        rpc_http: true,
+        socketio: false,
+        cron: false,
+        channels: false,
+        login_gated: false,
+        update_scheduler: false,
+        memory_queue: false,
+        skill_catalog_refresh: false,
+        mcp_boot: false,
+        integrations: false,
+        memory_sync: false,
+    };
+    let builder = desktop_builder(&options)
+        .config_source(openhuman_tinyhumans::embed::ConfigSource::Resolved)
+        .config(config)
+        .services(services);
+    let mut server = tokio::spawn(serve_desktop(builder, shutdown.clone(), ready_tx));
     let ready = tokio::select! {
         ready = tokio::time::timeout(std::time::Duration::from_secs(120), ready_rx) => match ready
             .expect("desktop host ready signal") {
