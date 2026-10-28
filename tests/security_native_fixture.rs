@@ -85,7 +85,10 @@ async fn start_desktop_fixture(
         integrations: false,
         memory_sync: false,
     };
-    let builder = desktop_builder(&options).config(config).services(services);
+    let builder = desktop_builder(&options)
+        .config_source(openhuman_tinyhumans::embed::ConfigSource::Resolved)
+        .config(config)
+        .services(services);
     let shutdown = CancellationToken::new();
     let (ready_tx, ready_rx) = tokio::sync::oneshot::channel::<EmbeddedReadySignal>();
     let mut server = tokio::spawn(serve_desktop(builder, shutdown.clone(), ready_tx));
