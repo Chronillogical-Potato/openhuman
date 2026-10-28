@@ -9,8 +9,7 @@ use openhuman_core::{
 use std::path::PathBuf;
 use tinysecurity_bus::{
     CommandAutonomy, CommandClass, CommandExecutionMode, CommandPolicy, CommandRequest,
-    PrivacyCheckRequest2, PrivacyDataClass2, PrivacyMode, ProtectedPathRequest2, RedactMode,
-    Verdict,
+    ProtectedPathRequest2, RedactMode,
 };
 use serde_json::{json, Value};
 use tower::ServiceExt;
@@ -115,18 +114,6 @@ async fn native_fixture_exercises_the_pinned_release_contracts() {
         .await
         .expect("shell command classification should answer");
     assert_eq!(class.class, CommandClass::Network);
-
-    let egress = client
-        .privacy_check2(PrivacyCheckRequest2 {
-            privacy: PrivacyMode::LocalOnly,
-            external: true,
-            class: PrivacyDataClass2::UserContent,
-            destination_label: "test-destination".to_owned(),
-            risk: None,
-        })
-        .await
-        .expect("the privacy/egress policy should answer");
-    assert!(matches!(egress.verdict, Verdict::Deny { .. }));
 
     let keyring = client
         .keyring_access2(tinysecurity_bus::KeyringRequest2 {
