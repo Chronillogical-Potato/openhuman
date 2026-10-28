@@ -2,7 +2,8 @@
 //!
 //! The six per-operation tools are what the model sees, as the `scheduling`
 //! pack. [`CronTool`] dispatches the same six on one `action` field and stays
-//! registered, hidden, for callers that already name `cron`; see [`collapsed`].
+//! registered, deferred, for callers that already name `cron`; see
+//! [`collapsed`].
 
 mod add;
 mod collapsed;
@@ -34,8 +35,8 @@ pub const CRON_OPERATION_TOOLS: &[&str] = &[
 ];
 
 /// Widens `names`, a named tool scope, so that naming the collapsed `cron`
-/// also names [`CRON_OPERATION_TOOLS`]. `cron` is hidden, so a scope written
-/// before the split would otherwise reach no scheduler tool at all.
+/// also names [`CRON_OPERATION_TOOLS`]. `cron` is deferred, so a scope written
+/// before the split would otherwise list no scheduler tool up front.
 pub fn widen_named_scope(names: &mut Vec<String>) {
     if !names.iter().any(|name| name == CRON_TOOL_NAME) {
         return;
@@ -48,7 +49,7 @@ pub fn widen_named_scope(names: &mut Vec<String>) {
     log::debug!("[cron][tools] named scope lists `cron`; widened to its per-operation tools");
 }
 
-/// Register the per-operation scheduler tools and the hidden collapsed `cron`.
+/// Register the per-operation scheduler tools and the deferred collapsed `cron`.
 pub(crate) fn tools(
     config: std::sync::Arc<crate::config::Config>,
     security: &std::sync::Arc<crate::security::SecurityPolicy>,

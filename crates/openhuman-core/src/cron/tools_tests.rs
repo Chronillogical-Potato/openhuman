@@ -38,14 +38,14 @@ fn widening_never_names_a_tool_twice() {
 }
 
 #[test]
-fn the_operation_tools_are_advertised_and_the_collapsed_cron_is_hidden() {
+fn the_operation_tools_are_advertised_and_the_collapsed_cron_is_deferred() {
     let tools = tools(
         Arc::new(Config::default()),
         &Arc::new(SecurityPolicy::default()),
     );
     for tool in &tools {
         let expected = if tool.name() == CRON_TOOL_NAME {
-            ToolExposure::Hidden
+            ToolExposure::Deferred
         } else {
             ToolExposure::Direct
         };

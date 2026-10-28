@@ -6,10 +6,11 @@
 //! members of the `scheduling` pack: each carries only its own fields, so a
 //! call to list or remove a job no longer ships the add schema with it, and
 //! the pack decides whether they are on the wire or behind `use_skill`. This
-//! tool is [`ToolExposure::Hidden`]: never advertised, still dispatchable by
-//! name, so a replayed transcript or a saved skill calling `cron` keeps
-//! working, and an embedder's named scope that lists `cron` is widened to the
-//! six (see `openhuman_embed`).
+//! tool is [`ToolExposure::Deferred`]: never listed up front, found by
+//! `tool_search`, and run when called by name, so a saved skill or an
+//! embedder's script that calls `cron` keeps working at no cost per call. An
+//! embedder's named scope that lists `cron` is widened to the six (see
+//! `widen_named_scope`), so it is shown them too.
 //!
 //! # It delegates; it does not reimplement
 //!
@@ -45,7 +46,6 @@ use tinytools::collapse::{
     unknown_action_message, CollapsedAction,
 };
 use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolExposure, ToolResult};
-
 
 /// The advertised name. A constant so the registration site, the legacy-alias
 /// carve-out and the tests cannot disagree.
@@ -110,7 +110,7 @@ impl CronTool {
 #[async_trait]
 impl Tool for CronTool {
     fn exposure(&self) -> ToolExposure {
-        ToolExposure::Hidden
+        ToolExposure::Deferred
     }
 
     fn name(&self) -> &str {
