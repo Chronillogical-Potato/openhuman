@@ -113,4 +113,3 @@ async fn device_pairing_and_frame_calls_reject_unattested_recipients() {
     ));
     assert!(fixture.frame.lock().unwrap().is_none());
 }
-
