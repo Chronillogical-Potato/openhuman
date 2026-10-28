@@ -61,5 +61,5 @@ bash scripts/ci-cancel-aware.sh cargo check --manifest-path Cargo.toml -p openhu
 bash scripts/ci-cancel-aware.sh cargo test --manifest-path Cargo.toml -p openhuman-cli \
   --test security_native_fixture --no-default-features \
   --features "$core_features,security-module" \
-  native_fixture_loads_the_pinned_release_and_reads_policy_info \
+  native_fixture_exercises_the_pinned_release_contracts \
   -- --ignored --exact --nocapture
