@@ -100,12 +100,7 @@ function transformAssistantUrl(url: string): string {
 
 const NO_CITATIONS: readonly CitationSource[] = [];
 
-/**
- * `citations={false}` renders text that is not this message's own answer (a
- * sub-agent's report shown on its delegation card): its `[n]` markers refer to
- * sources the enclosing message does not have, so they stay plain text.
- */
-const MarkdownTextImpl = ({ citations = true }: { citations?: boolean }) => {
+const MarkdownTextImpl = ({ citations }: { citations: boolean }) => {
   // Math is GATED, not always-on, and the gate is `hasLatexContent` rather than
   // "contains a $". `remark-math` would otherwise read "$10 vs $20" as an inline
   // formula and eat the prose between them; the signature requires a real LaTeX
@@ -164,7 +159,19 @@ const MarkdownTextImpl = ({ citations = true }: { citations?: boolean }) => {
   );
 };
 
-export const MarkdownText = memo(MarkdownTextImpl);
+/** The chat's markdown renderer; also an assistant-ui `Text` part component. */
+export const MarkdownText = memo(function MarkdownText() {
+  return <MarkdownTextImpl citations />;
+});
+
+/**
+ * {@link MarkdownText} for text that is not this message's own answer (a
+ * sub-agent's report on its delegation card): its `[n]` markers refer to
+ * sources the enclosing message does not have, so they stay plain text.
+ */
+export const MarkdownTextNoCitations = memo(function MarkdownTextNoCitations() {
+  return <MarkdownTextImpl citations={false} />;
+});
 
 const CodeHeader: FC<CodeHeaderProps> = ({ language, code }) => {
   const { isCopied, copyToClipboard } = useCopyToClipboard();

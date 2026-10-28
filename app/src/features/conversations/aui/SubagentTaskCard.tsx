@@ -29,7 +29,7 @@ import { useCallback, useState } from 'react';
 import { TaskCard, type TaskCardState } from '../../../components/assistant-ui/elements/task-card';
 import { TaskTranscript } from '../../../components/assistant-ui/elements/task-card.aui';
 import { useDisclosure } from '../../../components/assistant-ui/lib/useDisclosure';
-import { MarkdownText } from '../../../components/assistant-ui/markdown-text';
+import { MarkdownTextNoCitations } from '../../../components/assistant-ui/markdown-text';
 import { formatElapsed } from '../../../components/assistant-ui/utils/task';
 import { Button } from '../../../components/ui';
 import { useT } from '../../../lib/i18n/I18nContext';
@@ -263,7 +263,7 @@ export const SubagentTaskCard: ToolCallMessagePartComponent = ({
     resolved.output && state === 'done' ? (
       <div data-testid="subagent-report" className="text-sm">
         <TextMessagePartProvider text={resolved.output} isRunning={false}>
-          <MarkdownText citations={false} />
+          <MarkdownTextNoCitations />
         </TextMessagePartProvider>
       </div>
     ) : null;
