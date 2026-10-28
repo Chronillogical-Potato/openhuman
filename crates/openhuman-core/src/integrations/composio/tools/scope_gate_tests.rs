@@ -247,7 +247,7 @@ async fn an_unreadable_preference_denies_at_every_gate() {
     .await
     .expect("the module stores the pref while storage is served");
     #[cfg(feature = "modules")]
-    crate::modules::storage_host::test_module::withdraw_test_module_storage();
+    crate::modules::storage_host::backend_choice::withdraw_test_module_storage();
     #[cfg(not(feature = "modules"))]
     crate::storage::clear();
 

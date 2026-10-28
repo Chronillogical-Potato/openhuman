@@ -400,7 +400,7 @@
     "verification": "modules/runtime_tests.rs: the_module_bus_is_a_singleton_and_serves_proxies"
   },
   {
-    "file": "crates/openhuman-core/src/modules/storage_host_test_module.rs",
+    "file": "crates/openhuman-core/src/modules/storage_host_backend.rs",
     "scope": "",
     "name": "TEST_MODULE_STORAGE",
     "type": "std::sync::Mutex<Option<Arc<dyn StorageBackend>>>",

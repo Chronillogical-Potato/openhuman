@@ -388,7 +388,8 @@ impl StorageHost {
     /// The module's binding for `scope`, built on first use and again when the
     /// installed backend changed. The host runs the declared schema here.
     async fn bind(&self, module: &str, scope: Scope) -> Result<Arc<Binding>, BindError> {
-        let backend = self.environment.backend().ok_or(BindError::NoBackend)?;
+        let backend = backend_choice::for_module(module, &*self.environment)
+            .ok_or(BindError::NoBackend)?;
         let key = (module.to_string(), scope.as_str().to_string());
         let mut bindings = self.bindings.lock().await;
         if let Some(existing) = bindings.get(&key) {
@@ -576,9 +577,8 @@ pub(crate) fn current_module_scope(
     module_scope(tenant.profile.as_deref(), module_id)
 }
 
-#[cfg(test)]
-#[path = "storage_host_test_module.rs"]
-pub(crate) mod test_module;
+#[path = "storage_host_backend.rs"]
+pub(crate) mod backend_choice;
 
 /// Production wiring: the broker's name owners, the installed backend, the
 /// host's scope rule and the compiled grants.
@@ -607,10 +607,7 @@ impl Environment for Live {
         // one) wins. An embedder that did not gets the workspace default every
         // other store already opens for itself ([`crate::storage::local::backend_for`]),
         // so a module is not the one consumer left with no storage.
-        let installed = crate::storage::installed();
-        #[cfg(test)]
-        let installed = installed.or_else(test_module::test_module_storage);
-        installed.or_else(|| {
+        crate::storage::installed().or_else(|| {
             let workspace = crate::core::runtime::DispatchCtx::ambient()
                 .resolved()?
                 .workspace_dir()
