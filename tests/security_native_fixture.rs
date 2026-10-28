@@ -62,6 +62,7 @@ where
 
 async fn rpc_http(port: u16, method: &str, params: Value) -> Value {
     let response = reqwest::Client::builder()
+        .no_proxy()
         .timeout(std::time::Duration::from_secs(5))
         .build()
         .expect("build RPC client")
@@ -76,7 +77,10 @@ async fn rpc_http(port: u16, method: &str, params: Value) -> Value {
 }
 
 async fn health_http(port: u16) {
-    let response = reqwest::Client::new()
+    let response = reqwest::Client::builder()
+        .no_proxy()
+        .build()
+        .expect("build health client")
         .get(format!("http://127.0.0.1:{port}/health"))
         .timeout(std::time::Duration::from_secs(5))
         .send()
