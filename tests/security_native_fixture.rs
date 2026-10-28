@@ -21,6 +21,20 @@ use tokio_util::sync::CancellationToken;
 
 const TOKEN: &str = "security-native-fixture-token";
 
+struct ShutdownOnDrop(CancellationToken);
+
+impl ShutdownOnDrop {
+    fn cancel(&self) {
+        self.0.cancel();
+    }
+}
+
+impl Drop for ShutdownOnDrop {
+    fn drop(&mut self) {
+        self.0.cancel();
+    }
+}
+
 fn run_on_agent_stack<F, Fut>(name: &str, future_factory: F)
 where
     F: FnOnce() -> Fut + Send + 'static,
@@ -57,7 +71,7 @@ async fn rpc_http(port: u16, method: &str, params: Value) -> Value {
 
 async fn start_desktop_fixture() -> (
     u16,
-    CancellationToken,
+    ShutdownOnDrop,
     tokio::task::JoinHandle<anyhow::Result<()>>,
 ) {
     openhuman_rpc::host::prepare_cli_host();
@@ -78,7 +92,7 @@ async fn start_desktop_fixture() -> (
             },
         result = &mut server => panic!("desktop host exited before ready: {result:?}"),
     };
-    (ready.port, shutdown, server)
+    (ready.port, ShutdownOnDrop(shutdown), server)
 }
 
 fn rpc_result(response: &Value) -> &Value {
@@ -251,18 +265,24 @@ async fn native_fixture_denies_keyring_before_backend_access() {
 fn native_fixture_executes_through_the_module_sandbox_plan() {
     run_on_agent_stack("native-sandbox-fixture", || async {
         let scratch = tempfile::tempdir().expect("scratch workspace");
-        std::env::set_var("OPENHUMAN_WORKSPACE", scratch.path());
-        std::env::set_var("OPENHUMAN_ACTION_DIR", scratch.path());
+        let home = scratch.path().join("home");
+        let workspace = scratch.path().join("workspace");
+        std::fs::create_dir_all(&home).expect("create isolated home");
+        std::fs::create_dir_all(&workspace).expect("create isolated workspace");
+        std::env::set_var("HOME", &home);
+        std::env::set_var("OPENHUMAN_WORKSPACE", &workspace);
+        std::env::remove_var("OPENHUMAN_STORAGE_URL");
+        std::env::set_var("BACKEND_URL", "http://127.0.0.1:9");
+        std::env::set_var("OPENHUMAN_ACTION_DIR", scratch.path().join("action"));
         std::env::set_var("OPENHUMAN_SANDBOX", "off");
         let mut config = Config::default();
         config.modules.enabled = true;
-        config.workspace_dir = scratch.path().to_path_buf();
-        config.config_path = scratch.path().join("config.toml");
-        config.action_dir = scratch.path().to_path_buf();
+        config.workspace_dir = workspace;
+        config.config_path = home.join(".openhuman/config.toml");
+        config.action_dir = scratch.path().join("action");
         config.action_dir_override = Some(config.action_dir.clone());
         config.save().await.expect("save sandbox fixture config");
-        let (_port, shutdown, server) = start_desktop_fixture(config.clone()).await;
-        client(&config).await.expect("released module loads");
+        let (_port, shutdown, server) = start_desktop_fixture().await;
         let policy = SandboxPolicy {
             backend: SandboxBackendKind::None,
             workspace_root: scratch.path().to_path_buf(),
@@ -326,18 +346,24 @@ fn native_fixture_executes_through_the_module_sandbox_plan() {
 fn native_fixture_approves_a_parked_request_round_trip() {
     run_on_agent_stack("native-approval-fixture", || async {
         let scratch = tempfile::tempdir().expect("scratch workspace");
-        std::env::set_var("OPENHUMAN_WORKSPACE", scratch.path());
+        let home = scratch.path().join("home");
+        let workspace = scratch.path().join("workspace");
+        std::fs::create_dir_all(&home).expect("create isolated home");
+        std::fs::create_dir_all(&workspace).expect("create isolated workspace");
+        std::env::set_var("HOME", &home);
+        std::env::set_var("OPENHUMAN_WORKSPACE", &workspace);
+        std::env::remove_var("OPENHUMAN_STORAGE_URL");
+        std::env::set_var("BACKEND_URL", "http://127.0.0.1:9");
         std::env::set_var("OPENHUMAN_KEYRING_BACKEND", "file");
         let mut config = Config::default();
         config.modules.enabled = true;
-        config.workspace_dir = scratch.path().to_path_buf();
-        config.config_path = scratch.path().join("config.toml");
+        config.workspace_dir = workspace;
+        config.config_path = home.join(".openhuman/config.toml");
         config.action_dir = scratch.path().join("action");
         config.action_dir_override = Some(config.action_dir.clone());
         config.save().await.expect("save fixture config");
         openhuman_core::security::secret_storage::init_workspace(scratch.path());
-        let (port, shutdown, server) = start_desktop_fixture(config.clone()).await;
-        client(&config).await.expect("released module loads");
+        let (port, shutdown, server) = start_desktop_fixture().await;
         let gate = ApprovalGate::init_global(config, "session-security-native-approval-fixture");
         let parked = {
             let gate = gate.clone();
