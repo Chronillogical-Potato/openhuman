@@ -17,7 +17,7 @@ use openhuman_core::{
 };
 use openhuman_rpc::{
     host::{desktop_builder, serve_desktop, DesktopOptions, EmbeddedReadySignal},
-    tinyhumans::embed::{ConfigSource, ServiceSet},
+    embed::ServiceSet,
 };
 use serde_json::{json, Value};
 use std::path::PathBuf;
@@ -94,7 +94,6 @@ async fn start_desktop_fixture(
         memory_sync: false,
     };
     let builder = desktop_builder(&options)
-        .config_source(ConfigSource::Resolved)
         .config(config)
         .services(services);
     let shutdown = CancellationToken::new();
