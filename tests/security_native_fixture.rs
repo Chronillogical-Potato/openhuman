@@ -76,7 +76,7 @@ async fn rpc_http(port: u16, method: &str, params: Value) -> Value {
     response.json().await.expect("JSON-RPC response")
 }
 
-async fn health_http(port: u16) {
+async fn health_http(port: u16) -> Result<(), String> {
     let response = reqwest::Client::builder()
         .no_proxy()
         .build()
@@ -85,8 +85,11 @@ async fn health_http(port: u16) {
         .timeout(std::time::Duration::from_secs(5))
         .send()
         .await
-        .expect("health request");
-    assert_eq!(response.status(), reqwest::StatusCode::OK);
+        .map_err(|error| error.to_string())?;
+    if response.status() != reqwest::StatusCode::OK {
+        return Err(format!("health returned {}", response.status()));
+    }
+    Ok(())
 }
 
 async fn start_desktop_fixture(
@@ -413,9 +416,17 @@ fn native_fixture_approves_a_parked_request_round_trip() {
         config.save().await.expect("save fixture config");
         eprintln!("native-fixture: config saved");
         openhuman_core::security::secret_storage::init_workspace(scratch.path());
-        let (port, shutdown, server) = start_desktop_fixture(config.clone()).await;
+        let (port, shutdown, mut server) = start_desktop_fixture(config.clone()).await;
         eprintln!("native-fixture: desktop fixture started");
-        health_http(port).await;
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        if let Err(error) = health_http(port).await {
+            let task = if server.is_finished() {
+                format!("finished: {:?}", server.await)
+            } else {
+                "still running".into()
+            };
+            panic!("health route failed: {error}; desktop server task {task}");
+        }
         eprintln!("native-fixture: health route responded");
         eprintln!("native-fixture: initialize approval gate");
         let gate = ApprovalGate::init_global(config, "session-security-native-approval-fixture");
