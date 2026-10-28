@@ -488,6 +488,24 @@ fn native_fixture_approves_a_parked_request_round_trip_with_patched_module() {
         openhuman_core::security::secret_storage::init_workspace(scratch.path());
         let (port, shutdown, server) = start_desktop_fixture(config.clone()).await;
         health_http(port).await.expect("desktop host health");
+        eprintln!(
+            "local approval proof source config={:?} source_dir_set={}",
+            config.modules.source,
+            std::env::var_os("OPENHUMAN_MODULE_SOURCE_DIR").is_some()
+        );
+        match client(&config).await {
+            Ok(module) => {
+                eprintln!("local approval proof module client connected");
+                eprintln!(
+                    "local approval proof redaction result={:?}",
+                    module
+                        .redact(RedactMode::StructuredArguments, "{}".into())
+                        .await
+                        .map(|_| "ok")
+                );
+            }
+            Err(error) => eprintln!("local approval proof client error: {error}"),
+        }
         let gate = ApprovalGate::init_global(config, "session-security-native-approval-fixture");
         let parked = {
             let gate = gate.clone();
