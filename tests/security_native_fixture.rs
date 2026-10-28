@@ -252,6 +252,7 @@ async fn native_fixture_fails_closed_without_sandbox_audit_binding() {
             std::time::Duration::from_secs(10),
         ),
     )
+    .await;
     assert!(
         result.is_err(),
         "sandbox execution must fail closed without a request-bound audit callback"
