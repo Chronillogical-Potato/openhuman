@@ -1,5 +1,10 @@
 use axum::{body::{to_bytes, Body}, http::{Request, StatusCode}, Router};
-use openhuman_core::{config::Config, modules::security::{client, reinitialize}};
+use openhuman_core::{
+    config::Config,
+    core::runtime::{turn_origin::{self, AgentTurnOrigin}, DispatchCtx},
+    modules::security::{client, reinitialize},
+    sandbox::types::{SandboxBackendKind, SandboxPolicy},
+};
 use std::path::PathBuf;
 use tinysecurity_bus::{
     HostActionClassRequest2, PathAccess, PathBatchRequest2, PathCheckKind, PathPolicy,
@@ -196,4 +201,44 @@ async fn native_fixture_denies_keyring_before_backend_access() {
     })).await;
     assert!(response.get("error").is_none(), "host should accept the denial: {response}");
     assert!(pending.await.expect("keyring request task").is_err(), "denial must fail closed");
+}
+
+/// Runs a harmless shell command through the public host adapter so the
+/// released module plans and consumes a sandbox operation on every CI OS.
+#[tokio::test]
+#[ignore = "loads the pinned module and exercises the sandbox plan/consume path"]
+async fn native_fixture_executes_through_the_module_sandbox_plan() {
+    let scratch = tempfile::tempdir().expect("scratch workspace");
+    std::env::set_var("OPENHUMAN_WORKSPACE", scratch.path());
+    std::env::set_var("OPENHUMAN_ACTION_DIR", scratch.path());
+    let mut config = Config::default();
+    config.modules.enabled = true;
+    client(&config).await.expect("released module loads");
+    let policy = SandboxPolicy {
+        backend: SandboxBackendKind::None,
+        workspace_root: scratch.path().to_path_buf(),
+        state_dir: scratch.path().join("state"),
+        read_only_mounts: vec![],
+        read_write_mounts: vec![],
+        allow_network: false,
+        mount_workspace: true,
+        env_passthrough: vec![],
+        docker_overrides: None,
+    };
+    let command = if cfg!(windows) { "echo sandbox-fixture" } else { "echo sandbox-fixture" };
+    let result = turn_origin::with_origin(
+        AgentTurnOrigin::Cli,
+        openhuman_core::sandbox::ops::execute_in_sandbox(
+            &DispatchCtx::process_default(),
+            &policy,
+            command,
+            scratch.path(),
+            std::collections::HashMap::new(),
+            std::time::Duration::from_secs(10),
+        ),
+    )
+    .await
+    .expect("TinySecurity should plan and consume the safe sandbox command");
+    assert!(result.success(), "sandbox command failed: {}", result.stderr);
+    assert!(result.stdout.contains("sandbox-fixture"));
 }
