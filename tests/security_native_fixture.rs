@@ -25,8 +25,8 @@ use tinysecurity_bus::{
     CommandAutonomy, CommandClass, CommandExecutionMode, CommandPolicy, CommandRequest,
     ProtectedPathRequest2, RedactMode,
 };
-use tower::ServiceExt;
 use tokio_util::sync::CancellationToken;
+use tower::ServiceExt;
 
 const TOKEN: &str = "security-native-fixture-token";
 
@@ -66,7 +66,13 @@ async fn rpc_http(port: u16, method: &str, params: Value) -> Value {
     response.json().await.expect("JSON-RPC response")
 }
 
-async fn start_desktop_fixture(config: Config) -> (u16, CancellationToken, tokio::task::JoinHandle<anyhow::Result<()>>) {
+async fn start_desktop_fixture(
+    config: Config,
+) -> (
+    u16,
+    CancellationToken,
+    tokio::task::JoinHandle<anyhow::Result<()>>,
+) {
     openhuman_rpc::host::prepare_cli_host();
     let options = DesktopOptions {
         host: Some("127.0.0.1".into()),
