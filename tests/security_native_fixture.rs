@@ -16,8 +16,8 @@ use openhuman_core::{
     },
 };
 use openhuman_rpc::{
-    embed::{ConfigSource, ServiceSet},
     host::{desktop_builder, serve_desktop, DesktopOptions, EmbeddedReadySignal},
+    tinyhumans::embed::{ConfigSource, ServiceSet},
 };
 use serde_json::{json, Value};
 use std::path::PathBuf;
