@@ -52,6 +52,7 @@ async fn offline_local_session_refuses_without_a_request() {
             std::collections::HashMap::new(),
             true,
         )
+        .await
         .unwrap();
     let err = transcribe_cloud(&config, "AAAA", &CloudTranscribeOptions::default())
         .await
@@ -69,7 +70,7 @@ async fn api_key_refuses_remote_plaintext_endpoint_before_request() {
         api_url: Some("http://backend.example.test".to_string()),
         ..Config::default()
     };
-    store_api_key(&config, "test-api-key").unwrap();
+    store_api_key(&config, "test-api-key").await.unwrap();
 
     let err = transcribe_cloud(&config, "AAAA", &CloudTranscribeOptions::default())
         .await
@@ -96,7 +97,7 @@ async fn api_key_transcribes_via_safe_backend_with_bearer_and_multipart_audio() 
         api_url: Some(server.uri()),
         ..Config::default()
     };
-    store_api_key(&config, "test-api-key").unwrap();
+    store_api_key(&config, "test-api-key").await.unwrap();
 
     let outcome = transcribe_cloud(&config, "AQID", &CloudTranscribeOptions::default())
         .await

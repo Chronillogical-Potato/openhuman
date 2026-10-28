@@ -2,7 +2,7 @@ use super::*;
 use crate::hosted::test_support;
 use serde_json::json;
 use tinychannels_bus::module_progressive::{
-    ChannelOutputEvent, ProgressiveTransportRequest, ProgressiveTransportResult,
+    ProgressiveTransportRequest, ProgressiveTransportResult,
 };
 use tokio_util::sync::CancellationToken;
 use wiremock::matchers::{body_json, method, path};
@@ -24,9 +24,6 @@ fn ctx(
 fn typing(channel: &str) -> ChannelBackendRequest {
     ChannelBackendRequest::ProgressiveTransport(Box::new(ProgressiveTransportRequest::Typing {
         channel: channel.to_string(),
-        turn_id: None,
-        channel_ref: None,
-        conversation: None,
     }))
 }
 
@@ -119,7 +116,7 @@ async fn typed_send_preserves_v22_content_and_turn_metadata() {
     });
     Mock::given(method("POST"))
         .and(path("/channels/telegram/messages"))
-        .and(body_json(body))
+        .and(body_json(body.clone()))
         .respond_with(
             ResponseTemplate::new(200)
                 .set_body_json(json!({"success": true, "data": {"id": "msg-1"}})),
@@ -127,16 +124,9 @@ async fn typed_send_preserves_v22_content_and_turn_metadata() {
         .mount(&server)
         .await;
     let config = test_support::signed_in(&tmp, &server.uri()).await;
-    let request = ProgressiveTransportRequest::SendTyped {
+    let request = ProgressiveTransportRequest::Send {
         channel: "telegram".into(),
-        turn_id: Some("turn-1".into()),
-        channel_ref: None,
-        conversation: None,
-        sequence: Some(7),
-        segment_index: Some(0),
-        idempotency_key: Some("turn-1:0".into()),
-        parts: vec![],
-        text: "hello".into(),
+        message: body,
     };
 
     let answer = serve(
@@ -187,19 +177,23 @@ async fn progressive_send_forwards_turn_and_delivery_context() {
         ctx(config, Some("telegram")),
         ChannelBackendRequest::ProgressiveTransport(Box::new(ProgressiveTransportRequest::Send {
             channel: "telegram".into(),
-            turn_id: Some("turn-7".into()),
-            channel_ref: Some(tinychannels_bus::ChannelRef {
-                id: "telegram".into(),
-                account_id: Some("account-2".into()),
+            message: json!({
+                "text": "hello",
+                "transportContext": {
+                    "turnId": "turn-7",
+                    "channelRef": {"id": "telegram", "accountId": "account-2"},
+                    "conversation": {
+                        "kind": "dm",
+                        "id": "chat-3",
+                        "scopeId": null,
+                        "parentId": null,
+                        "threadId": null,
+                        "topicId": null
+                    },
+                    "sequence": 4,
+                    "idempotencyKey": "turn-7:reply"
+                }
             }),
-            conversation: Some(tinychannels_bus::ConversationRef {
-                kind: tinychannels_bus::ConversationKind::Dm,
-                id: "chat-3".into(),
-                ..Default::default()
-            }),
-            sequence: Some(4),
-            idempotency_key: Some("turn-7:reply".into()),
-            message: json!({"text": "hello"}),
         })),
     )
     .await
@@ -207,34 +201,6 @@ async fn progressive_send_forwards_turn_and_delivery_context() {
     assert!(matches!(
         answer,
         ChannelBackendResult::ProgressiveTransport(ProgressiveTransportResult::Success(_))
-    ));
-}
-
-#[tokio::test]
-async fn hosted_callback_declines_module_output_events_without_losing_them_as_sends() {
-    let tmp = tempfile::tempdir().unwrap();
-    let config = test_support::signed_in(&tmp, "http://127.0.0.1:9").await;
-    let request = ProgressiveTransportRequest::OutputEvent {
-        channel: "telegram".into(),
-        turn_id: Some("turn-1".into()),
-        channel_ref: None,
-        conversation: None,
-        sequence: 1,
-        event: Box::new(ChannelOutputEvent::TextDelta {
-            text: "hello".into(),
-            iteration: Some(0),
-        }),
-    };
-
-    let answer = serve(
-        ctx(config, Some("telegram")),
-        ChannelBackendRequest::ProgressiveTransport(Box::new(request)),
-    )
-    .await
-    .unwrap();
-    assert!(matches!(
-        answer,
-        ChannelBackendResult::ProgressiveTransport(ProgressiveTransportResult::Failed)
     ));
 }
 
@@ -377,21 +343,13 @@ async fn a_context_bearing_delete_or_typing_keeps_the_empty_id_guards() {
         )
         .mount(&server)
         .await;
-    let turn = || Some("turn-1".to_string());
     for request in [
         ProgressiveTransportRequest::Delete {
             channel: "telegram".into(),
-            turn_id: turn(),
-            channel_ref: None,
-            conversation: None,
             message_id: String::new(),
-            receipt: None,
         },
         ProgressiveTransportRequest::Typing {
             channel: " / ".into(),
-            turn_id: turn(),
-            channel_ref: None,
-            conversation: None,
         },
     ] {
         let answer = serve(
