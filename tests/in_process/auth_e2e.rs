@@ -183,9 +183,9 @@ async fn auth_service_direct_paths_cover_profile_selection_and_validation() {
 
     assert_eq!(normalize_provider("  GitHub  ").unwrap(), "github");
     assert!(normalize_provider("   ").is_err());
-    assert!(auth.set_active_profile("github", "missing").is_err());
+    assert!(auth.set_active_profile("github", "missing").await.is_err());
     assert_eq!(
-        auth.get_provider_bearer_token("github", None)
+        auth.get_provider_bearer_token("github", None).await
             .expect("missing profile lookup"),
         None
     );
@@ -199,29 +199,29 @@ async fn auth_service_direct_paths_cover_profile_selection_and_validation() {
                 .into_iter()
                 .collect(),
             false,
-        )
+        ).await
         .expect("store token profile");
     assert_eq!(stored.provider, "github");
     assert_eq!(
-        auth.get_provider_bearer_token("GitHub", Some("personal"))
+        auth.get_provider_bearer_token("GitHub", Some("personal")).await
             .expect("profile override lookup"),
         Some(" ghp-token ".to_string())
     );
     assert_eq!(
-        auth.get_provider_bearer_token("GitHub", None)
+        auth.get_provider_bearer_token("GitHub", None).await
             .expect("no active/default lookup"),
         Some(" ghp-token ".to_string())
     );
 
     let active_id = auth
-        .set_active_profile("GitHub", "personal")
+        .set_active_profile("GitHub", "personal").await
         .expect("set active by profile name");
     assert_eq!(active_id, stored.id);
     assert!(auth
-        .remove_profile("GitHub", "personal")
+        .remove_profile("GitHub", "personal").await
         .expect("remove stored profile"));
     assert!(!auth
-        .remove_profile("GitHub", "personal")
+        .remove_profile("GitHub", "personal").await
         .expect("remove missing profile"));
 
     let oauth_profile = AuthProfile::new_oauth(
@@ -238,10 +238,10 @@ async fn auth_service_direct_paths_cover_profile_selection_and_validation() {
     );
     let oauth_id = oauth_profile.id.clone();
     store
-        .upsert_profile(oauth_profile, true)
+        .upsert_profile(oauth_profile, true).await
         .expect("store oauth profile through shared store");
     assert_eq!(
-        auth.get_provider_bearer_token("gitlab", None)
+        auth.get_provider_bearer_token("gitlab", None).await
             .expect("oauth bearer lookup"),
         Some("gitlab-access-token".to_string())
     );
@@ -250,7 +250,7 @@ async fn auth_service_direct_paths_cover_profile_selection_and_validation() {
         .expect("missing override lookup")
         .is_none());
     let wrong_provider_err = auth
-        .set_active_profile("github", &oauth_id)
+        .set_active_profile("github", &oauth_id).await
         .expect_err("full profile id from another provider should fail")
         .to_string();
     assert!(
@@ -282,7 +282,7 @@ async fn auth_provider_prefix_listing_sorts_filters_and_excludes_app_session() {
             .into_iter()
             .collect(),
         true,
-    )
+    ).await
     .expect("store slack channel token");
     auth.store_provider_token(
         "channel:telegram:managed_dm",
@@ -292,7 +292,7 @@ async fn auth_provider_prefix_listing_sorts_filters_and_excludes_app_session() {
             .into_iter()
             .collect(),
         false,
-    )
+    ).await
     .expect("store telegram channel token");
     auth.store_provider_token(
         "github",
@@ -300,7 +300,7 @@ async fn auth_provider_prefix_listing_sorts_filters_and_excludes_app_session() {
         "github-token",
         Default::default(),
         true,
-    )
+    ).await
     .expect("store non-channel token");
     auth.store_provider_token(
         APP_SESSION_PROVIDER,
@@ -308,7 +308,7 @@ async fn auth_provider_prefix_listing_sorts_filters_and_excludes_app_session() {
         "session-token",
         Default::default(),
         true,
-    )
+    ).await
     .expect("store app session token");
 
     let channels = list_provider_credentials_by_prefix(&config, "channel:")
@@ -1113,7 +1113,7 @@ async fn credentials_profile_store_public_api_persists_updates_and_recovers_bad_
     let store = AuthProfilesStore::new(&state_dir, true);
 
     assert_eq!(store.path(), state_dir.join("auth-profiles.json"));
-    let empty = store.load().expect("empty store load");
+    let empty = store.load().await.expect("empty store load");
     assert!(empty.profiles.is_empty());
 
     assert!(TokenSet {
@@ -1141,7 +1141,7 @@ async fn credentials_profile_store_public_api_persists_updates_and_recovers_bad_
         .insert("region".to_string(), "test".to_string());
     let token_id = token_profile.id.clone();
     store
-        .upsert_profile(token_profile, true)
+        .upsert_profile(token_profile, true).await
         .expect("upsert token profile");
 
     let mut oauth_profile = AuthProfile::new_oauth(
@@ -1160,10 +1160,10 @@ async fn credentials_profile_store_public_api_persists_updates_and_recovers_bad_
     oauth_profile.workspace_id = Some("workspace-1".to_string());
     let oauth_id = oauth_profile.id.clone();
     store
-        .upsert_profile(oauth_profile, false)
+        .upsert_profile(oauth_profile, false).await
         .expect("upsert oauth profile");
 
-    let loaded = store.load().expect("load stored profiles");
+    let loaded = store.load().await.expect("load stored profiles");
     assert_eq!(
         loaded.active_profiles.get("openai").map(String::as_str),
         Some(token_id.as_str())
@@ -1185,7 +1185,7 @@ async fn credentials_profile_store_public_api_persists_updates_and_recovers_bad_
     );
 
     store
-        .set_active_profile("github", &oauth_id)
+        .set_active_profile("github", &oauth_id).await
         .expect("set active oauth profile");
     store
         .clear_active_profile("openai")
@@ -1205,18 +1205,18 @@ async fn credentials_profile_store_public_api_persists_updates_and_recovers_bad_
 
     assert!(
         store
-            .remove_profile(&token_id)
+            .remove_profile(&token_id).await
             .expect("remove existing token profile"),
         "existing token profile should be removed"
     );
     assert!(
         !store
-            .remove_profile(&token_id)
+            .remove_profile(&token_id).await
             .expect("remove missing token profile"),
         "missing token profile removal should be idempotent"
     );
 
-    let after_remove = store.load().expect("load after remove");
+    let after_remove = store.load().await.expect("load after remove");
     assert!(!after_remove.profiles.contains_key(&token_id));
     assert_eq!(
         after_remove
@@ -1232,7 +1232,7 @@ async fn credentials_profile_store_public_api_persists_updates_and_recovers_bad_
     std::fs::write(&corrupt_path, "{ not valid json").expect("write corrupt profile store");
     let corrupt_store = AuthProfilesStore::new(&corrupt_dir, true);
     let recovered = corrupt_store
-        .load()
+        .load().await
         .expect("corrupt profile store recovers");
     assert!(recovered.profiles.is_empty());
     assert!(
@@ -1261,7 +1261,7 @@ async fn credentials_profile_store_public_api_persists_updates_and_recovers_bad_
     )
     .expect("write legacy profile store");
     let legacy = AuthProfilesStore::new(&legacy_dir, true)
-        .load()
+        .load().await
         .expect("legacy schema 0 should normalize");
     assert_eq!(legacy.schema_version, 1);
 
@@ -1279,7 +1279,7 @@ async fn credentials_profile_store_public_api_persists_updates_and_recovers_bad_
     )
     .expect("write future profile store");
     let future_err = AuthProfilesStore::new(&future_dir, true)
-        .load()
+        .load().await
         .expect_err("future schema should fail");
     assert!(
         future_err
@@ -1304,11 +1304,11 @@ async fn credentials_auth_service_selects_active_default_and_requested_profiles(
             "default-token",
             Default::default(),
             false,
-        )
+        ).await
         .expect("store default github profile");
     assert_eq!(
         service
-            .get_provider_bearer_token("github", None)
+            .get_provider_bearer_token("github", None).await
             .expect("get default provider token")
             .as_deref(),
         Some("default-token"),
@@ -1330,17 +1330,17 @@ async fn credentials_auth_service_selects_active_default_and_requested_profiles(
     let oauth_id = oauth_profile.id.clone();
     service.load_profiles().expect("load before oauth upsert");
     AuthProfilesStore::new(&tmp.path().join("auth-service"), false)
-        .upsert_profile(oauth_profile, false)
+        .upsert_profile(oauth_profile, false).await
         .expect("upsert oauth work profile");
     assert_eq!(
         service
-            .set_active_profile(" GITHUB ", "github:work")
+            .set_active_profile(" GITHUB ", "github:work").await
             .expect("set active by full profile id"),
         oauth_id
     );
     assert_eq!(
         service
-            .get_provider_bearer_token("github", None)
+            .get_provider_bearer_token("github", None).await
             .expect("get active oauth bearer")
             .as_deref(),
         Some("oauth-access"),
@@ -1348,7 +1348,7 @@ async fn credentials_auth_service_selects_active_default_and_requested_profiles(
     );
     assert_eq!(
         service
-            .get_provider_bearer_token("github", Some("default"))
+            .get_provider_bearer_token("github", Some("default")).await
             .expect("explicit default token")
             .as_deref(),
         Some("default-token"),
@@ -1356,7 +1356,7 @@ async fn credentials_auth_service_selects_active_default_and_requested_profiles(
     );
     assert_eq!(
         service
-            .get_provider_bearer_token("github", Some("missing"))
+            .get_provider_bearer_token("github", Some("missing")).await
             .expect("missing explicit profile")
             .as_deref(),
         None
@@ -1365,10 +1365,10 @@ async fn credentials_auth_service_selects_active_default_and_requested_profiles(
     let slack_profile = AuthProfile::new_token("slack", "main", "slack-token".to_string());
     let slack_id = slack_profile.id.clone();
     AuthProfilesStore::new(&tmp.path().join("auth-service"), false)
-        .upsert_profile(slack_profile, false)
+        .upsert_profile(slack_profile, false).await
         .expect("upsert slack profile");
     let mismatch = service
-        .set_active_profile("github", &slack_id)
+        .set_active_profile("github", &slack_id).await
         .expect_err("provider/profile mismatch should fail");
     assert!(
         mismatch.to_string().contains("belongs to provider slack"),
@@ -1376,7 +1376,7 @@ async fn credentials_auth_service_selects_active_default_and_requested_profiles(
     );
 
     assert!(service
-        .remove_profile("github", "github:work")
+        .remove_profile("github", "github:work").await
         .expect("remove active oauth profile"));
 }
 
@@ -1399,7 +1399,7 @@ async fn credentials_profile_store_recovers_dropped_entries_empty_files_and_date
     std::fs::create_dir_all(&empty_dir).expect("create empty profile dir");
     std::fs::write(empty_dir.join("auth-profiles.json"), "").expect("write empty profile file");
     let empty = AuthProfilesStore::new(&empty_dir, false)
-        .load()
+        .load().await
         .expect("empty persisted profile file should load as default");
     assert!(empty.profiles.is_empty());
     assert!(empty.active_profiles.is_empty());
@@ -1442,7 +1442,7 @@ async fn credentials_profile_store_recovers_dropped_entries_empty_files_and_date
     .expect("write mixed profile fixture");
     let mixed_store = AuthProfilesStore::new(&mixed_dir, false);
     let mixed = mixed_store
-        .load()
+        .load().await
         .expect("mixed profile store should drop only bad entries");
     assert_eq!(
         mixed
@@ -1493,7 +1493,7 @@ async fn credentials_profile_store_recovers_dropped_entries_empty_files_and_date
     )
     .expect("write invalid datetime profile fixture");
     let invalid_datetime_err = AuthProfilesStore::new(&invalid_datetime_dir, false)
-        .load()
+        .load().await
         .expect_err("invalid oauth expiry should fail profile load");
     assert!(
         invalid_datetime_err
@@ -1526,7 +1526,7 @@ async fn credentials_profile_store_recovers_dropped_entries_empty_files_and_date
     )
     .expect("write missing oauth secret fixture");
     let missing_secret = AuthProfilesStore::new(&missing_oauth_secret_dir, false)
-        .load()
+        .load().await
         .expect("oauth profile missing access token should be dropped");
     assert!(missing_secret.profiles.is_empty());
     assert!(missing_secret.active_profiles.is_empty());
@@ -1551,7 +1551,7 @@ async fn credentials_profile_store_recovers_dropped_entries_empty_files_and_date
     let public_api_dir = tmp.path().join("public-api-errors");
     let public_store = AuthProfilesStore::new(&public_api_dir, false);
     assert!(public_store
-        .set_active_profile("github", "github:missing")
+        .set_active_profile("github", "github:missing").await
         .expect_err("missing active profile should fail")
         .to_string()
         .contains("Auth profile not found"));
@@ -1585,7 +1585,7 @@ async fn credentials_profile_store_round_trips_oauth_secret_fields_after_backend
     let profile_id = profile.id.clone();
 
     store
-        .upsert_profile(profile, true)
+        .upsert_profile(profile, true).await
         .expect("upsert oauth profile after backend selection");
     let raw: Value = serde_json::from_str(
         &std::fs::read_to_string(state_dir.join("auth-profiles.json"))
@@ -1603,7 +1603,7 @@ async fn credentials_profile_store_round_trips_oauth_secret_fields_after_backend
         "persisted profile should either keychain-strip or encrypt access token: {raw}"
     );
 
-    let loaded = store.load().expect("reload json fallback profile");
+    let loaded = store.load().await.expect("reload json fallback profile");
     let tokens = loaded
         .profiles
         .get(&profile_id)
@@ -1670,7 +1670,7 @@ async fn credentials_profile_store_keychain_migration_and_fallback_paths_are_det
     )
     .expect("write keychain hit fixture");
     let hit_store = AuthProfilesStore::new(&hit_dir, true);
-    let hit_loaded = hit_store.load().expect("keychain hit should load");
+    let hit_loaded = hit_store.load().await.expect("keychain hit should load");
     let hit_tokens = hit_loaded
         .profiles
         .get(hit_profile_id)
@@ -1720,7 +1720,7 @@ async fn credentials_profile_store_keychain_migration_and_fallback_paths_are_det
     .expect("write keychain migration fixture");
     let migrate_store = AuthProfilesStore::new(&migrate_dir, true);
     let migrated = migrate_store
-        .load()
+        .load().await
         .expect("plaintext JSON token should migrate to keychain");
     assert_eq!(
         migrated
@@ -1772,7 +1772,7 @@ async fn credentials_profile_store_keychain_migration_and_fallback_paths_are_det
     )
     .expect("write keychain fallback fixture");
     let fallback = AuthProfilesStore::new(&fallback_dir, true)
-        .load()
+        .load().await
         .expect("malformed keychain payload should fall back to JSON");
     assert_eq!(
         fallback
@@ -1784,7 +1784,7 @@ async fn credentials_profile_store_keychain_migration_and_fallback_paths_are_det
 
     assert!(
         AuthProfilesStore::new(&migrate_dir, true)
-            .remove_profile(migrate_profile_id)
+            .remove_profile(migrate_profile_id).await
             .expect("remove migrated profile"),
         "migrated profile should be removable"
     );
