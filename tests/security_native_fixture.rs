@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use tinysecurity_bus::{
     HostActionClassRequest2, PathAccess, PathBatchRequest2, PathCheckKind, PathPolicy,
     PathTrustedRoot, PrivacyCheckRequest2, PrivacyDataClass2, PrivacyMode,
-    ProtectedPathRequest2, RedactMode, ToolPermission,
+    ProtectedPathRequest2, RedactMode, ToolPermission, Verdict,
 };
 
 /// Loads the published TinySecurity archive through the compiled registry pin.
@@ -101,7 +101,7 @@ async fn native_fixture_exercises_the_pinned_release_contracts() {
         })
         .await
         .expect("the privacy/egress policy should answer");
-    assert_eq!(egress, tinysecurity_bus::Decision::Deny);
+    assert!(matches!(egress.verdict, Verdict::Deny { .. }));
 
     let keyring = client
         .keyring_access2(tinysecurity_bus::KeyringRequest2 {
