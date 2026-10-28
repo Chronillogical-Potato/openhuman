@@ -44,5 +44,7 @@ fn defers_tinysecurity_artifacts_until_host_callback_admission() {
             "{artifact} must wait for TinySecurity's host callback binding"
         );
     }
-    assert!(!should_defer_to_host_callback(&PathBuf::from("/modules/libtinydocs.so")));
+    assert!(!should_defer_to_host_callback(&PathBuf::from(
+        "/modules/libtinydocs.so"
+    )));
 }
