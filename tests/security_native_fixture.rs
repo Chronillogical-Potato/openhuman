@@ -189,6 +189,7 @@ async fn native_fixture_executes_through_the_module_sandbox_plan() {
     let scratch = tempfile::tempdir().expect("scratch workspace");
     std::env::set_var("OPENHUMAN_WORKSPACE", scratch.path());
     std::env::set_var("OPENHUMAN_ACTION_DIR", scratch.path());
+    std::env::set_var("OPENHUMAN_SANDBOX", "off");
     let mut config = Config::default();
     config.modules.enabled = true;
     config.workspace_dir = scratch.path().to_path_buf();

@@ -83,6 +83,11 @@ bash scripts/ci-cancel-aware.sh cargo test --manifest-path Cargo.toml -p openhum
   native_fixture_denies_keyring_before_backend_access \
   -- --ignored --exact --nocapture
 
+bash scripts/ci-cancel-aware.sh cargo test --manifest-path Cargo.toml -p openhuman \
+  --lib --no-default-features --features "$core_features,security-module" \
+  modules::security::client_tests::native_fixture_denies_private_browser_dial \
+  -- --ignored --exact --nocapture
+
 bash scripts/ci-cancel-aware.sh cargo test --manifest-path Cargo.toml -p openhuman-cli \
   --test security_native_fixture --no-default-features \
   --features "$core_features,security-module" \
