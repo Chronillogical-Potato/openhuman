@@ -79,6 +79,7 @@ async fn start_desktop_fixture(
     ShutdownOnDrop,
     tokio::task::JoinHandle<anyhow::Result<()>>,
 ) {
+    eprintln!("native-fixture: prepare host hooks");
     openhuman_rpc::host::prepare_cli_host();
     let options = DesktopOptions {
         host: Some("127.0.0.1".into()),
@@ -111,6 +112,7 @@ async fn start_desktop_fixture(
         .config_source(openhuman_tinyhumans::embed::ConfigSource::Resolved)
         .config(config)
         .services(services);
+    eprintln!("native-fixture: spawn desktop server");
     let mut server = tokio::spawn(serve_desktop(builder, shutdown.clone(), ready_tx));
     let ready = tokio::select! {
         ready = tokio::time::timeout(std::time::Duration::from_secs(120), ready_rx) => match ready
@@ -120,6 +122,7 @@ async fn start_desktop_fixture(
             },
         result = &mut server => panic!("desktop host exited before ready: {result:?}"),
     };
+    eprintln!("native-fixture: desktop ready on {}", ready.port);
     (ready.port, ShutdownOnDrop(shutdown), server)
 }
 
@@ -373,6 +376,7 @@ fn native_fixture_executes_through_the_module_sandbox_plan() {
 #[ignore = "loads the pinned module and round trips an approval through the host"]
 fn native_fixture_approves_a_parked_request_round_trip() {
     run_on_agent_stack("native-approval-fixture", || async {
+        eprintln!("native-fixture: create approval config");
         let scratch = tempfile::tempdir().expect("scratch workspace");
         let home = scratch.path().join("home");
         let workspace = scratch.path().join("workspace");
@@ -390,8 +394,10 @@ fn native_fixture_approves_a_parked_request_round_trip() {
         config.action_dir = scratch.path().join("action");
         config.action_dir_override = Some(config.action_dir.clone());
         config.save().await.expect("save fixture config");
+        eprintln!("native-fixture: config saved");
         openhuman_core::security::secret_storage::init_workspace(scratch.path());
         let (port, shutdown, server) = start_desktop_fixture(config.clone()).await;
+        eprintln!("native-fixture: desktop fixture started");
         let gate = ApprovalGate::init_global(config, "session-security-native-approval-fixture");
         let parked = {
             let gate = gate.clone();
