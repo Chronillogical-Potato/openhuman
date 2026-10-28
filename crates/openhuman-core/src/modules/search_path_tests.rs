@@ -31,3 +31,18 @@ fn recognizes_source_and_release_artifacts_for_configured_modules() {
         assert_eq!(module_id_for_artifact(&path), Some("tinyeventqueues"));
     }
 }
+
+#[test]
+fn defers_tinysecurity_artifacts_until_host_callback_admission() {
+    for artifact in [
+        "/modules/libtinysecurity.so",
+        "/modules/libtinysecurity_module.so",
+        "/modules/tinysecurity_module.dll",
+    ] {
+        assert!(
+            should_defer_to_host_callback(&PathBuf::from(artifact)),
+            "{artifact} must wait for TinySecurity's host callback binding"
+        );
+    }
+    assert!(!should_defer_to_host_callback(&PathBuf::from("/modules/libtinydocs.so")));
+}
