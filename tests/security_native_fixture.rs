@@ -55,9 +55,7 @@ async fn rpc_http(port: u16, method: &str, params: Value) -> Value {
     response.json().await.expect("JSON-RPC response")
 }
 
-async fn start_desktop_fixture(
-    config: Config,
-) -> (
+async fn start_desktop_fixture() -> (
     u16,
     CancellationToken,
     tokio::task::JoinHandle<anyhow::Result<()>>,
@@ -69,7 +67,6 @@ async fn start_desktop_fixture(
         socketio: false,
         rpc_token: Some(std::sync::Arc::new(TOKEN.into())),
     };
-    let _config = config;
     let shutdown = CancellationToken::new();
     let (ready_tx, ready_rx) = tokio::sync::oneshot::channel::<EmbeddedReadySignal>();
     let mut server = tokio::spawn(desktop(options, shutdown.clone(), ready_tx));
