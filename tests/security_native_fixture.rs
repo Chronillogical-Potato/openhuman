@@ -330,6 +330,7 @@ fn native_fixture_executes_through_the_module_sandbox_plan() {
         let mut config = Config::default();
         config.modules.enabled = true;
         config.autonomy.enabled = false;
+        config.autonomy.forbidden_paths.clear();
         config.workspace_dir = workspace;
         config.config_path = home.join(".openhuman/config.toml");
         config.action_dir = scratch.path().join("action");
@@ -412,6 +413,7 @@ fn native_fixture_approves_a_parked_request_round_trip() {
         let mut config = Config::default();
         config.modules.enabled = true;
         config.autonomy.enabled = false;
+        config.autonomy.forbidden_paths.clear();
         config.workspace_dir = workspace;
         config.config_path = home.join(".openhuman/config.toml");
         config.action_dir = scratch.path().join("action");
