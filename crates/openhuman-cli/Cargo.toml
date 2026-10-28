@@ -460,6 +460,7 @@ openhuman-embed = { workspace = true }
 openhuman-tinyhumans = { workspace = true }
 tinymemory-tools = { path = "../../vendor/tinymemory/crates/tinymemory-tools" }
 async-trait = "0.1"
+aes-gcm = "0.10"
 chrono = { version = "0.4", features = ["serde"] }
 futures = "0.3"
 serde = { version = "1", features = ["derive"] }

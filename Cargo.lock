@@ -5856,6 +5856,7 @@ dependencies = [
 name = "openhuman-cli"
 version = "0.64.18"
 dependencies = [
+ "aes-gcm",
  "anyhow",
  "async-trait",
  "axum",
