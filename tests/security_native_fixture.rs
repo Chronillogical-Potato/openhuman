@@ -459,4 +459,3 @@ fn native_fixture_fails_closed_without_approval_audit_correlation() {
             .expect("desktop server shuts down cleanly");
     });
 }
-

@@ -63,10 +63,7 @@ fn resolver_selects_executor_and_network_policy_for_the_turn_mode() {
         let label = format!("kind={} remote={remote}", runtime.kind);
         assert_eq!(policy.backend, backend, "{label}");
         assert_eq!(policy.allow_network, network, "{label}");
-        assert_eq!(
-            policy.docker_overrides.is_some(),
-            "{label}"
-        );
+        assert_eq!(policy.docker_overrides.is_some(), "{label}");
         assert_eq!(policy.workspace_root, Path::new(ACTION), "{label}");
         assert_eq!(policy.state_dir, Path::new(STATE), "{label}");
         assert!(
@@ -94,4 +91,3 @@ fn env_passthrough_is_the_pinned_safe_allowlist() {
         );
     }
 }
-
