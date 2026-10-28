@@ -156,21 +156,23 @@ async fn native_fixture_denies_private_browser_dial() {
 
     for hostname in ["127.0.0.1", "169.254.169.254"] {
         let request = tinysecurity_bus::BrowserDialRequest {
-                policy_id: policy_id.clone(),
-                expected_generation: generation,
-                session_id: "native-fixture-browser-session".into(),
-                scheme: "https".into(),
-                hostname: hostname.into(),
-                port: 443,
-            };
+            policy_id: policy_id.clone(),
+            expected_generation: generation,
+            session_id: "native-fixture-browser-session".into(),
+            scheme: "https".into(),
+            hostname: hostname.into(),
+            port: 443,
+        };
         let result: Result<tinysecurity_bus::BrowserDialResponse, tinybus::Error> =
             match &client.object {
-                SecurityProxy::Callback(proxy) => proxy
-                    .call_confidential(
-                        tinysecurity_bus::names::methods::AUTHORIZE_BROWSER_DIAL,
-                        (request,),
-                    )
-                    .await,
+                SecurityProxy::Callback(proxy) => {
+                    proxy
+                        .call_confidential(
+                            tinysecurity_bus::names::methods::AUTHORIZE_BROWSER_DIAL,
+                            (request,),
+                        )
+                        .await
+                }
                 SecurityProxy::Module(_) => panic!("production client must use its host callback"),
             };
         let response = result.unwrap_or_else(|error| panic!("module SSRF call failed: {error:?}"));
