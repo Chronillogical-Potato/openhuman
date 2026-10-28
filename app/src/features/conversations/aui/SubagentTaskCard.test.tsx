@@ -84,7 +84,7 @@ describe('SubagentTaskCard', () => {
     );
   });
 
-  it('keeps completed output and ignores legacy worktree fields', () => {
+  it('keeps completed output and ignores legacy worktree fields', async () => {
     const legacyActivity: SubagentActivity & {
       worktreePath: string;
       changedFiles: string[];
@@ -116,9 +116,41 @@ describe('SubagentTaskCard', () => {
       'data-status',
       'success'
     );
-    expect(screen.getByText('Research is complete.')).toBeInTheDocument();
+    expect(await screen.findByText('Research is complete.')).toBeInTheDocument();
     expect(screen.queryByTestId('worktree-actions')).toBeNull();
     expect(screen.queryByText(/worker/)).toBeNull();
+  });
+
+  it('renders the completed report as markdown, not literal syntax', async () => {
+    render(
+      <SubagentTaskCard
+        type="tool-call"
+        toolName="task"
+        toolCallId="sub-1"
+        args={{} as never}
+        argsText="{}"
+        result={
+          {
+            status: 'complete',
+            activity: {
+              ...activity,
+              status: 'success',
+              output: '**Answer:** saved the flow.\n\n- trigger updated\n- step 2 shortened',
+            },
+          } as never
+        }
+        status={{ type: 'complete' }}
+        addResult={() => {}}
+        resume={() => {}}
+        respondToApproval={async () => {}}
+      />
+    );
+
+    const strong = await screen.findByText('Answer:');
+    expect(strong.tagName).toBe('STRONG');
+    const items = screen.getAllByRole('listitem').map(li => li.textContent);
+    expect(items).toEqual(['trigger updated', 'step 2 shortened']);
+    expect(screen.queryByText(/\*\*Answer:\*\*/)).toBeNull();
   });
 
   it('renders the awaiting-user reply box and lets the answer through the composer path', async () => {
