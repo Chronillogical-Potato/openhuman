@@ -160,7 +160,7 @@ const MarkdownTextImpl = ({ citations }: { citations: boolean }) => {
 };
 
 /** The chat's markdown renderer; also an assistant-ui `Text` part component. */
-export const MarkdownText = memo(function MarkdownText() {
+export const MarkdownText = memo(() => {
   return <MarkdownTextImpl citations />;
 });
 
@@ -169,7 +169,7 @@ export const MarkdownText = memo(function MarkdownText() {
  * sub-agent's report on its delegation card): its `[n]` markers refer to
  * sources the enclosing message does not have, so they stay plain text.
  */
-export const MarkdownTextNoCitations = memo(function MarkdownTextNoCitations() {
+export const MarkdownTextNoCitations = memo(() => {
   return <MarkdownTextImpl citations={false} />;
 });
 
