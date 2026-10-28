@@ -8,9 +8,10 @@ use openhuman_core::{
 };
 use std::path::PathBuf;
 use tinysecurity_bus::{
-    HostActionClassRequest2, PathAccess, PathBatchRequest2, PathCheckKind, PathPolicy,
+    CommandAutonomy, CommandClass, CommandExecutionMode, CommandPolicy, CommandRequest,
+    PathAccess, PathBatchRequest2, PathCheckKind, PathPolicy,
     PathTrustedRoot, PrivacyCheckRequest2, PrivacyDataClass2, PrivacyMode,
-    ProtectedPathRequest2, RedactMode, ToolPermission, Verdict,
+    ProtectedPathRequest2, RedactMode, Verdict,
 };
 use serde_json::{json, Value};
 use tower::ServiceExt;
@@ -112,14 +113,30 @@ async fn native_fixture_exercises_the_pinned_release_contracts() {
         .expect("the scoped path check should answer");
     assert_eq!(path_result.allowed, vec![false, true]);
 
-    let class = client
-        .classify_host_action2(HostActionClassRequest2 {
-            permission: ToolPermission::Execute,
-            external_effect: false,
+    let command_scope = client
+        .register_command_policy(CommandPolicy {
+            enabled: true,
+            execution_mode: CommandExecutionMode::HarnessGated,
+            shell_dialect: tinysecurity_bus::ShellDialect::default(),
+            autonomy: CommandAutonomy::Full,
+            allowed_commands: vec![],
+            max_actions_per_hour: 100,
+            require_approval_for_medium_risk: true,
+            block_high_risk_commands: false,
+            action_dir: std::env::current_dir().expect("fixture action dir"),
+            home_dir: None,
         })
         .await
-        .expect("shell action classification should answer");
-    assert_eq!(class.class, tinysecurity_bus::CommandClass::Write);
+        .expect("host should register command policy");
+    let class = client
+        .classify_command(CommandRequest {
+            policy_id: command_scope,
+            command: "curl https://example.invalid".into(),
+            declared_class: None,
+        })
+        .await
+        .expect("shell command classification should answer");
+    assert_eq!(class.class, CommandClass::Network);
 
     let egress = client
         .privacy_check2(PrivacyCheckRequest2 {
