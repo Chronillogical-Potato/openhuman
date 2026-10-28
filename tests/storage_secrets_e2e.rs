@@ -50,7 +50,6 @@ async fn a_configured_backend_holds_keyring_and_credential_secrets() {
         .await
         .unwrap();
     secret_storage::set("legacy-user", "old_token", "old-value")
-        .await
         .unwrap();
     let profiles_file = std::fs::read(state.join("auth-profiles.json")).unwrap();
     let http_file = std::fs::read(state.join("http-credentials.json")).unwrap();
@@ -64,19 +63,16 @@ async fn a_configured_backend_holds_keyring_and_credential_secrets() {
     case.install();
 
     secret_storage::set("user-1", "api_token", "tok-123")
-        .await
         .unwrap();
     assert_eq!(
         secret_storage::get("user-1", "api_token")
-            .await
             .unwrap()
             .as_deref(),
         Some("tok-123")
     );
     assert!(secret_storage::is_available());
-    secret_storage::delete("user-1", "api_token").await.unwrap();
+    secret_storage::delete("user-1", "api_token").unwrap();
     assert!(secret_storage::get("user-1", "api_token")
-        .await
         .unwrap()
         .is_none());
 
@@ -84,16 +80,12 @@ async fn a_configured_backend_holds_keyring_and_credential_secrets() {
     // delete removes it from both places so it cannot resurface.
     assert_eq!(
         secret_storage::get("legacy-user", "old_token")
-            .await
             .unwrap()
             .as_deref(),
         Some("old-value")
     );
-    secret_storage::delete("legacy-user", "old_token")
-        .await
-        .unwrap();
+    secret_storage::delete("legacy-user", "old_token").unwrap();
     assert!(secret_storage::get("legacy-user", "old_token")
-        .await
         .unwrap()
         .is_none());
 
