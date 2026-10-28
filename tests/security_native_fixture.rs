@@ -77,7 +77,13 @@ async fn start_desktop_fixture() -> (
     openhuman_rpc::host::prepare_cli_host();
     let options = DesktopOptions {
         host: Some("127.0.0.1".into()),
-        port: Some(0),
+        port: Some(
+            std::net::TcpListener::bind("127.0.0.1:0")
+                .expect("reserve ephemeral port")
+                .local_addr()
+                .expect("ephemeral address")
+                .port(),
+        ),
         socketio: false,
         rpc_token: Some(std::sync::Arc::new(TOKEN.into())),
     };
