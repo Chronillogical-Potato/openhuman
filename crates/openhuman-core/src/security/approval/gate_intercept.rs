@@ -51,8 +51,7 @@ impl ApprovalGate {
         #[cfg(not(test))]
         let args_redacted = match self.redact_approval_arguments(args_redacted).await {
             Ok(args) => args,
-            Err(error) => {
-                eprintln!("native approval fixture redaction error: {error}");
+            Err(_) => {
                 return (
                     GateOutcome::Deny {
                         reason: format!(
