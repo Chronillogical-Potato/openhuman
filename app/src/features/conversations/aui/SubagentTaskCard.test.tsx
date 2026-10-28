@@ -165,10 +165,11 @@ describe('SubagentTaskCard', () => {
     const report = await screen.findByTestId('subagent-report');
     const strong = await within(report).findByText('Answer:');
     expect(strong.tagName).toBe('STRONG');
-    expect(within(report).getAllByRole('listitem').map(li => li.textContent)).toEqual([
-      'trigger updated',
-      'step 2 shortened',
-    ]);
+    expect(
+      within(report)
+        .getAllByRole('listitem')
+        .map(li => li.textContent)
+    ).toEqual(['trigger updated', 'step 2 shortened']);
     expect(report.textContent).not.toContain('**');
 
     // The same button collapses it again.
