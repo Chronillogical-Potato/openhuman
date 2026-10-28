@@ -748,6 +748,3 @@ mod client_tests;
 #[path = "ops_resolver_tests.rs"]
 mod resolver_tests;
 
-#[cfg(test)]
-#[path = "ops_failure_redaction_tests.rs"]
-mod failure_redaction_tests;

@@ -701,3 +701,6 @@ async fn attaching_a_linked_module_without_a_factory_fails_with_a_static_reason(
     assert!(error.contains("no linked factory"), "{error}");
     assert!(!error.contains('/'), "{error}");
 }
+
+#[path = "ops_failure_redaction_tests.rs"]
+mod failure_redaction_tests;
