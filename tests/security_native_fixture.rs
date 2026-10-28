@@ -89,10 +89,12 @@ async fn start_desktop_fixture(
     let shutdown = CancellationToken::new();
     let (ready_tx, ready_rx) = tokio::sync::oneshot::channel::<EmbeddedReadySignal>();
     let server = tokio::spawn(serve_desktop(builder, shutdown.clone(), ready_tx));
-    let ready = tokio::time::timeout(std::time::Duration::from_secs(120), ready_rx)
-        .await
-        .expect("desktop host ready signal")
-        .expect("desktop host ready channel");
+    let ready = tokio::select! {
+        ready = tokio::time::timeout(std::time::Duration::from_secs(120), ready_rx) => ready
+            .expect("desktop host ready signal")
+            .expect("desktop host ready channel"),
+        result = &mut server => panic!("desktop host exited before ready: {result:?}"),
+    };
     (ready.port, shutdown, server)
 }
 
