@@ -22,9 +22,9 @@ fn ctx(
 }
 
 fn typing(channel: &str) -> ChannelBackendRequest {
-    ChannelBackendRequest::ProgressiveTransport(Box::new(ProgressiveTransportRequest::Typing {
+    ChannelBackendRequest::ProgressiveTransport(ProgressiveTransportRequest::Typing {
         channel: channel.to_string(),
-    }))
+    })
 }
 
 // Route absence and message absence need different recoveries in the
@@ -131,7 +131,7 @@ async fn typed_send_preserves_v22_content_and_turn_metadata() {
 
     let answer = serve(
         ctx(config, Some("telegram")),
-        ChannelBackendRequest::ProgressiveTransport(Box::new(request)),
+        ChannelBackendRequest::ProgressiveTransport(request),
     )
     .await
     .unwrap();
@@ -175,7 +175,7 @@ async fn progressive_send_forwards_turn_and_delivery_context() {
     let config = test_support::signed_in(&tmp, &server.uri()).await;
     let answer = serve(
         ctx(config, Some("telegram")),
-        ChannelBackendRequest::ProgressiveTransport(Box::new(ProgressiveTransportRequest::Send {
+        ChannelBackendRequest::ProgressiveTransport(ProgressiveTransportRequest::Send {
             channel: "telegram".into(),
             message: json!({
                 "text": "hello",
@@ -194,7 +194,7 @@ async fn progressive_send_forwards_turn_and_delivery_context() {
                     "idempotencyKey": "turn-7:reply"
                 }
             }),
-        })),
+        }),
     )
     .await
     .unwrap();
@@ -354,7 +354,7 @@ async fn a_context_bearing_delete_or_typing_keeps_the_empty_id_guards() {
     ] {
         let answer = serve(
             ctx(test_support::signed_in(&tmp, &server.uri()).await, None),
-            ChannelBackendRequest::ProgressiveTransport(Box::new(request)),
+            ChannelBackendRequest::ProgressiveTransport(request),
         )
         .await
         .unwrap();
