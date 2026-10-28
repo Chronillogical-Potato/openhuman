@@ -175,7 +175,7 @@ async fn credentials_session_expired_subscriber_clears_remote_session_but_keeps_
 }
 
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn auth_service_direct_paths_cover_profile_selection_and_validation() {
     let tmp = tempdir().expect("tempdir");
     let auth = AuthService::new(tmp.path(), false);
@@ -1104,7 +1104,7 @@ async fn auth_remote_backend_bearer_only_paths_round_trip_with_a_handed_over_ses
 }
 
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn credentials_profile_store_public_api_persists_updates_and_recovers_bad_files() {
     let _lock = env_lock();
     let _keyring_guard = EnvVarGuard::set("OPENHUMAN_KEYRING_BACKEND", "file");
@@ -1290,7 +1290,7 @@ async fn credentials_profile_store_public_api_persists_updates_and_recovers_bad_
 }
 
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn credentials_auth_service_selects_active_default_and_requested_profiles() {
     let _lock = env_lock();
     let _keyring_guard = EnvVarGuard::set("OPENHUMAN_KEYRING_BACKEND", "encrypted_file");
@@ -1381,7 +1381,7 @@ async fn credentials_auth_service_selects_active_default_and_requested_profiles(
 }
 
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn credentials_profile_store_recovers_dropped_entries_empty_files_and_datetime_errors() {
     let _lock = env_lock();
     let _keyring_guard = EnvVarGuard::set("OPENHUMAN_KEYRING_BACKEND", "file");
@@ -1563,7 +1563,7 @@ async fn credentials_profile_store_recovers_dropped_entries_empty_files_and_date
 }
 
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn credentials_profile_store_round_trips_oauth_secret_fields_after_backend_selection() {
     let _lock = env_lock();
     let _keyring_guard = EnvVarGuard::set("OPENHUMAN_KEYRING_BACKEND", "encrypted_file");
@@ -1621,7 +1621,7 @@ async fn credentials_profile_store_round_trips_oauth_secret_fields_after_backend
 }
 
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn credentials_profile_store_keychain_migration_and_fallback_paths_are_deterministic() {
     let _lock = env_lock();
     let _keyring_guard = EnvVarGuard::set("OPENHUMAN_KEYRING_BACKEND", "file");
