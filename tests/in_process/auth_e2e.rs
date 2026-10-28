@@ -246,7 +246,7 @@ async fn auth_service_direct_paths_cover_profile_selection_and_validation() {
         Some("gitlab-access-token".to_string())
     );
     assert!(auth
-        .get_profile("gitlab", Some("missing"))
+        .get_profile("gitlab", Some("missing")).await
         .expect("missing override lookup")
         .is_none());
     let wrong_provider_err = auth
@@ -346,7 +346,7 @@ async fn composio_direct_credentials_helpers_trim_store_and_clear_key() {
         .expect("create config parent");
 
     assert_eq!(
-        get_composio_api_key(&config).expect("empty composio key store"),
+        get_composio_api_key(&config).await.expect("empty composio key store"),
         None
     );
     assert!(
@@ -362,7 +362,7 @@ async fn composio_direct_credentials_helpers_trim_store_and_clear_key() {
         Some(COMPOSIO_DIRECT_PROVIDER)
     );
     assert_eq!(
-        get_composio_api_key(&config).expect("stored composio key"),
+        get_composio_api_key(&config).await.expect("stored composio key"),
         Some("cmp_worker_a_secret".to_string())
     );
 
@@ -374,7 +374,7 @@ async fn composio_direct_credentials_helpers_trim_store_and_clear_key() {
         Some(true)
     );
     assert_eq!(
-        get_composio_api_key(&config).expect("updated composio key"),
+        get_composio_api_key(&config).await.expect("updated composio key"),
         Some("cmp_worker_a_second".to_string())
     );
 
@@ -386,7 +386,7 @@ async fn composio_direct_credentials_helpers_trim_store_and_clear_key() {
         Some(true)
     );
     assert_eq!(
-        get_composio_api_key(&config).expect("cleared composio key"),
+        get_composio_api_key(&config).await.expect("cleared composio key"),
         None
     );
     let cleared_again = clear_composio_api_key(&config)
@@ -1188,7 +1188,7 @@ async fn credentials_profile_store_public_api_persists_updates_and_recovers_bad_
         .set_active_profile("github", &oauth_id).await
         .expect("set active oauth profile");
     store
-        .clear_active_profile("openai")
+        .clear_active_profile("openai").await
         .expect("clear active token profile");
     let updated = store
         .update_profile(&oauth_id, |profile| {
@@ -1196,7 +1196,7 @@ async fn credentials_profile_store_public_api_persists_updates_and_recovers_bad_
                 .metadata
                 .insert("updated".to_string(), "true".to_string());
             Ok(())
-        })
+        }).await
         .expect("update oauth metadata");
     assert_eq!(
         updated.metadata.get("updated").map(String::as_str),
@@ -1328,7 +1328,7 @@ async fn credentials_auth_service_selects_active_default_and_requested_profiles(
         },
     );
     let oauth_id = oauth_profile.id.clone();
-    service.load_profiles().expect("load before oauth upsert");
+    service.load_profiles().await.expect("load before oauth upsert");
     AuthProfilesStore::new(&tmp.path().join("auth-service"), false)
         .upsert_profile(oauth_profile, false).await
         .expect("upsert oauth work profile");
@@ -1556,7 +1556,7 @@ async fn credentials_profile_store_recovers_dropped_entries_empty_files_and_date
         .to_string()
         .contains("Auth profile not found"));
     assert!(public_store
-        .update_profile("github:missing", |_| Ok(()))
+        .update_profile("github:missing", |_| Ok(())).await
         .expect_err("missing update profile should fail")
         .to_string()
         .contains("Auth profile not found"));
