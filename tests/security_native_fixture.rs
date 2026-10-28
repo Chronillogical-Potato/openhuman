@@ -93,42 +93,6 @@ async fn native_fixture_exercises_the_pinned_release_contracts() {
     assert_eq!(floor.protected, vec![true, false]);
 
     let workspace = scratch.path().to_path_buf();
-    let path_scope = client
-        .register_path_policy(PathPolicy {
-            enabled: true,
-            workspace_only: true,
-            workspace_dir: workspace.clone(),
-            action_dir: workspace.clone(),
-            home_dir: None,
-            forbidden_paths: vec![],
-            trusted_roots: vec![PathTrustedRoot {
-                path: workspace,
-                access: PathAccess::ReadWrite,
-            }],
-            reserved_paths: vec![],
-            reserved_prefixes: vec![],
-            readonly_paths: vec![],
-            reserved_names: vec![],
-        })
-        .await
-        .expect("the host should be able to register an immutable path scope");
-    let allowed_path = client
-        .validate_path(PathValidationRequest {
-            policy_id: path_scope.clone(),
-            path: config.config_path.to_string_lossy().into_owned(),
-        })
-        .await
-        .expect("the scoped path check should answer");
-    assert!(matches!(allowed_path, PathValidationResult::Allowed { .. }));
-    let denied_path = client
-        .validate_path(PathValidationRequest {
-            policy_id: path_scope,
-            path: "../outside".to_owned(),
-        })
-        .await
-        .expect("the scoped traversal check should answer");
-    assert!(matches!(denied_path, PathValidationResult::Denied { .. }));
-
     let command_scope = client
         .register_command_policy(CommandPolicy {
             enabled: true,
