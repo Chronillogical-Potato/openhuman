@@ -220,6 +220,11 @@ async fn native_fixture_executes_through_the_module_sandbox_plan() {
     std::env::set_var("OPENHUMAN_ACTION_DIR", scratch.path());
     let mut config = Config::default();
     config.modules.enabled = true;
+    config.workspace_dir = scratch.path().to_path_buf();
+    config.config_path = scratch.path().join("config.toml");
+    config.action_dir = scratch.path().to_path_buf();
+    config.action_dir_override = Some(config.action_dir.clone());
+    config.save().await.expect("save sandbox fixture config");
     client(&config).await.expect("released module loads");
     let policy = SandboxPolicy {
         backend: SandboxBackendKind::None,
@@ -269,7 +274,7 @@ async fn native_fixture_approves_a_parked_request_round_trip() {
     openhuman_core::security::secret_storage::init_workspace(scratch.path());
     let router = openhuman_rpc::server::build_core_http_router(false);
     client(&config).await.expect("released module loads");
-    let gate = ApprovalGate::init_global(config, "security-native-approval-fixture");
+    let gate = ApprovalGate::init_global(config, "session-security-native-approval-fixture");
     let parked = {
         let gate = gate.clone();
         tokio::spawn(async move {
