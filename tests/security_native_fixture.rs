@@ -459,3 +459,97 @@ fn native_fixture_fails_closed_without_approval_audit_correlation() {
             .expect("desktop server shuts down cleanly");
     });
 }
+
+/// Temporary local proof for the patched TinySecurity source artifact.
+#[test]
+#[ignore = "local diagnostic: requires the patched TinySecurity module in OPENHUMAN_MODULE_PATH"]
+fn native_fixture_approves_a_parked_request_round_trip_with_patched_module() {
+    run_on_agent_stack("native-approval-fixture", || async {
+        let scratch = tempfile::tempdir().expect("scratch workspace");
+        let home = scratch.path().join("home");
+        let workspace = scratch.path().join("workspace");
+        std::fs::create_dir_all(&home).expect("create isolated home");
+        std::fs::create_dir_all(&workspace).expect("create isolated workspace");
+        std::env::set_var("HOME", &home);
+        std::env::set_var("OPENHUMAN_WORKSPACE", &workspace);
+        std::env::remove_var("OPENHUMAN_STORAGE_URL");
+        std::env::set_var("BACKEND_URL", "http://127.0.0.1:9");
+        std::env::set_var("OPENHUMAN_KEYRING_BACKEND", "file");
+        let mut config = Config::default();
+        config.modules.enabled = true;
+        config.autonomy.enabled = false;
+        config.autonomy.forbidden_paths.clear();
+        config.workspace_dir = workspace;
+        config.config_path = home.join(".openhuman/config.toml");
+        config.action_dir = scratch.path().join("action");
+        config.action_dir_override = Some(config.action_dir.clone());
+        config.save().await.expect("save fixture config");
+        openhuman_core::security::secret_storage::init_workspace(scratch.path());
+        let (port, shutdown, server) = start_desktop_fixture(config.clone()).await;
+        health_http(port).await.expect("desktop host health");
+        let gate = ApprovalGate::init_global(config, "session-security-native-approval-fixture");
+        let parked = {
+            let gate = gate.clone();
+            tokio::spawn(async move {
+                turn_origin::with_origin(
+                    AgentTurnOrigin::WebChat {
+                        thread_id: "native-fixture-thread".into(),
+                        client_id: "native-fixture-client".into(),
+                        request_id: None,
+                    },
+                    gate.intercept(
+                        &ApprovalTurnContext::chat(ApprovalChatContext {
+                            thread_id: "native-fixture-thread".into(),
+                            client_id: "native-fixture-client".into(),
+                            request_id: None,
+                        }),
+                        "shell",
+                        "run harmless fixture command",
+                        json!({"command":"echo approval-fixture"}),
+                    ),
+                )
+                .await
+            })
+        };
+        let mut pending = Value::Null;
+        for _ in 0..200 {
+            pending = rpc_http(port, "openhuman.approval_list_pending", json!({})).await;
+            if rpc_result(&pending)
+                .as_array()
+                .is_some_and(|rows| !rows.is_empty())
+            {
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(25)).await;
+        }
+        let Some(row) = rpc_result(&pending)
+            .as_array()
+            .and_then(|rows| rows.first())
+        else {
+            let outcome = parked.await.expect("parked caller");
+            panic!("TinySecurity should persist the parked approval row: {pending}; outcome: {outcome:?}");
+        };
+        let decision = rpc_http(
+            port,
+            "openhuman.approval_decide",
+            json!({
+                "request_id": row["request_id"].as_str().expect("approval request id"),
+                "decision": "approve_once",
+            }),
+        )
+        .await;
+        assert!(
+            decision.get("error").is_none(),
+            "host should record the approval: {decision}"
+        );
+        assert!(matches!(
+            parked.await.expect("parked caller"),
+            GateOutcome::Allow
+        ));
+        shutdown.cancel();
+        server
+            .await
+            .expect("desktop server task")
+            .expect("desktop server shuts down cleanly");
+    });
+}
