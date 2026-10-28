@@ -12,13 +12,14 @@ use tower::ServiceExt;
 const TOKEN: &str = "security-native-fixture-token";
 
 async fn rpc(router: &Router, method: &str, params: Value) -> Value {
+    let body = json!({"jsonrpc":"2.0","id":1,"method":method,"params":params}).to_string();
     let response = router.clone().oneshot(
         Request::builder()
             .method("POST")
             .uri("/rpc")
             .header("content-type", "application/json")
             .header("authorization", format!("Bearer {TOKEN}"))
-            .body(Body::from(json!({"jsonrpc":"2.0","id":1,"method":method,"params":params}.to_string())))
+            .body(Body::from(body))
             .expect("valid request"),
     ).await.expect("router response");
     assert_eq!(response.status(), StatusCode::OK, "{method}");
@@ -160,7 +161,9 @@ async fn native_fixture_denies_keyring_before_backend_access() {
     let router = openhuman_rpc::server::build_core_http_router(false);
     let (tx, rx) = tokio::sync::oneshot::channel();
     let tx = std::sync::Mutex::new(Some(tx));
-    let _subscription = openhuman_core::core::bus::BUS.on("security-native-keyring", move |event| {
+    let _subscription = openhuman_core::core::bus::BUS.get()
+        .expect("RPC router initializes the event bus")
+        .on("security-native-keyring", move |event| {
         async move {
             if let openhuman_core::core::events::DomainEvent::KeyringAccessApprovalRequested(request) = event {
                 if let Some(tx) = tx.lock().expect("event sender mutex").take() {
@@ -168,7 +171,7 @@ async fn native_fixture_denies_keyring_before_backend_access() {
                 }
             }
         }
-    });
+        });
 
     let mut config = Config::default();
     config.modules.enabled = true;
