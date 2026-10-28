@@ -131,7 +131,7 @@ async fn native_fixture_denies_private_browser_dial() {
     config.save().await.expect("save fixture config");
     crate::security::secret_storage::init_workspace(scratch.path());
 
-    let client = client(&config)
+    let client = super::super::client(&config)
         .await
         .expect("pinned TinySecurity release loads");
     let policy_id = client

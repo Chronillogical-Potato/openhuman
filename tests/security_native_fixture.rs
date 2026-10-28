@@ -1,41 +1,62 @@
-use axum::{body::{to_bytes, Body}, http::{Request, StatusCode}, Router};
+use axum::{
+    body::{to_bytes, Body},
+    http::{Request, StatusCode},
+    Router,
+};
 use openhuman_core::{
     config::Config,
-    core::runtime::{turn_origin::{self, AgentTurnOrigin}, DispatchCtx},
+    core::runtime::{
+        turn_origin::{self, AgentTurnOrigin},
+        DispatchCtx,
+    },
     modules::security::{client, reinitialize},
     sandbox::types::{SandboxBackendKind, SandboxPolicy},
-    security::approval::{gate::ApprovalGate, ApprovalChatContext, ApprovalTurnContext, GateOutcome},
+    security::approval::{
+        gate::ApprovalGate, ApprovalChatContext, ApprovalTurnContext, GateOutcome,
+    },
 };
+use serde_json::{json, Value};
 use std::path::PathBuf;
 use tinysecurity_bus::{
     CommandAutonomy, CommandClass, CommandExecutionMode, CommandPolicy, CommandRequest,
     ProtectedPathRequest2, RedactMode,
 };
-use serde_json::{json, Value};
 use tower::ServiceExt;
 
 const TOKEN: &str = "security-native-fixture-token";
 
 async fn rpc(router: &Router, method: &str, params: Value) -> Value {
     let body = json!({"jsonrpc":"2.0","id":1,"method":method,"params":params}).to_string();
-    let response = router.clone().oneshot(
-        Request::builder()
-            .method("POST")
-            .uri("/rpc")
-            .header("content-type", "application/json")
-            .header("authorization", format!("Bearer {TOKEN}"))
-            .body(Body::from(body))
-            .expect("valid request"),
-    ).await.expect("router response");
+    let response = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/rpc")
+                .header("content-type", "application/json")
+                .header("authorization", format!("Bearer {TOKEN}"))
+                .body(Body::from(body))
+                .expect("valid request"),
+        )
+        .await
+        .expect("router response");
     assert_eq!(response.status(), StatusCode::OK, "{method}");
-    serde_json::from_slice(&to_bytes(response.into_body(), 1024 * 1024).await.expect("response body"))
-        .expect("JSON-RPC response")
+    serde_json::from_slice(
+        &to_bytes(response.into_body(), 1024 * 1024)
+            .await
+            .expect("response body"),
+    )
+    .expect("JSON-RPC response")
 }
 
 fn rpc_result(response: &Value) -> &Value {
     assert!(response.get("error").is_none(), "{response}");
     let result = &response["result"];
-    if result.get("logs").is_some() { &result["result"] } else { result }
+    if result.get("logs").is_some() {
+        &result["result"]
+    } else {
+        result
+    }
 }
 
 /// Loads the published TinySecurity archive through the compiled registry pin.
@@ -136,7 +157,10 @@ async fn native_fixture_exercises_the_pinned_release_contracts() {
             },
         })
         .await;
-    assert!(keyring.is_err(), "keyring access without host consent must fail closed");
+    assert!(
+        keyring.is_err(),
+        "keyring access without host consent must fail closed"
+    );
 }
 
 /// A corrupted library presented through the explicit test override must never
@@ -169,16 +193,23 @@ async fn native_fixture_denies_keyring_before_backend_access() {
     config.save().await.expect("save keyring fixture config");
     openhuman_core::security::secret_storage::init_workspace(scratch.path());
     let client = client(&config).await.expect("released module loads");
-    let result = client.keyring_access2(tinysecurity_bus::KeyringRequest2 {
-        caller: tinysecurity_bus::CallerContext {
-            agent: "native-fixture".into(),
-            call_id: "native-fixture-keyring-call".into(),
-            ..Default::default()
-        },
-        purpose: "verify fail-closed keyring access".into(),
-        operation: tinysecurity_bus::KeyringOperation2::Get { name: "fixture-secret".into() },
-    }).await;
-    assert!(result.is_err(), "keyring access without host admission must fail closed");
+    let result = client
+        .keyring_access2(tinysecurity_bus::KeyringRequest2 {
+            caller: tinysecurity_bus::CallerContext {
+                agent: "native-fixture".into(),
+                call_id: "native-fixture-keyring-call".into(),
+                ..Default::default()
+            },
+            purpose: "verify fail-closed keyring access".into(),
+            operation: tinysecurity_bus::KeyringOperation2::Get {
+                name: "fixture-secret".into(),
+            },
+        })
+        .await;
+    assert!(
+        result.is_err(),
+        "keyring access without host admission must fail closed"
+    );
 }
 
 /// Runs a harmless shell command through the public host adapter so the
@@ -209,7 +240,11 @@ async fn native_fixture_executes_through_the_module_sandbox_plan() {
         env_passthrough: vec![],
         docker_overrides: None,
     };
-    let command = if cfg!(windows) { "echo sandbox-fixture" } else { "echo sandbox-fixture" };
+    let command = if cfg!(windows) {
+        "echo sandbox-fixture"
+    } else {
+        "echo sandbox-fixture"
+    };
     let result = turn_origin::with_origin(
         AgentTurnOrigin::Cli,
         openhuman_core::sandbox::ops::execute_in_sandbox(
@@ -223,7 +258,11 @@ async fn native_fixture_executes_through_the_module_sandbox_plan() {
     )
     .await
     .expect("TinySecurity should plan and consume the safe sandbox command");
-    assert!(result.success(), "sandbox command failed: {}", result.stderr);
+    assert!(
+        result.success(),
+        "sandbox command failed: {}",
+        result.stderr
+    );
     assert!(result.stdout.contains("sandbox-fixture"));
     let outside = tempfile::tempdir().expect("outside directory");
     let denied = turn_origin::with_origin(
@@ -238,7 +277,10 @@ async fn native_fixture_executes_through_the_module_sandbox_plan() {
         ),
     )
     .await;
-    assert!(denied.is_err(), "sandbox path policy must refuse a working directory outside its workspace");
+    assert!(
+        denied.is_err(),
+        "sandbox path policy must refuse a working directory outside its workspace"
+    );
 }
 
 /// Parks a real approval request, approves it through the host RPC controller,
@@ -280,24 +322,41 @@ async fn native_fixture_approves_a_parked_request_round_trip() {
                     "run harmless fixture command",
                     json!({"command":"echo approval-fixture"}),
                 ),
-            ).await
+            )
+            .await
         })
     };
     let mut pending = Value::Null;
     for _ in 0..200 {
         pending = rpc(&router, "openhuman.approval_list_pending", json!({})).await;
-        if rpc_result(&pending).as_array().is_some_and(|rows| !rows.is_empty()) {
+        if rpc_result(&pending)
+            .as_array()
+            .is_some_and(|rows| !rows.is_empty())
+        {
             break;
         }
         tokio::time::sleep(std::time::Duration::from_millis(25)).await;
     }
-    let row = rpc_result(&pending).as_array().and_then(|rows| rows.first())
+    let row = rpc_result(&pending)
+        .as_array()
+        .and_then(|rows| rows.first())
         .expect("TinySecurity should persist the parked approval row");
     let request_id = row["request_id"].as_str().expect("approval request id");
-    let decision = rpc(&router, "openhuman.approval_decide", json!({
-        "request_id": request_id,
-        "decision": "approve_once",
-    })).await;
-    assert!(decision.get("error").is_none(), "host should record the approval: {decision}");
-    assert!(matches!(parked.await.expect("parked caller"), GateOutcome::Allow));
+    let decision = rpc(
+        &router,
+        "openhuman.approval_decide",
+        json!({
+            "request_id": request_id,
+            "decision": "approve_once",
+        }),
+    )
+    .await;
+    assert!(
+        decision.get("error").is_none(),
+        "host should record the approval: {decision}"
+    );
+    assert!(matches!(
+        parked.await.expect("parked caller"),
+        GateOutcome::Allow
+    ));
 }
