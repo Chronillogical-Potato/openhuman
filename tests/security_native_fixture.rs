@@ -448,6 +448,7 @@ fn native_fixture_fails_closed_without_approval_audit_correlation() {
         let rows = rpc_result(&pending).as_array().expect("pending row list");
         assert!(rows.is_empty(), "a denied request must not become pending");
         let outcome = parked.await.expect("parked caller");
+        eprintln!("approval fixture diagnostic: final outcome {outcome:?}");
         assert!(
             matches!(outcome, GateOutcome::Deny { ref reason } if reason.contains("EvaluateApproval2 failed")),
             "required audit failure must deny approval evaluation: {outcome:?}"
