@@ -478,6 +478,12 @@ fn native_fixture_approves_a_parked_request_round_trip_with_patched_module() {
         let mut config = Config::default();
         config.modules.enabled = true;
         config.modules.source = openhuman_core::config::schema::ModuleSourceMode::Source;
+        config.modules.overrides.push(
+            openhuman_core::config::schema::ModuleOverride::with_source(
+                "tinysecurity",
+                openhuman_core::config::schema::ModuleSourceMode::Source,
+            ),
+        );
         config.autonomy.enabled = false;
         config.autonomy.forbidden_paths.clear();
         config.workspace_dir = workspace;
@@ -488,10 +494,15 @@ fn native_fixture_approves_a_parked_request_round_trip_with_patched_module() {
         openhuman_core::security::secret_storage::init_workspace(scratch.path());
         let (port, shutdown, server) = start_desktop_fixture(config.clone()).await;
         health_http(port).await.expect("desktop host health");
+        let module_list = rpc_http(port, "openhuman.modules_list", json!({})).await;
+        let modules = rpc_result(&module_list).as_array().expect("module list");
+        let status = modules
+            .iter()
+            .find(|module| module["id"] == "tinysecurity")
+            .expect("TinySecurity module status");
         eprintln!(
-            "local approval proof source config={:?} source_dir_set={}",
-            config.modules.source,
-            std::env::var_os("OPENHUMAN_MODULE_SOURCE_DIR").is_some()
+            "local approval proof source={:?} state={:?}",
+            status["source"], status["state"]
         );
         match client(&config).await {
             Ok(module) => {
@@ -499,7 +510,7 @@ fn native_fixture_approves_a_parked_request_round_trip_with_patched_module() {
                 eprintln!(
                     "local approval proof redaction result={:?}",
                     module
-                        .redact(RedactMode::StructuredArguments, "{}".into())
+                        .redact(RedactMode::StructuredArguments, "{}")
                         .await
                         .map(|_| "ok")
                 );
