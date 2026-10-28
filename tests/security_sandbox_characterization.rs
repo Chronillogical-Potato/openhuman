@@ -6,7 +6,7 @@ use std::path::Path;
 use tinyagents_definition::SandboxMode;
 
 use openhuman_core::{
-    config::RuntimeConfig,
+    config::{RuntimeConfig, SandboxConfig},
     sandbox::{policy::route_for_mode, SandboxBackendKind, SandboxPolicy},
 };
 

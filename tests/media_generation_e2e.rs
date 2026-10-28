@@ -165,6 +165,7 @@ fn config(root: &Path, api_url: &str) -> Config {
     config.secrets.encrypt = false;
     std::fs::create_dir_all(&config.workspace_dir).unwrap();
     openhuman_core::credentials::api_key::store_api_key(&config, API_KEY)
+        .await
         .expect("store the TinyHumans API key");
     config
 }
@@ -213,6 +214,7 @@ async fn media_tools_deliver_images_and_videos_through_the_backend_proxy() {
     ] {
         assert!(
             registered
+                .await
                 .iter()
                 .any(|candidate| candidate.name() == expected),
             "the host-registered media source must expose `{expected}`"
