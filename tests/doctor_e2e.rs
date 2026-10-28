@@ -528,6 +528,7 @@ async fn assert_expired_session_is_seeded(home: &Path) {
     .config;
     let profile =
         openhuman_core::credentials::session_state::load_app_session_profile_read_only(&config)
+            .await
             .expect("read session profile without mutation")
             .expect("synthetic session profile exists");
     let token =
