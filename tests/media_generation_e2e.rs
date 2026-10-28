@@ -155,7 +155,7 @@ async fn start_backend() -> (String, Backend) {
     (format!("http://{address}"), backend)
 }
 
-fn config(root: &Path, api_url: &str) -> Config {
+async fn config(root: &Path, api_url: &str) -> Config {
     let mut config = Config {
         config_path: root.join("config.toml"),
         workspace_dir: root.join("workspace"),
@@ -183,7 +183,7 @@ async fn media_tools_deliver_images_and_videos_through_the_backend_proxy() {
     tinyhumans_boot::boot();
     let tmp = tempfile::tempdir().unwrap();
     let (api_url, backend) = start_backend().await;
-    let mut config = config(tmp.path(), &api_url);
+    let mut config = config(tmp.path(), &api_url).await;
     let action_dir = tmp.path().join("projects");
     // Deliverables land in the visible Files folder (#5505); metadata is read
     // through the artifact store because it may use the configured backend.
@@ -206,7 +206,8 @@ async fn media_tools_deliver_images_and_videos_through_the_backend_proxy() {
         &config.http_request,
         &action_dir,
         &config,
-    );
+    )
+    .await;
     for expected in [
         "media_generate_image",
         "media_generate_video",
@@ -214,7 +215,6 @@ async fn media_tools_deliver_images_and_videos_through_the_backend_proxy() {
     ] {
         assert!(
             registered
-                .await
                 .iter()
                 .any(|candidate| candidate.name() == expected),
             "the host-registered media source must expose `{expected}`"
