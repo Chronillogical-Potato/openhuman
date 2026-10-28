@@ -88,7 +88,7 @@ async fn start_desktop_fixture(
     let builder = desktop_builder(&options).config(config).services(services);
     let shutdown = CancellationToken::new();
     let (ready_tx, ready_rx) = tokio::sync::oneshot::channel::<EmbeddedReadySignal>();
-    let server = tokio::spawn(serve_desktop(builder, shutdown.clone(), ready_tx));
+    let mut server = tokio::spawn(serve_desktop(builder, shutdown.clone(), ready_tx));
     let ready = tokio::select! {
         ready = tokio::time::timeout(std::time::Duration::from_secs(120), ready_rx) => ready
             .expect("desktop host ready signal")
