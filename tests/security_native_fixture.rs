@@ -131,6 +131,7 @@ async fn start_desktop_fixture(
     let builder = desktop_builder(&options)
         .config_source(openhuman_tinyhumans::embed::ConfigSource::Resolved)
         .config(config)
+        .boot_mode(openhuman_tinyhumans::embed::CoreBootMode::Normal)
         .services(services);
     eprintln!("native-fixture: spawn desktop server");
     let mut server = tokio::spawn(serve_desktop(builder, shutdown.clone(), ready_tx));
