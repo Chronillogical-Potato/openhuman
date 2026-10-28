@@ -9,9 +9,9 @@ use openhuman_core::{
 use std::path::PathBuf;
 use tinysecurity_bus::{
     CommandAutonomy, CommandClass, CommandExecutionMode, CommandPolicy, CommandRequest,
-    PathAccess, PathBatchRequest2, PathCheckKind, PathPolicy,
-    PathTrustedRoot, PrivacyCheckRequest2, PrivacyDataClass2, PrivacyMode,
-    ProtectedPathRequest2, RedactMode, Verdict,
+    PathAccess, PathPolicy, PathTrustedRoot, PathValidationRequest, PathValidationResult,
+    PrivacyCheckRequest2, PrivacyDataClass2, PrivacyMode, ProtectedPathRequest2, RedactMode,
+    Verdict,
 };
 use serde_json::{json, Value};
 use tower::ServiceExt;
@@ -92,7 +92,7 @@ async fn native_fixture_exercises_the_pinned_release_contracts() {
         .expect("the unconditional path floor should answer");
     assert_eq!(floor.protected, vec![true, false]);
 
-    let workspace = std::env::current_dir().expect("fixture has a current directory");
+    let workspace = scratch.path().to_path_buf();
     let path_scope = client
         .register_path_policy(PathPolicy {
             enabled: true,
@@ -112,15 +112,22 @@ async fn native_fixture_exercises_the_pinned_release_contracts() {
         })
         .await
         .expect("the host should be able to register an immutable path scope");
-    let path_result = client
-        .check_paths2(PathBatchRequest2 {
-            policy_id: path_scope,
-            kind: PathCheckKind::StringAllowed,
-            paths: vec![PathBuf::from("../outside"), PathBuf::from("ordinary.txt")],
+    let allowed_path = client
+        .validate_path(PathValidationRequest {
+            policy_id: path_scope.clone(),
+            path: config.config_path.to_string_lossy().into_owned(),
         })
         .await
         .expect("the scoped path check should answer");
-    assert_eq!(path_result.allowed, vec![false, true]);
+    assert!(matches!(allowed_path, PathValidationResult::Allowed { .. }));
+    let denied_path = client
+        .validate_path(PathValidationRequest {
+            policy_id: path_scope,
+            path: "../outside".to_owned(),
+        })
+        .await
+        .expect("the scoped traversal check should answer");
+    assert!(matches!(denied_path, PathValidationResult::Denied { .. }));
 
     let command_scope = client
         .register_command_policy(CommandPolicy {
