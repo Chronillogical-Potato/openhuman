@@ -16,8 +16,8 @@ use openhuman_core::{
     },
 };
 use openhuman_rpc::{
-    host::{desktop_builder, serve_desktop, DesktopOptions, EmbeddedReadySignal},
     embed::ServiceSet,
+    host::{desktop_builder, serve_desktop, DesktopOptions, EmbeddedReadySignal},
 };
 use serde_json::{json, Value};
 use std::path::PathBuf;
@@ -93,9 +93,7 @@ async fn start_desktop_fixture(
         integrations: false,
         memory_sync: false,
     };
-    let builder = desktop_builder(&options)
-        .config(config)
-        .services(services);
+    let builder = desktop_builder(&options).config(config).services(services);
     let shutdown = CancellationToken::new();
     let (ready_tx, ready_rx) = tokio::sync::oneshot::channel::<EmbeddedReadySignal>();
     let server = tokio::spawn(serve_desktop(builder, shutdown.clone(), ready_tx));
