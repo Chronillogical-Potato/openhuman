@@ -75,6 +75,16 @@ async fn rpc_http(port: u16, method: &str, params: Value) -> Value {
     response.json().await.expect("JSON-RPC response")
 }
 
+async fn health_http(port: u16) {
+    let response = reqwest::Client::new()
+        .get(format!("http://127.0.0.1:{port}/health"))
+        .timeout(std::time::Duration::from_secs(5))
+        .send()
+        .await
+        .expect("health request");
+    assert_eq!(response.status(), reqwest::StatusCode::OK);
+}
+
 async fn start_desktop_fixture(
     config: Config,
 ) -> (
@@ -401,6 +411,8 @@ fn native_fixture_approves_a_parked_request_round_trip() {
         openhuman_core::security::secret_storage::init_workspace(scratch.path());
         let (port, shutdown, server) = start_desktop_fixture(config.clone()).await;
         eprintln!("native-fixture: desktop fixture started");
+        health_http(port).await;
+        eprintln!("native-fixture: health route responded");
         eprintln!("native-fixture: initialize approval gate");
         let gate = ApprovalGate::init_global(config, "session-security-native-approval-fixture");
         eprintln!("native-fixture: approval gate initialized");
