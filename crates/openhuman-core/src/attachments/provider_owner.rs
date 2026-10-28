@@ -13,11 +13,17 @@ pub(super) fn wrap(
     inner: Arc<dyn ChatModel<()>>,
     config: Arc<Config>,
     profile: Option<ModelProfile>,
+    controls: Option<&HostControlSlot>,
 ) -> Arc<dyn ChatModel<()>> {
+    let inner = match controls {
+        Some(controls) => controls.wrap(inner),
+        None => inner,
+    };
     let host = Arc::new(AttachmentModel {
         config: config.clone(),
         core: ctx.downgrade(),
         fallback_cache: std::sync::Mutex::new(std::collections::HashMap::new()),
+        controls: controls.cloned(),
     });
     let (max_images, image_mb) = config.multimodal.effective_limits();
     let (max_files, file_mb, text_limit) = config.multimodal_files.effective_limits();
