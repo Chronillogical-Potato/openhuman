@@ -14,7 +14,7 @@ use tinybus::module::{ModuleHost, ModuleInfo};
 /// TinyBus's generic search-path loader, which initializes them with `{}`.
 /// Leave those artifacts for the configured load below.
 pub fn configured_module_lib_stems() -> Vec<String> {
-    ["tinymcp", "tinyeventqueues"]
+    ["tinymcp", "tinyeventqueues", "tinysecurity"]
         .into_iter()
         .filter_map(super::registry::find)
         .flat_map(|record| {
