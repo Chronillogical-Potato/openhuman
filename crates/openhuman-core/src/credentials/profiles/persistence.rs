@@ -32,11 +32,13 @@ pub(super) struct PersistedAuthProfiles {
     pub(super) profiles: BTreeMap<String, PersistedAuthProfile>,
 }
 
+const EMPTY_PROFILE_STORE_UPDATED_AT: &str = "1970-01-01T00:00:00+00:00";
+
 impl Default for PersistedAuthProfiles {
     fn default() -> Self {
         Self {
             schema_version: CURRENT_SCHEMA_VERSION,
-            updated_at: default_now_rfc3339(),
+            updated_at: EMPTY_PROFILE_STORE_UPDATED_AT.to_string(),
             active_profiles: BTreeMap::new(),
             profiles: BTreeMap::new(),
         }
