@@ -14,6 +14,7 @@ fn external_channel_origin(
         reply_target: "chat".into(),
         message_id: message_id.into(),
         history_key: None,
+        channel_session: None,
     }
 }
 

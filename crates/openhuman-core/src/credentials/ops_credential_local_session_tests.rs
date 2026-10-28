@@ -160,7 +160,7 @@ async fn signed_in_with_api_key(
 #[tokio::test(flavor = "multi_thread")]
 #[allow(clippy::await_holding_lock)] // Serializes the process-wide storage slot.
 async fn clearing_the_session_keeps_the_api_key_on_a_storage_backend() {
-    let _module = crate::integrations::composio::module_client::module_guard().await;
+    let _module = crate::integrations::composio::module_client::module_lock_guard().await;
     let _env_guard = crate::config::TEST_ENV_LOCK.lock().await;
     let _slot = crate::storage::test_support::lock_storage_slot();
     let _backend = StorageBackendForTest::install();
@@ -200,7 +200,7 @@ async fn clearing_the_session_keeps_the_api_key_on_a_storage_backend() {
 #[tokio::test(flavor = "multi_thread")]
 #[allow(clippy::await_holding_lock)] // Serializes the process-wide storage slot.
 async fn clearing_everything_removes_the_api_key_on_a_storage_backend() {
-    let _module = crate::integrations::composio::module_client::module_guard().await;
+    let _module = crate::integrations::composio::module_client::module_lock_guard().await;
     let _env_guard = crate::config::TEST_ENV_LOCK.lock().await;
     let _slot = crate::storage::test_support::lock_storage_slot();
     let _backend = StorageBackendForTest::install();

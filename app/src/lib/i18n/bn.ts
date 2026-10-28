@@ -1642,6 +1642,8 @@ const messages: TranslationMap = {
   'chat.flowProposal.openInCanvas': 'ক্যানভাসে খুলুন',
   'chat.flowProposal.dismiss': 'খারিজ করুন',
   'chat.flowProposal.error': 'ওয়ার্কফ্লো সংরক্ষণ করা যায়নি। আবার চেষ্টা করুন।',
+  'chat.flowProposal.versionConflict':
+    'প্রস্তাবটি তৈরির পরে এই ওয়ার্কফ্লো পরিবর্তিত হয়েছে, তাই এটি ওভাররাইট করা হয়নি। একটি নতুন সংশোধন চান।',
   'chat.flowProposal.enableError':
     'ওয়ার্কফ্লো সংরক্ষিত হয়েছে, কিন্তু সক্ষম করা যায়নি। আবার চেষ্টা করুন, বা Workflows পৃষ্ঠা থেকে সক্ষম করুন।',
   'chat.flowProposal.savedConfirmation': 'সংরক্ষিত হয়েছে',
@@ -3456,6 +3458,21 @@ const messages: TranslationMap = {
   'composer.settings.loadingModels': 'মডেল লোড হচ্ছে…',
   'composer.voiceMode': 'ভয়েস মোড',
   'composer.humanMode': 'হিউম্যান মোড',
+  'voiceNote.record': 'ভয়েস নোট রেকর্ড করুন',
+  'voiceNote.stop': 'রেকর্ডিং থামান',
+  'voiceNote.discard': 'ভয়েস নোট বাতিল করুন',
+  'voiceNote.send': 'ভয়েস নোট পাঠান',
+  'voiceNote.recording': 'রেকর্ড হচ্ছে…',
+  'voiceNote.play': 'ভয়েস নোট চালান',
+  'voiceNote.pause': 'ভয়েস নোট থামান',
+  'voiceNote.seek': 'ভয়েস নোটে এগিয়ে-পিছিয়ে যান',
+  'voiceNote.transcript': 'ট্রান্সক্রিপ্ট',
+  'voiceNote.noTranscript': 'কোনো ট্রান্সক্রিপ্ট নেই',
+  'voiceNote.label': 'ভয়েস নোট {duration}',
+  'voiceNote.micDenied': 'মাইক্রোফোনের অনুমতি প্রত্যাখ্যাত বা অনুপলব্ধ।',
+  'voiceNote.transcribeFailed': 'ভয়েস নোট ট্রান্সক্রাইব করা যায়নি।',
+  'voiceNote.loadFailed': 'এই ভয়েস নোট লোড করা যায়নি।',
+  'voiceNote.sendFailed': 'ভয়েস নোট পাঠানো যায়নি।',
 
   // Sync budget dialog
 

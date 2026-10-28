@@ -221,14 +221,6 @@ pub const GENERATORS: &[(&str, Generator)] = &[
         "openhuman.subagent_cancel",
         |w, a| json!({ "taskId": format!("sub-{}", w.next_id()), "reason": w.canary(a) }),
     ),
-    ("openhuman.subagent_steer", |w, a| {
-        let mode = ["steer", "collect"][w.rng.below(2)];
-        json!({
-            "taskId": format!("sub-{}", w.next_id()),
-            "message": w.canary(a),
-            "mode": mode,
-        })
-    }),
     ("openhuman.memory_items_list", |_, _| json!({ "limit": 20 })),
     ("openhuman.memory_explore", |w, _| {
         let facet = ["kind", "source", "workspace", "folder"][w.rng.below(4)];

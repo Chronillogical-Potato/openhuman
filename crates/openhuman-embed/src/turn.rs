@@ -682,18 +682,7 @@ async fn dispatch(
                         agent_chat_reply_for_controlled, AgentChatTarget,
                     };
                     let mut config = inner.config.clone();
-                    let route = openhuman_core::config::schema::EphemeralRoute::from_params(
-                        request.inference_url,
-                        request.api_key,
-                    )
-                    .map(|route| route.with_headers(request.inference_headers));
-                    let route = route
-                        .map(|route| {
-                            route.with_provider_options(request.inference_provider_options)
-                        })
-                        .map(|route| {
-                            route.with_reasoning_effort(request.inference_reasoning_effort)
-                        });
+                    let route = inference_route(&request);
                     let host = options.tools.or_else(|| inner.composed_host_tools());
                     let target = AgentChatTarget::Definition {
                         definition: &inner.definition,
@@ -789,6 +778,21 @@ async fn dispatch(
                 .await
         }
     }
+}
+
+/// The per-call inference route `request` names (endpoint, bearer, headers,
+/// provider options, reasoning effort), applied to the agent's config in
+/// memory for that call alone.
+pub(crate) fn inference_route(
+    request: &TurnRequest,
+) -> Option<openhuman_core::config::schema::EphemeralRoute> {
+    openhuman_core::config::schema::EphemeralRoute::from_params(
+        request.inference_url.clone(),
+        request.api_key.clone(),
+    )
+    .map(|route| route.with_headers(request.inference_headers.clone()))
+    .map(|route| route.with_provider_options(request.inference_provider_options.clone()))
+    .map(|route| route.with_reasoning_effort(request.inference_reasoning_effort.clone()))
 }
 
 fn map_agent_chat_error(

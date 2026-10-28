@@ -283,6 +283,34 @@ fn orchestrator_routes_every_registered_specialist_through_spawn_subagent() {
                 );
                 continue;
             }
+            if agent_id == "skill_setup" && !cfg!(feature = "skills") {
+                assert!(
+                    registry.get(agent_id).is_none(),
+                    "skill_setup is intentionally absent without skills"
+                );
+                assert!(
+                    !allowed
+                        .iter()
+                        .any(|candidate| candidate.as_str() == Some(agent_id)),
+                    "spawn_subagent must not advertise skill_setup without skills"
+                );
+                continue;
+            }
+            if matches!(agent_id.as_str(), "workflow_builder" | "flow_discovery")
+                && !cfg!(feature = "flows")
+            {
+                assert!(
+                    registry.get(agent_id).is_none(),
+                    "workflow specialists are intentionally absent without flows"
+                );
+                assert!(
+                    !allowed
+                        .iter()
+                        .any(|candidate| candidate.as_str() == Some(agent_id)),
+                    "spawn_subagent must not advertise workflow specialists without flows"
+                );
+                continue;
+            }
             assert!(
                 registry.get(agent_id).is_some(),
                 "orchestrator specialist `{agent_id}` must be registered"

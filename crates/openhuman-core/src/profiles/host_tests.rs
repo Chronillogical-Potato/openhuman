@@ -515,7 +515,7 @@ async fn a_clean_reopen_does_not_recover_but_a_takeover_does() {
         .as_ref()
         .expect("test host has shared storage");
     let cluster = backend
-        .for_scope(&Scope::new(crate::storage::lease::CLUSTER_SCOPE).unwrap())
+        .for_scope(&crate::storage::Scope::new(crate::storage::lease::CLUSTER_SCOPE).unwrap())
         .unwrap();
     let lease_id = tinystoragedrivers::Key::new(format!(
         "{}/{}",

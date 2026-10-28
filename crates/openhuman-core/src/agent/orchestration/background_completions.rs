@@ -131,6 +131,9 @@ pub(super) struct HostState {
     pub(super) deleted_threads: HashSet<String>,
     /// Workspaces whose log boot recovery has already scanned this process.
     pub(super) recovered_workspaces: HashSet<RouterScope>,
+    /// Scopes whose durable store failed and whose router now sits on an
+    /// in-memory queue holding records the backend does not have.
+    pub(super) degraded_scopes: HashSet<RouterScope>,
 }
 
 pub(super) fn state() -> std::sync::MutexGuard<'static, HostState> {

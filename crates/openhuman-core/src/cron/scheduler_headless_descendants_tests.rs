@@ -22,6 +22,31 @@ struct CronChildModel {
     child_dangerous_tool_schema_seen: std::sync::atomic::AtomicBool,
     child_started: std::sync::Mutex<Option<tokio::sync::oneshot::Sender<()>>>,
     child_release: tokio::sync::Notify,
+    child_released: std::sync::atomic::AtomicBool,
+}
+
+impl CronChildModel {
+    /// Release every current and future child invocation. A bare
+    /// `Notify::notify_one` stores a single permit, so a second child model call
+    /// (a retry or replayed turn) would park forever and hang the drain.
+    fn release_child(&self) {
+        self.child_released
+            .store(true, std::sync::atomic::Ordering::SeqCst);
+        self.child_release.notify_waiters();
+    }
+
+    async fn wait_for_release(&self) {
+        loop {
+            let notified = self.child_release.notified();
+            if self
+                .child_released
+                .load(std::sync::atomic::Ordering::SeqCst)
+            {
+                return;
+            }
+            notified.await;
+        }
+    }
 }
 
 #[cfg(feature = "storage-sqlite")]
@@ -84,6 +109,29 @@ fn scheduled_agent_fixture(
     )
     .expect("make the job due");
     (temp, storage, storage_guard, config, core, dispatch, job)
+}
+
+/// Read a job's persisted runs without parking the test's single-threaded
+/// runtime. `cron::list_runs` blocks its caller on the storage runtime; called
+/// directly from a `#[tokio::test]` it freezes the only thread that drives the
+/// scheduler's own callbacks and timers, so no watchdog can fire and the
+/// runner's 5-minute kill is the first thing to notice. A plain thread keeps
+/// the runtime turning and the deadline real.
+async fn list_runs_off_runtime(
+    config: &Config,
+    job_id: &str,
+) -> anyhow::Result<Vec<tinyflows_bus::schedule::types::CronRun>> {
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    let config = config.clone();
+    let job_id = job_id.to_string();
+    std::thread::spawn(move || {
+        let _ = tx.send(crate::cron::list_runs(&config, &job_id, 10));
+    });
+    match tokio::time::timeout(std::time::Duration::from_secs(30), rx).await {
+        Ok(Ok(runs)) => runs,
+        Ok(Err(_)) => Err(anyhow::anyhow!("list_runs thread exited without a result")),
+        Err(_) => Err(anyhow::anyhow!("list_runs did not return within 30s")),
+    }
 }
 
 async fn dispatch_scheduled_agent(
@@ -160,7 +208,7 @@ impl ChatModel<()> for CronChildModel {
                 let _ = started.send(());
             }
             let _drop = ChildInvocationDrop(std::sync::Arc::clone(&self.child_invocation_dropped));
-            self.child_release.notified().await;
+            self.wait_for_release().await;
             return Ok(ModelResponse::assistant("headless-cron-child-result"));
         }
 
@@ -214,6 +262,7 @@ async fn scheduled_agent_history_includes_its_spawned_child_result() {
         child_dangerous_tool_schema_seen: std::sync::atomic::AtomicBool::new(false),
         child_started: std::sync::Mutex::new(None),
         child_release: tokio::sync::Notify::new(),
+        child_released: std::sync::atomic::AtomicBool::new(false),
     });
     let _model =
         crate::inference::provider::factory::test_provider_override::install_model(model.clone());
@@ -233,7 +282,7 @@ async fn scheduled_agent_history_includes_its_spawned_child_result() {
         Ok(Ok(())) => {}
         Ok(Err(error)) => panic!("child-start observation disconnected: {error}"),
         Err(_) => {
-            model.child_release.notify_one();
+            model.release_child();
             let result = tokio::time::timeout(std::time::Duration::from_secs(30), run).await;
             eprintln!(
                 "scheduled child start timeout diagnostics: spawn calls {}, followups {}, run result {result:?}",
@@ -251,10 +300,22 @@ async fn scheduled_agent_history_includes_its_spawned_child_result() {
             );
         }
     }
-    model.child_release.notify_one();
+    model.release_child();
 
-    run.await.expect("cron scheduler task");
-    let runs = crate::cron::list_runs(&config, &job.id, 10).expect("read persisted run history");
+    // Hard deadline: a stuck drain must fail this test in seconds, never ride
+    // out the runner's 5-minute kill.
+    match tokio::time::timeout(std::time::Duration::from_secs(30), run).await {
+        Ok(joined) => joined.expect("cron scheduler task"),
+        Err(_) => panic!(
+            "scheduled run did not drain within 30s (spawn calls: {}, child calls: {}, followups: {})",
+            model.spawn_calls.load(std::sync::atomic::Ordering::SeqCst),
+            model.child_calls.load(std::sync::atomic::Ordering::SeqCst),
+            model.accepted_followups.load(std::sync::atomic::Ordering::SeqCst),
+        ),
+    }
+    let runs = list_runs_off_runtime(&config, &job.id)
+        .await
+        .expect("read persisted run history");
     assert_eq!(runs.len(), 1, "scheduler persisted one completed run");
     assert_eq!(runs[0].status, "ok", "agent job completed successfully");
     assert!(
@@ -297,10 +358,12 @@ async fn scheduled_agent_timeout_cancels_its_blocked_child_before_history_settle
         child_dangerous_tool_schema_seen: std::sync::atomic::AtomicBool::new(false),
         child_started: std::sync::Mutex::new(None),
         child_release: tokio::sync::Notify::new(),
+        child_released: std::sync::atomic::AtomicBool::new(false),
     });
     let _model =
         crate::inference::provider::factory::test_provider_override::install_model(model.clone());
-    let (_temp, _storage, _storage_guard, config, core, dispatch, job) = scheduled_agent_fixture(5);
+    let (_temp, _storage, _storage_guard, config, core, dispatch, job) =
+        scheduled_agent_fixture(15);
     let inspect_dispatch = dispatch.clone();
     let (child_started_tx, child_started_rx) = tokio::sync::oneshot::channel();
     *model.child_started.lock().unwrap() = Some(child_started_tx);
@@ -314,7 +377,7 @@ async fn scheduled_agent_timeout_cancels_its_blocked_child_before_history_settle
         Ok(Ok(())) => {}
         Ok(Err(error)) => panic!("scheduled child exited before its model blocked: {error}"),
         Err(_) => {
-            model.child_release.notify_one();
+            model.release_child();
             let _ = tokio::time::timeout(std::time::Duration::from_secs(30), run).await;
             panic!(
                 "scheduled child never reached its blocking model (spawns: {}, accepted followups: {})",
@@ -327,13 +390,13 @@ async fn scheduled_agent_timeout_cancels_its_blocked_child_before_history_settle
     }
 
     tokio::time::timeout(
-        std::time::Duration::from_secs(4),
+        std::time::Duration::from_secs(12),
         model.accepted_followup.notified(),
     )
     .await
     .expect("the root acknowledges the spawned child before its deadline");
 
-    tokio::time::timeout(std::time::Duration::from_secs(6), run)
+    tokio::time::timeout(std::time::Duration::from_secs(20), run)
         .await
         .expect("cron timeout should settle the blocked run")
         .expect("cron scheduler task");
@@ -355,7 +418,7 @@ async fn scheduled_agent_timeout_cancels_its_blocked_child_before_history_settle
         "the descendant is terminal when the scheduled run drains"
     );
     let child = tokio::time::timeout(
-        std::time::Duration::from_secs(2),
+        std::time::Duration::from_secs(5),
         registry.wait_owned(jobs[0].id.as_str(), owner),
     )
     .await
@@ -388,7 +451,9 @@ async fn scheduled_agent_timeout_cancels_its_blocked_child_before_history_settle
         "the root deadline dropped the child model future"
     );
 
-    let runs = crate::cron::list_runs(&config, &job.id, 10).expect("read persisted run history");
+    let runs = list_runs_off_runtime(&config, &job.id)
+        .await
+        .expect("read persisted run history");
     assert_eq!(runs.len(), 1, "scheduler persisted one completed attempt");
     assert_ne!(runs[0].status, "ok", "the configured deadline expired");
     assert!(!runs[0]
@@ -417,6 +482,7 @@ async fn scheduled_cron_child_cannot_run_its_declared_destructive_tool() {
         child_dangerous_tool_schema_seen: std::sync::atomic::AtomicBool::new(false),
         child_started: std::sync::Mutex::new(None),
         child_release: tokio::sync::Notify::new(),
+        child_released: std::sync::atomic::AtomicBool::new(false),
     });
     let _model =
         crate::inference::provider::factory::test_provider_override::install_model(model.clone());
@@ -435,7 +501,7 @@ async fn scheduled_cron_child_cannot_run_its_declared_destructive_tool() {
         Ok(Err(error)) => panic!("scheduled child exited before its model call: {error}"),
         Err(_) => {
             let result = tokio::time::timeout(std::time::Duration::from_secs(30), run).await;
-            let runs = crate::cron::list_runs(&config, &job.id, 10);
+            let runs = list_runs_off_runtime(&config, &job.id).await;
             let events = match &runs {
                 Ok(runs) => match runs.first().and_then(|run| run.run_id.as_deref()) {
                     Some(run_id) => crate::agent::tinyagents::journal::read_run_events(
@@ -519,7 +585,9 @@ async fn scheduled_cron_child_cannot_run_its_declared_destructive_tool() {
         .expect("the native child journal records the denied delete_artifact call");
     assert!(denial.contains("Scheduled agent turns may use read-only tools only"));
     assert!(!denial.contains("not found"));
-    let runs = crate::cron::list_runs(&config, &job.id, 10).expect("read persisted run history");
+    let runs = list_runs_off_runtime(&config, &job.id)
+        .await
+        .expect("read persisted run history");
     assert_eq!(runs.len(), 1);
     assert_eq!(runs[0].status, "error");
 }

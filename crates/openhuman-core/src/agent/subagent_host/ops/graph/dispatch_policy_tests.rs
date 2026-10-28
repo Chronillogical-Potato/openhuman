@@ -119,3 +119,44 @@ fn child_policy_keeps_the_parent_channel_ceiling_and_explicit_denials() {
         tinytools::ToolPolicyAction::Deny
     );
 }
+
+#[test]
+fn child_keeps_the_pack_tools_its_parent_closed_to_hand_off() {
+    // The parent denies `skill_registry_search` only because it hands that pack
+    // off to `skill_setup` (`close_handed_off_packs`); the specialist must still
+    // be able to call it.
+    let tool = PolicyFixtureTool("skill_registry_search", PermissionLevel::ReadOnly);
+    let mut parent = parent_policy(PermissionLevel::Dangerous);
+    parent.session.decisions.insert(
+        "skill_registry_search".to_string(),
+        tinytools::ToolPolicyDecision {
+            tool_name: "skill_registry_search".to_string(),
+            action: tinytools::ToolPolicyAction::Deny,
+            required_permission: Some(PermissionLevel::ReadOnly),
+            allowed_permission: PermissionLevel::Dangerous,
+        },
+    );
+    let names = HashSet::from(["skill_registry_search".to_string()]);
+
+    let specialist = child_tool_policy(Some(&parent), "skill_setup", &names, &[&tool])
+        .expect("the specialist inherits the channel policy");
+    assert_ne!(
+        specialist
+            .session
+            .decision_for("skill_registry_search")
+            .action,
+        tinytools::ToolPolicyAction::Deny,
+        "the pack owner keeps its own tool"
+    );
+
+    let stranger = child_tool_policy(Some(&parent), "task_manager_agent", &names, &[&tool])
+        .expect("another child inherits the channel policy");
+    assert_eq!(
+        stranger
+            .session
+            .decision_for("skill_registry_search")
+            .action,
+        tinytools::ToolPolicyAction::Deny,
+        "a child that does not own the pack still inherits the denial"
+    );
+}

@@ -627,6 +627,17 @@ pub(super) fn child_tool_policy(
         ) {
             continue;
         }
+        // The parent closes the packs of the specialists it can hand off to
+        // (`close_handed_off_packs`) so it uses the hand-off instead of the raw
+        // tools. That denial is the parent's own route policy: inheriting it
+        // would strip the specialist of its own belt (`skill_setup` could neither
+        // search nor install). Every other denial narrows the child.
+        if decision.action == tinytools::ToolPolicyAction::Deny
+            && crate::tools::toolpacks::pack_for_tool(name)
+                .is_some_and(|pack| pack.is_owner(child_agent_id))
+        {
+            continue;
+        }
         session.decisions.insert(name.clone(), decision.clone());
         session.allowed_tool_names.remove(name);
         session.blocked_tool_names.insert(name.clone());

@@ -31,7 +31,7 @@ use crate::core::runtime::DispatchCtx;
 use std::sync::{Arc, LazyLock, PoisonError, RwLock};
 
 use crate::agent::{HostTools, OpenHumanSessionHost};
-use crate::agent_registry::host_definition::AgentDefinition;
+use crate::agent_registry::host_definition::{AgentDefinition, AgentDefinitionRegistry};
 use crate::config::Config;
 use crate::core::runtime::CoreContext;
 
@@ -56,6 +56,124 @@ pub struct HostAgent {
 }
 
 impl HostAgent {
+    /// Resolve a config-owned agent into the same trusted carrier used for
+    /// embedder-owned agents. Channel entry points use this after routing has
+    /// selected an agent; the caller still supplies the untrusted origin and
+    /// approval context at execution time.
+    pub(crate) fn from_config(
+        dispatch: &DispatchCtx,
+        config: Config,
+        agent_id: &str,
+    ) -> anyhow::Result<Self> {
+        let definition = AgentDefinitionRegistry::load(&config.workspace_dir)
+            .ok()
+            .and_then(|registry| registry.get(agent_id).cloned())
+            .ok_or_else(|| anyhow::anyhow!("agent definition `{agent_id}` is unavailable"))?;
+        let context = dispatch
+            .core()
+            .cloned()
+            .ok_or_else(|| anyhow::anyhow!("agent turn has no core context"))?;
+        Ok(Self {
+            definition,
+            config,
+            host_tools: None,
+            context,
+            hooks: Default::default(),
+        })
+    }
+
+    /// Execute one durable, externally-authored turn with the resolved host
+    /// agent's context and hooks. `session_key` is the trusted caller's
+    /// canonical conversation identity (already scoped by tenant/provider/
+    /// account/conversation); TinyAgents adds the agent id through
+    /// `set_thread_id` when it binds the SessionRef.
+    #[allow(clippy::too_many_arguments)]
+    #[cfg(feature = "channels")]
+    pub(crate) async fn run_external_channel_turn(
+        self,
+        session_key: &str,
+        event_session_id: &str,
+        channel: &str,
+        message: &str,
+        message_input: Option<tinyinference_llm::message::Message>,
+        origin: crate::security::turn_origin::AgentTurnOrigin,
+        approval: crate::security::approval::ApprovalTurnContext,
+        progress: Option<tokio::sync::mpsc::Sender<crate::progress::AgentProgress>>,
+        run_queue: Option<
+            std::sync::Arc<
+                tinyagents_harness::run_queue::RunQueue<crate::agent::queued_turn::QueuedTurn>,
+            >,
+        >,
+        cancellation: tinyagents_harness::CancellationToken,
+        turn_deadline: Option<std::time::Duration>,
+        imported_history: &[tinyagents_session::transcript::TranscriptMessage],
+        legacy_history: Option<crate::channels::providers::relay::LegacyHistoryImport>,
+        staged_parts: Vec<tinychannels_bus::ContentPart>,
+        staged_lease: Option<crate::threads::attachments::NativeStagedLease>,
+        staged_message_id: Option<String>,
+    ) -> anyhow::Result<String> {
+        let config = self.config.clone();
+        let agent_id = self.definition.id.clone();
+        let mut session = self.session_host(&config, Some(session_key))?;
+        session.set_thread_id(Some(session_key));
+        session.set_event_context(event_session_id, channel);
+        session.adopt_imported_history(imported_history)?;
+        if let Some(source) = legacy_history {
+            let dispatch = crate::core::runtime::DispatchCtx::new(Arc::clone(&self.context));
+            session
+                .adopt_legacy_history_if_needed(|| async {
+                    source.load(&dispatch).await.map_err(anyhow::Error::msg)
+                })
+                .await
+                .map_err(|_| {
+                    anyhow::anyhow!(crate::channels::failure_copy::LEGACY_HISTORY_UNAVAILABLE)
+                })?;
+        }
+        self.scope(crate::agent::turn_host::AgentTurnHost::run(
+            &mut session,
+            crate::agent::turn_host::AgentTurnRequest {
+                message: message.to_owned(),
+                message_input,
+                native_staged_parts: staged_parts,
+                native_staged_lease: staged_lease,
+                native_message_id: staged_message_id,
+                thread_id: Some(session_key.to_owned()),
+                origin,
+                approval: approval.clone(),
+                progress,
+                run_queue,
+                cancellation,
+                turn_deadline,
+                workspace: crate::agent::turn_host::WorkspaceBinding::Preserve,
+                host_env: crate::agent::turn_env::HostTurnEnv {
+                    hooks: self.hooks.clone(),
+                    core: Some(Arc::downgrade(&self.context)),
+                    approval,
+                    memory_identity: Some(
+                        tinymemory_tools::layout::identity::Identity::root().child(&agent_id),
+                    ),
+                    ..Default::default()
+                },
+            },
+        ))
+        .await
+    }
+
+    /// Reset the durable session used by an external channel command. The
+    /// caller serializes this operation with turns for the same trusted
+    /// tenant, agent, and canonical session identity.
+    pub(crate) async fn reset_external_channel_history(
+        &self,
+        session_key: &str,
+        event_session_id: &str,
+        channel: &str,
+    ) -> anyhow::Result<bool> {
+        let mut session = self.session_host(&self.config, Some(session_key))?;
+        session.set_thread_id(Some(session_key));
+        session.set_event_context(event_session_id, channel);
+        self.scope(session.reset_bound_history()).await
+    }
+
     /// Build a session for this agent from `config` -- normally a clone of
     /// [`HostAgent::config`] carrying a driver's overrides.
     ///

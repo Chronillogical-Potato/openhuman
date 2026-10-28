@@ -128,12 +128,12 @@ impl Drop for LiveModule {
 
 #[cfg(all(feature = "modules", target_os = "linux"))]
 #[tokio::test]
-#[ignore = "requires the verified TinyBox v0.2.4 archive and a supported Linux jail"]
+#[ignore = "requires the verified pinned TinyBox archive and a supported Linux jail"]
 async fn released_tinybox_runs_a_native_jail_through_the_pinned_loader() -> anyhow::Result<()> {
     let _environment_lock = crate::config::TEST_ENV_LOCK.lock().await;
     const KEY: &str = "OPENHUMAN_BUNDLED_MODULES";
     let artifact_root = std::env::var_os(KEY).map(PathBuf::from).ok_or_else(|| {
-        anyhow::anyhow!("set OPENHUMAN_BUNDLED_MODULES to the downloaded v0.2.4 release assets")
+        anyhow::anyhow!("set OPENHUMAN_BUNDLED_MODULES to the downloaded pinned release assets")
     })?;
     let _environment_restore = BundledModulesRestore(std::env::var_os(KEY));
     let record = crate::modules::registry::find("tinybox")

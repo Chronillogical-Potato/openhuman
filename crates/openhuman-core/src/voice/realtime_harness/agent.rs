@@ -160,6 +160,7 @@ async fn run_single_with_timeout(
             reply_target: correlation_id.to_string(),
             message_id: format!("voice-{correlation_id}"),
             history_key: None,
+            channel_session: None,
         },
         scoped_run,
     );

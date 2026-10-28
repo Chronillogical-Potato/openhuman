@@ -125,6 +125,9 @@ impl OpenHumanAgentRunner {
         let absolute_deadline =
             tokio::time::Instant::from_std(deadline.started() + deadline.backstop());
         let mut host_env = agent.host_env().clone();
+        // Harness turns can outlive the flow node's task-local scope when
+        // they spawn sub-agents. Carry the flow caller's owner explicitly.
+        host_env.core = host_core_context(&self.ctx, host.as_ref().map(|host| &host.context));
         host_env.turn_deadline = Some(deadline);
         agent.set_host_env(host_env);
 
@@ -220,3 +223,16 @@ impl OpenHumanAgentRunner {
             .await
     }
 }
+
+fn host_core_context(
+    dispatch: &crate::core::runtime::DispatchCtx,
+    host_context: Option<&std::sync::Arc<crate::core::runtime::CoreContext>>,
+) -> Option<std::sync::Weak<crate::core::runtime::CoreContext>> {
+    host_context
+        .map(std::sync::Arc::downgrade)
+        .or_else(|| dispatch.downgrade())
+}
+
+#[cfg(test)]
+#[path = "agent_harness_tests.rs"]
+mod tests;

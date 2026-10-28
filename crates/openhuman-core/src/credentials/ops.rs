@@ -7,6 +7,12 @@ mod provider_credentials;
 mod secrets;
 mod session_query;
 
+#[cfg(test)]
+pub(crate) use crate::security::credentials::ops::clear_credential_with;
+pub use crate::security::credentials::ops::{
+    clear_composio_api_key, get_composio_api_key, rpc_store_composio_api_key,
+    store_composio_api_key, COMPOSIO_DIRECT_PROVIDER,
+};
 pub use boot_env::{
     seed_api_key_from_env, seed_session_from_env, BACKEND_API_KEY_ENV, BACKEND_SESSION_TOKEN_ENV,
 };

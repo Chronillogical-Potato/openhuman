@@ -222,7 +222,7 @@ fn definition_for_turn(
     }
 }
 
-async fn build_turn_agent(
+pub(super) async fn build_turn_agent(
     ctx: &crate::core::runtime::DispatchCtx,
     config: &Config,
     target: &AgentChatTarget<'_>,
@@ -457,6 +457,30 @@ pub async fn agent_chat_reply_for_controlled(
     .await
 }
 
+/// Applies a call's model, temperature and inference route to `config`, in
+/// memory, before its session is built.
+pub(super) fn apply_turn_overrides(
+    config: &mut Config,
+    model_override: Option<String>,
+    temperature: Option<f64>,
+    route: Option<crate::config::schema::EphemeralRoute>,
+) {
+    // TAURI-RUST-RS: an upstream caller (frontend, JSON-RPC client) can pass
+    // `model_override: Some("")`. See `normalize_model_override` for the
+    // rationale — an empty / whitespace-only override collapses to `None`.
+    if let Some(model) = normalize_model_override(model_override) {
+        config.default_model = Some(model);
+    }
+    if let Some(temp) = temperature {
+        config.default_temperature = temp;
+    }
+    // After the model override, because the route pins its roles to
+    // `"<slug>:<model>"` and the model it uses is the one this call resolved.
+    if let Some(route) = route {
+        crate::config::schema::ephemeral_route::apply(config, route);
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 pub(super) async fn agent_chat_reply_for_inner(
     config: &mut Config,
@@ -491,21 +515,8 @@ pub(super) async fn agent_chat_reply_for_inner(
             .map_err(anyhow::Error::msg)?,
     }
 
-    // TAURI-RUST-RS: an upstream caller (frontend, JSON-RPC client) can pass
-    // `model_override: Some("")`. See `normalize_model_override` for the
-    // rationale — an empty / whitespace-only override collapses to `None`.
-    if let Some(model) = normalize_model_override(model_override) {
-        config.default_model = Some(model);
-    }
-    if let Some(temp) = temperature {
-        config.default_temperature = temp;
-    }
-    // After the model override, because the route pins its roles to
-    // `"<slug>:<model>"` and the model it uses is the one this call resolved.
     // Before the `cwd` clone below, so a rooted turn is routed too.
-    if let Some(route) = route {
-        crate::config::schema::ephemeral_route::apply(config, route);
-    }
+    apply_turn_overrides(config, model_override, temperature, route);
     // The conversation this turn runs in, normalised once: the factory below is
     // told the same id `set_thread_id` will bind, so a belt keyed on the
     // session cannot disagree with the session it is built for.

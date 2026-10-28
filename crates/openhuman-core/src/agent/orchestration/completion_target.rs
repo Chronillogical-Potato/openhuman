@@ -177,10 +177,32 @@ pub(crate) fn claim_recovery(workspace_dir: &Path) -> bool {
 /// can continue through the same router without losing records or leases.
 pub(crate) fn forget_recovery_ctx(ctx: &crate::core::runtime::DispatchCtx, workspace_dir: &Path) {
     let scope = super::background_completions::router_scope_for(ctx, workspace_dir);
-    state().recovered_workspaces.remove(&scope);
+    let degraded = {
+        let mut st = state();
+        st.recovered_workspaces.remove(&scope);
+        st.degraded_scopes.contains(&scope)
+    };
     let Ok(Some(router)) = super::background_completions::router_pool().get(&scope) else {
         return;
     };
+    if !degraded {
+        // The cached router sits on a durable store opened under the previous
+        // lease epoch. Records live in the backend, so there is nothing to
+        // migrate: drop the router and let the next lookup open a fresh one at
+        // the current epoch. (`replace_store_if_current` would try to migrate
+        // between two stores over the same backend, whose per-parent gates are
+        // the same durable rows, and would wait on its own source gates; with a
+        // fenced previous store it fails with `lease fence: key lost`.)
+        // Admissions an old router already handed out stay valid through the
+        // pool's parent lifecycle authority.
+        let _ = super::background_completions::router_pool().remove(&scope);
+        state().stores.remove(&scope);
+        log::debug!(
+            "[background_completions] dropped cached router for reopen workspace_dir={}",
+            workspace_dir.display()
+        );
+        return;
+    }
     let Ok(store) = super::background_completions::open_driver_store(ctx, workspace_dir) else {
         return;
     };
@@ -188,7 +210,9 @@ pub(crate) fn forget_recovery_ctx(ctx: &crate::core::runtime::DispatchCtx, works
     match router.replace_store_if_current(&previous, store) {
         Ok(tinyagents_tasks::CompletionStoreReplaceOutcome::Replaced(store))
         | Ok(tinyagents_tasks::CompletionStoreReplaceOutcome::Current(store)) => {
-            state().stores.insert(scope, store);
+            let mut st = state();
+            st.degraded_scopes.remove(&scope);
+            st.stores.insert(scope, store);
         }
         Err(error) => {
             log::error!(

@@ -94,6 +94,7 @@ async fn setup_config() -> Harness {
     config.secrets.encrypt = false;
     config.observability.analytics_enabled = false;
     config.save().await.expect("save config");
+    crate::tinyhumans_boot::boot_default_context(config.clone()).await;
 
     Harness {
         _tmp: tmp,
@@ -118,6 +119,7 @@ async fn store_session_token(config: &Config) {
 #[tokio::test]
 async fn round20_backend_agent_tools_cover_markdown_filtering_and_errors() {
     let _lock = env_lock_async().await;
+    let _storage = crate::HostStorage::install(&_lock);
     let state = MockState::default();
     let base = start_loopback(
         Router::new()
@@ -219,6 +221,7 @@ async fn round20_backend_agent_tools_cover_markdown_filtering_and_errors() {
 #[tokio::test]
 async fn round20_composio_ops_cover_authorize_scopes() {
     let _lock = env_lock_async().await;
+    let _storage = crate::HostStorage::install(&_lock);
     let state = MockState::default();
     let base = start_loopback(
         Router::new()

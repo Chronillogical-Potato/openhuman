@@ -454,3 +454,22 @@ pub(crate) fn current_host_requires_session() -> bool {
 pub(super) fn host_requires_session(host_kind: crate::core::types::HostKind) -> bool {
     host_kind != crate::core::types::HostKind::Library
 }
+
+/// The access check every model a harness turn builds passes first.
+impl tinyagents_harness::host::ModelBuildGate for super::OpenHumanModelFactory<'_> {
+    fn check(
+        &self,
+        request: &tinyagents_harness::host::ModelBuildRequest,
+    ) -> tinyagents_harness::Result<()> {
+        // Explicit host model injection is authoritative and has no provider
+        // construction, credential, or egress side effect to gate.
+        if self.injected(request).is_some() {
+            return Ok(());
+        }
+        let provider = self.provider_for(request);
+        enforce_local_only_inference(&request.role, &provider)
+            .map_err(|error| tinyagents_harness::TinyAgentsError::Model(error.to_string()))?;
+        verify_provider_session_in(self.ctx, self.config, &provider)
+            .map_err(|error| tinyagents_harness::TinyAgentsError::Model(error.to_string()))
+    }
+}

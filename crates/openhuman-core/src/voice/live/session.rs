@@ -181,6 +181,7 @@ pub(crate) async fn start(
         reply_target: session_id.to_string(),
         message_id: format!("voice-live-{session_id}"),
         history_key: None,
+        channel_session: None,
     };
     let approval = ApprovalChatContext {
         thread_id: thread_id.clone(),

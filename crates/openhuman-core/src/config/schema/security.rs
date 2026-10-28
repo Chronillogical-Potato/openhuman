@@ -1,4 +1,4 @@
-//! OpenHuman-owned security and sandbox configuration.
+//! OpenHuman-owned security, sandbox, and audit configuration.
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -7,6 +7,8 @@ use serde::{Deserialize, Serialize};
 pub struct SecurityConfig {
     #[serde(default)]
     pub sandbox: SandboxConfig,
+    #[serde(default)]
+    pub resources: ResourceLimitsConfig,
     #[serde(default)]
     pub audit: AuditConfig,
 }
@@ -43,6 +45,10 @@ pub enum SandboxBackend {
     Docker,
     None,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default, JsonSchema)]
+#[serde(default)]
+pub struct ResourceLimitsConfig {}
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(default)]

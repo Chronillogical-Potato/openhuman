@@ -254,6 +254,8 @@ if should_run_suite "chat"; then
   run "test/e2e/specs/agent-harness-behaviors.spec.ts"        "agent-harness-behaviors"   "chat"
   run "test/e2e/specs/file-drop-guard.spec.ts"                "file-drop-guard"           "chat"
   run "test/e2e/specs/chat-external-link.spec.ts"             "chat-external-link"        "chat"
+  run "test/e2e/specs/chat-voice-note.spec.ts"                "chat-voice-note"           "chat"
+  run "test/e2e/specs/agent-teams-live.spec.ts"               "agent-teams-live"          "chat"
   run "test/e2e/specs/mega-flow.spec.ts"                      "mega-flow"                 "chat"
   _mini_summary "chat"
 fi

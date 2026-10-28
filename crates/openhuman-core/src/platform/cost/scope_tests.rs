@@ -16,6 +16,7 @@ fn each_origin_maps_to_its_thread_and_label() {
         sender: None,
         sender_name: None,
         history_key: None,
+        channel_session: None,
         reply_target: "r".into(),
         message_id: "m".into(),
     };
@@ -29,6 +30,7 @@ fn each_origin_maps_to_its_thread_and_label() {
         sender: None,
         sender_name: None,
         history_key: Some("telegram:42".into()),
+        channel_session: None,
         reply_target: "r".into(),
         message_id: "m".into(),
     };

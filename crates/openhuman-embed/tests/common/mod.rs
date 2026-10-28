@@ -50,6 +50,10 @@ pub fn offline_config() -> Config {
     // but unrelated to these tests' contracts and would race the final
     // ephemeral-workspace cleanup assertion.
     config.memory.conversations.enabled = false;
+    // These tests use canned providers and do not exercise jailed tool
+    // execution. Avoid recursively inspecting host toolchain trees for local
+    // jail grants on every test turn.
+    config.runtime.local_jail.toolchain_homes = false;
     // Session-store dual writes and shadow reads are also deliberately
     // fire-and-forget; leaving them on makes their detached filesystem work
     // race the synchronous ephemeral cleanup.

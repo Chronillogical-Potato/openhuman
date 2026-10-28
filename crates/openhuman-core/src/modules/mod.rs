@@ -155,6 +155,8 @@ pub use ops::{ensure_loaded, ensure_loaded_within, state_of};
 pub use schemas::{all_controller_schemas, all_registered_controllers};
 #[doc(hidden)]
 pub use source::local_artifact;
+#[doc(hidden)]
+pub use source::staged_artifact;
 /// A `tinybus::module::ModuleClient` that loads modules lazily through the
 /// process-wide resolver (see [`ops`]). Constructing one starts nothing. In a
 /// build without the `modules` feature there is no loader, and every call is

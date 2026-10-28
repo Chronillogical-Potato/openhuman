@@ -30,6 +30,14 @@ fn typing(channel: &str) -> ChannelBackendRequest {
 // Route absence and message absence need different recoveries in the
 // progressive driver; conflating them once left a permanent "Thinking:"
 // bubble in the chat (#5230). The mapping is by type, never by message text.
+/// Unbox the progressive-transport answer of a hosted callback.
+fn transport(answer: ChannelBackendResult) -> ProgressiveTransportResult {
+    match answer {
+        ChannelBackendResult::ProgressiveTransport(result) => *result,
+        _ => panic!("expected a progressive transport answer"),
+    }
+}
+
 #[test]
 fn backend_errors_map_to_distinct_progressive_recoveries() {
     let route_absent = anyhow::Error::new(HostedApiError::ChannelEditUnsupported {
@@ -92,8 +100,8 @@ async fn typing_posts_to_the_channel_route_with_the_session_credential() {
     let answer = serve(ctx(config, Some("telegram")), typing("telegram"))
         .await
         .unwrap();
-    match answer {
-        ChannelBackendResult::ProgressiveTransport(ProgressiveTransportResult::Success(value)) => {
+    match transport(answer) {
+        ProgressiveTransportResult::Success(value) => {
             assert_eq!(value, json!({"ok": true}));
         }
         _ => panic!("expected a transport success"),
@@ -135,11 +143,10 @@ async fn typed_send_preserves_v22_content_and_turn_metadata() {
     )
     .await
     .unwrap();
-    assert!(matches!(
-        answer,
-        ChannelBackendResult::ProgressiveTransport(ProgressiveTransportResult::Success(value))
-            if value == json!({"id": "msg-1"})
-    ));
+    assert!(
+        matches!(transport(answer), ProgressiveTransportResult::Success(value)
+            if value == json!({"id": "msg-1"}))
+    );
 }
 
 #[tokio::test]
@@ -199,8 +206,36 @@ async fn progressive_send_forwards_turn_and_delivery_context() {
     .await
     .unwrap();
     assert!(matches!(
-        answer,
-        ChannelBackendResult::ProgressiveTransport(ProgressiveTransportResult::Success(_))
+        transport(answer),
+        ProgressiveTransportResult::Success(_)
+    ));
+}
+
+#[tokio::test]
+async fn hosted_callback_declines_module_output_events_without_losing_them_as_sends() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = test_support::signed_in(&tmp, "http://127.0.0.1:9");
+    let request = ProgressiveTransportRequest::OutputEvent {
+        channel: "telegram".into(),
+        turn_id: Some("turn-1".into()),
+        channel_ref: None,
+        conversation: None,
+        sequence: 1,
+        event: Box::new(ChannelOutputEvent::TextDelta {
+            text: "hello".into(),
+            iteration: Some(0),
+        }),
+    };
+
+    let answer = serve(
+        ctx(config, Some("telegram")),
+        ChannelBackendRequest::ProgressiveTransport(Box::new(request)),
+    )
+    .await
+    .unwrap();
+    assert!(matches!(
+        transport(answer),
+        ProgressiveTransportResult::Failed
     ));
 }
 
@@ -212,8 +247,8 @@ async fn a_request_for_another_channel_is_refused() {
         .await
         .unwrap();
     assert!(matches!(
-        answer,
-        ChannelBackendResult::ProgressiveTransport(ProgressiveTransportResult::Failed)
+        transport(answer),
+        ProgressiveTransportResult::Failed
     ));
 }
 
@@ -225,8 +260,8 @@ async fn a_local_session_has_no_hosted_channel_credential() {
         .await
         .unwrap();
     assert!(matches!(
-        answer,
-        ChannelBackendResult::ProgressiveTransport(ProgressiveTransportResult::Unavailable)
+        transport(answer),
+        ProgressiveTransportResult::Unavailable
     ));
 }
 
@@ -238,8 +273,8 @@ async fn a_closed_session_is_unavailable_before_any_request() {
     ctx.session.cancel();
     let answer = serve(ctx, typing("telegram")).await.unwrap();
     assert!(matches!(
-        answer,
-        ChannelBackendResult::ProgressiveTransport(ProgressiveTransportResult::Unavailable)
+        transport(answer),
+        ProgressiveTransportResult::Unavailable
     ));
 }
 
@@ -359,8 +394,8 @@ async fn a_context_bearing_delete_or_typing_keeps_the_empty_id_guards() {
         .await
         .unwrap();
         assert!(matches!(
-            answer,
-            ChannelBackendResult::ProgressiveTransport(ProgressiveTransportResult::Failed)
+            transport(answer),
+            ProgressiveTransportResult::Failed
         ));
     }
     assert!(server.received_requests().await.unwrap().is_empty());

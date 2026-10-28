@@ -1657,6 +1657,8 @@ const messages: TranslationMap = {
   'chat.flowProposal.openInCanvas': 'Открыть на холсте',
   'chat.flowProposal.dismiss': 'Скрыть',
   'chat.flowProposal.error': 'Не удалось сохранить рабочий процесс. Попробуйте еще раз.',
+  'chat.flowProposal.versionConflict':
+    'Этот рабочий процесс изменился после создания предложения, поэтому он не был перезаписан. Запросите новую редакцию.',
   'chat.flowProposal.enableError':
     'Рабочий процесс сохранён, но не удалось его включить. Попробуйте ещё раз или включите его на странице Workflows.',
   'chat.flowProposal.savedConfirmation': 'Сохранено',
@@ -3497,6 +3499,21 @@ const messages: TranslationMap = {
   'composer.settings.loadingModels': 'Загрузка моделей…',
   'composer.voiceMode': 'Голосовой режим',
   'composer.humanMode': 'Режим человека',
+  'voiceNote.record': 'Записать голосовое сообщение',
+  'voiceNote.stop': 'Остановить запись',
+  'voiceNote.discard': 'Удалить голосовое сообщение',
+  'voiceNote.send': 'Отправить голосовое сообщение',
+  'voiceNote.recording': 'Идёт запись…',
+  'voiceNote.play': 'Воспроизвести голосовое сообщение',
+  'voiceNote.pause': 'Приостановить голосовое сообщение',
+  'voiceNote.seek': 'Перемотать голосовое сообщение',
+  'voiceNote.transcript': 'Расшифровка',
+  'voiceNote.noTranscript': 'Расшифровка недоступна',
+  'voiceNote.label': 'Голосовое сообщение {duration}',
+  'voiceNote.micDenied': 'Доступ к микрофону отклонён или недоступен.',
+  'voiceNote.transcribeFailed': 'Не удалось расшифровать голосовое сообщение.',
+  'voiceNote.loadFailed': 'Не удалось загрузить это голосовое сообщение.',
+  'voiceNote.sendFailed': 'Не удалось отправить голосовое сообщение.',
 
   // Sync budget dialog
 

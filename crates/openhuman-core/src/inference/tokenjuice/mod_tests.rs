@@ -54,7 +54,7 @@ fn host_tools_keep_the_published_recovery_names_and_schemas() {
                     "ignore_case": { "type": "boolean" },
                     "context": { "type": "integer" },
                     "top_k": { "type": "integer" },
-                    "scope": { "type": "string", "description": "python slice, e.g. [:-100]" },
+                    "scope": { "type": "string" },
                     "unit": { "type": "string", "enum": ["lines", "chars"] }
                 },
                 "required": ["handle", "query"]

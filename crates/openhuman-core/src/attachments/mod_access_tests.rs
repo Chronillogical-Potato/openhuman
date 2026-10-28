@@ -10,6 +10,7 @@ fn external_origin() -> crate::core::runtime::turn_origin::AgentTurnOrigin {
         reply_target: "test".into(),
         message_id: "test".into(),
         history_key: None,
+        channel_session: None,
     }
 }
 
@@ -199,6 +200,7 @@ async fn thread_folder_upload_is_staged_where_the_turn_reads_it() {
         &AttachmentAccessScope {
             external_channel: false,
             workspace: Some(root),
+            ..Default::default()
         },
     )
     .await

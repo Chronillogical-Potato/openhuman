@@ -5725,7 +5725,7 @@ checksum = "c08d65885ee38876c4f86fa503fb49d7b507c2b62552df7c70b2fce627e06381"
 
 [[package]]
 name = "openhuman"
-version = "0.64.18"
+version = "0.64.20"
 dependencies = [
  "aho-corasick",
  "anyhow",
@@ -5828,7 +5828,6 @@ dependencies = [
  "tinystoragedrivers-types",
  "tinytools 0.6.0",
  "tinytools-agent 0.6.0",
- "tinytools-std",
  "tinyvoice-bus",
  "tinywallet",
  "tinywallet-bus",
@@ -5849,12 +5848,12 @@ dependencies = [
  "wiremock",
  "zeroize",
  "zip 2.6.1",
- "zstd 0.13.3",
+ "zstd",
 ]
 
 [[package]]
 name = "openhuman-cli"
-version = "0.64.18"
+version = "0.64.20"
 dependencies = [
  "aes-gcm",
  "anyhow",
@@ -5924,7 +5923,7 @@ dependencies = [
 
 [[package]]
 name = "openhuman-embed"
-version = "0.64.18"
+version = "0.64.20"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -5957,7 +5956,6 @@ dependencies = [
  "tinymemory-tools",
  "tinystoragedrivers-testkit",
  "tinytools 0.6.0",
- "tinytools-std",
  "tokio",
  "tokio-stream",
  "tracing-subscriber",
@@ -5969,7 +5967,7 @@ dependencies = [
 
 [[package]]
 name = "openhuman-modules-linked"
-version = "0.64.18"
+version = "0.64.20"
 dependencies = [
  "log",
  "openhuman-rpc",
@@ -5993,12 +5991,13 @@ dependencies = [
 
 [[package]]
 name = "openhuman-rpc"
-version = "0.64.18"
+version = "0.64.20"
 dependencies = [
  "anyhow",
  "axum",
  "base64 0.22.1",
  "chrono",
+ "engineioxide",
  "futures",
  "hex",
  "keyring",
@@ -6032,7 +6031,7 @@ dependencies = [
 
 [[package]]
 name = "openhuman-tinyhumans"
-version = "0.64.18"
+version = "0.64.20"
 dependencies = [
  "aes-gcm",
  "anyhow",
@@ -6083,7 +6082,7 @@ dependencies = [
 
 [[package]]
 name = "openhuman-tui"
-version = "0.64.18"
+version = "0.64.20"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -9148,7 +9147,7 @@ dependencies = [
 
 [[package]]
 name = "tiny-artifacts"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -10399,7 +10398,7 @@ dependencies = [
 
 [[package]]
 name = "tinyjuice-module"
-version = "0.11.4"
+version = "0.11.5"
 dependencies = [
  "log",
  "serde_json",
@@ -10688,7 +10687,7 @@ dependencies = [
  "tinystoragedrivers-types",
  "tokio",
  "url",
- "zstd 0.14.3",
+ "zstd",
 ]
 
 [[package]]
@@ -10708,7 +10707,7 @@ dependencies = [
  "tinystoragedrivers-connect",
  "tinystoragedrivers-types",
  "tokio",
- "zstd 0.14.3",
+ "zstd",
 ]
 
 [[package]]
@@ -10886,30 +10885,6 @@ version = "0.6.0"
 dependencies = [
  "async-trait",
  "tinytools 0.6.0",
-]
-
-[[package]]
-name = "tinytools-std"
-version = "0.6.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "base64 0.23.1",
- "fs2",
- "futures-util",
- "glob",
- "libc",
- "log",
- "parking_lot",
- "regex",
- "reqwest 0.12.28",
- "rustix 1.1.5",
- "serde_json",
- "sha2 0.11.1",
- "tinytools 0.6.0",
- "tokio",
- "tracing",
- "walkdir",
 ]
 
 [[package]]
@@ -13303,7 +13278,7 @@ dependencies = [
  "typed-path",
  "zeroize",
  "zopfli",
- "zstd 0.14.3",
+ "zstd",
 ]
 
 [[package]]
@@ -13332,29 +13307,11 @@ dependencies = [
 
 [[package]]
 name = "zstd"
-version = "0.13.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e91ee311a569c327171651566e07972200e76fcfe2242a4fa446149a3881c08a"
-dependencies = [
- "zstd-safe 7.3.0",
-]
-
-[[package]]
-name = "zstd"
 version = "0.14.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "db3ae9bf90af6e40197bef767eeefc46ad6397420fe873830bd85e5fbbfb3c70"
 dependencies = [
- "zstd-safe 8.2.0",
-]
-
-[[package]]
-name = "zstd-safe"
-version = "7.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "64d80649ab6db9d9f6f9c80a40becd948eda4714a0a5ac8c4d157a32231c7882"
-dependencies = [
- "zstd-sys",
+ "zstd-safe",
 ]
 
 [[package]]

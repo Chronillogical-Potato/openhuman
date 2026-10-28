@@ -52,6 +52,7 @@ mod cron;
 mod dashboard;
 mod desktop;
 pub use desktop::DesktopConfig;
+mod channel_voice;
 mod defaults;
 mod hooks;
 pub use hooks::HooksConfig;
@@ -115,8 +116,11 @@ pub use agent::{
 };
 pub use autonomy::AutonomyConfig;
 pub use capability_providers::{CapabilityProviderConfig, CapabilityProviderTrustState};
+pub use channel_voice::{ChannelVoiceConfig, ChannelVoiceOverride, VoiceReplyMode};
 pub(crate) use cli_overrides::set_cli_inference_overrides;
-pub use context::{CompactionSettings, CompactionStrategy, ContextConfig};
+pub use context::{
+    CompactionSettings, CompactionStrategy, ContextConfig, ContextSettings, SummarizerSettings,
+};
 pub use cron::CronConfig;
 pub use dashboard::{DashboardConfig, DiagramViewerConfig, EventStreamConfig, ModelHealthConfig};
 pub use identity_cost::{
@@ -146,7 +150,9 @@ pub use runtime::{
 };
 pub use runtime_local_jail::LocalJailConfig;
 pub use scheduler_gate::{PauseReason, Policy, SchedulerGateConfig, SchedulerGateMode};
-pub use security::{AuditConfig, SandboxBackend, SandboxConfig, SecurityConfig};
+pub use security::{
+    AuditConfig, ResourceLimitsConfig, SandboxBackend, SandboxConfig, SecurityConfig,
+};
 pub use task_sources::TaskSourcesConfig;
 pub use tinychannels_bus::config::{
     ChannelsConfig, DingTalkConfig, DiscordConfig, EmailConfig, IMessageConfig, IrcConfig,

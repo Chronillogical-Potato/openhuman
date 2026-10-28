@@ -175,6 +175,9 @@ pub(crate) fn instantiate(runtime: &Runtime, spec: AgentSpec) -> Result<AgentInn
         log::debug!("[embed][agent] id={id} binds its memory agent_id={agent_id}");
         config.memory.agent_id = Some(agent_id.to_string());
         config.memory.root = binding.root_namespace().map(|root| root.trim().to_string());
+        config.memory.recall_each_turn_ms = binding
+            .recall_each_turn_timeout()
+            .map(|timeout| u64::try_from(timeout.as_millis()).unwrap_or(u64::MAX));
     }
 
     if let Some(f) = parts.config_fn {

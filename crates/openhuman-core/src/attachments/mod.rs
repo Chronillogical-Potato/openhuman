@@ -15,15 +15,18 @@ use crate::security::SecurityPolicy;
 pub(crate) mod host;
 pub use host::HostAttachment;
 pub(crate) mod legacy;
+pub(crate) mod parts;
 pub(crate) mod provider;
 pub(crate) mod secure_open;
 
 /// Per-model-call attachment authority copied from the live agent context.
 /// The provider wrapper removes its request carrier before forwarding it.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub(crate) struct AttachmentAccessScope {
     pub(crate) external_channel: bool,
     pub(crate) workspace: Option<PathBuf>,
+    pub(crate) native_staged_parts: Vec<tinychannels_bus::ContentPart>,
+    pub(crate) thread_id: Option<String>,
 }
 
 const REQUEST_SCOPE_KEY: &str = "__openhuman_attachment_access_scope";
@@ -44,6 +47,8 @@ pub(crate) fn attach_request_scope(
     request.metadata[REQUEST_SCOPE_KEY] = serde_json::json!({
         "external_channel": external_channel,
         "workspace": workspace,
+        "native_staged_parts": context.native_staged_parts,
+        "thread_id": context.thread_id,
     });
 }
 
@@ -63,6 +68,14 @@ pub(crate) fn take_request_scope(metadata: &mut serde_json::Value) -> Attachment
             .get("workspace")
             .and_then(serde_json::Value::as_str)
             .map(PathBuf::from),
+        native_staged_parts: value
+            .get("native_staged_parts")
+            .and_then(|parts| serde_json::from_value(parts.clone()).ok())
+            .unwrap_or_default(),
+        thread_id: value
+            .get("thread_id")
+            .and_then(serde_json::Value::as_str)
+            .map(str::to_owned),
     }
 }
 
@@ -92,6 +105,24 @@ impl Attachment {
             "[Uploaded file: {}; {}; {} bytes; workspace path: {}]",
             self.name, self.mime, self.size_bytes, self.path
         )
+    }
+
+    /// The attachment `text` is the [`description`](Self::description) of,
+    /// when it is exactly one. The name may hold anything, so the fixed
+    /// fields are read from the right and the result must describe itself
+    /// back byte for byte.
+    pub(crate) fn from_description(text: &str) -> Option<Self> {
+        let body = text.strip_prefix("[Uploaded file: ")?.strip_suffix(']')?;
+        let (head, path) = body.rsplit_once("; workspace path: ")?;
+        let (head, size) = head.strip_suffix(" bytes")?.rsplit_once("; ")?;
+        let (name, mime) = head.rsplit_once("; ")?;
+        let attachment = Self {
+            path: path.into(),
+            name: name.into(),
+            mime: mime.into(),
+            size_bytes: size.parse().ok()?,
+        };
+        (attachment.description() == text).then_some(attachment)
     }
 }
 
@@ -338,6 +369,29 @@ async fn save(
     })
 }
 
+/// Persist bytes returned by a successful scoped channel-module media read.
+/// This bypasses marker URL/path resolution: only this internal caller can
+/// provide the bytes, and the existing workspace/security destination checks
+/// still apply.
+pub(crate) async fn store_scoped_channel_media(
+    config: &Config,
+    thread: &str,
+    name: &str,
+    mime: &str,
+    bytes: &[u8],
+) -> anyhow::Result<Attachment> {
+    const MODULE_MEDIA_MAX_BYTES: usize = 20 * 1024 * 1024;
+    if bytes.is_empty() || bytes.len() > MODULE_MEDIA_MAX_BYTES {
+        anyhow::bail!("scoped channel media exceeds its byte limit");
+    }
+    let scope = AttachmentAccessScope {
+        external_channel: false,
+        workspace: Some(config.action_dir.clone()),
+        ..Default::default()
+    };
+    save(config, thread, name, mime, bytes, &scope).await
+}
+
 /// Stage every original before scanning or persistence. Failure rejects the
 /// turn rather than silently discarding an accepted upload.
 pub(crate) async fn stage(
@@ -472,6 +526,7 @@ pub(crate) async fn delegation_prompt(
     let scope = AttachmentAccessScope {
         external_channel: false,
         workspace: workspace.map(|workspace| workspace.root.clone()),
+        ..Default::default()
     };
     stage(&prompt, "delegation", &config, &scope).await
 }
@@ -510,6 +565,7 @@ pub(crate) async fn has_resolvable_image(
     let scope = AttachmentAccessScope {
         external_channel: false,
         workspace: workspace.map(|workspace| workspace.root.clone()),
+        ..Default::default()
     };
     for path in paths {
         let path = legacy::migrate_path(&config, &path, &scope)
@@ -607,6 +663,7 @@ pub(crate) async fn stage_turn(
             Some(crate::core::runtime::turn_origin::AgentTurnOrigin::ExternalChannel { .. })
         ),
         workspace: workspace.map(|workspace| workspace.root.clone()),
+        ..Default::default()
     };
     stage(message, thread.unwrap_or("direct"), &config, &scope).await
 }

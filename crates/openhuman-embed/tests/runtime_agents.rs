@@ -510,23 +510,28 @@ fn one_runtime_hosts_independently_configured_agents() {
             );
 
             // Interleaved concurrency across agents keeps their providers apart.
+            // Batch the turns so this isolation check does not flood one
+            // runtime with fifty simultaneous requests while Nextest runs the
+            // other integration binaries beside it.
             let mut turns = tokio::task::JoinSet::new();
-            for index in 0..25 {
-                let alpha = alpha.clone();
-                let beta = beta.clone();
-                turns.spawn(async move { alpha.turn(format!("a{index}")).send().await });
-                turns.spawn(async move { beta.turn(format!("b{index}")).send().await });
-            }
             let mut a_count = 0;
             let mut b_count = 0;
-            while let Some(outcome) = turns.join_next().await {
-                let outcome = outcome.expect("no panic").expect("turn runs");
-                if outcome.reply.contains("alpha-ok") {
-                    a_count += 1;
-                } else if outcome.reply.contains("beta-ok") {
-                    b_count += 1;
-                } else {
-                    panic!("unexpected reply {:?}", outcome.reply);
+            for start in (0..25).step_by(5) {
+                for index in start..start + 5 {
+                    let alpha = alpha.clone();
+                    let beta = beta.clone();
+                    turns.spawn(async move { alpha.turn(format!("a{index}")).send().await });
+                    turns.spawn(async move { beta.turn(format!("b{index}")).send().await });
+                }
+                while let Some(outcome) = turns.join_next().await {
+                    let outcome = outcome.expect("no panic").expect("turn runs");
+                    if outcome.reply.contains("alpha-ok") {
+                        a_count += 1;
+                    } else if outcome.reply.contains("beta-ok") {
+                        b_count += 1;
+                    } else {
+                        panic!("unexpected reply {:?}", outcome.reply);
+                    }
                 }
             }
             assert_eq!((a_count, b_count), (25, 25));

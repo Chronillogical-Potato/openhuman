@@ -122,6 +122,7 @@ pub(crate) async fn run_channel_turn(
                     )
                 ),
                 workspace: workspace.clone(),
+                ..Default::default()
             };
             row.content =
                 crate::attachments::stage(&row.content, "channel", config, &scope).await?;

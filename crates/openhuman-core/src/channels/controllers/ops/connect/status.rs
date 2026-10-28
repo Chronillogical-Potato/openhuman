@@ -163,9 +163,6 @@ pub async fn connected_channel_slugs(config: &Config) -> Result<Vec<String>, Str
     if cc.signal.is_some() {
         slugs.insert("signal".to_string());
     }
-    if cc.matrix.is_some() {
-        slugs.insert("matrix".to_string());
-    }
     if cc.imessage.is_some() {
         slugs.insert("imessage".to_string());
     }

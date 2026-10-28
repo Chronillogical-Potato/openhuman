@@ -10,6 +10,7 @@ async fn dispatch_scope_uses_explicit_origin_without_mutating_shared_context() {
         reply_target: "room".into(),
         message_id: "message".into(),
         history_key: None,
+        channel_session: None,
     };
     CoreContext::scope_with_turn_origin(ctx.clone(), Some(origin), async {
         assert!(matches!(
@@ -32,6 +33,7 @@ async fn missing_child_origin_inherits_bound_external_authority() {
         reply_target: "room".into(),
         message_id: "message".into(),
         history_key: None,
+        channel_session: None,
     };
     CoreContext::scope_with_turn_origin(ctx, Some(external), async {
         let parent = CoreContext::current().expect("parent context");
@@ -59,6 +61,7 @@ async fn explicit_origin_scope_bridges_legacy_and_core_context_without_cross_tal
             reply_target: format!("{channel}-room"),
             message_id: format!("{channel}-message"),
             history_key: None,
+            channel_session: None,
         };
         CoreContext::scope(context, async {
             turn_origin::with_origin(origin, async {
@@ -106,6 +109,7 @@ async fn bound_external_authority_wins_over_legacy_trusted_automation() {
                     reply_target: "room".into(),
                     message_id: "message".into(),
                     history_key: None,
+                    channel_session: None,
                 };
                 CoreContext::scope_with_turn_origin(parent, Some(external), async {
                     assert!(matches!(
@@ -171,6 +175,7 @@ async fn concurrent_channel_turns_keep_tenant_agent_thread_and_policy_isolated()
             reply_target: format!("room-{label}"),
             message_id: format!("message-{label}"),
             history_key: None,
+            channel_session: None,
         };
         let turn = context.derive_channel_turn(Some(thread.clone()), Some(origin));
         CoreContext::scope(turn, async move {

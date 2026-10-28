@@ -115,6 +115,7 @@ async fn forced_approval_still_denies_automation_and_channel_origins() {
             reply_target: "chat".into(),
             message_id: "m".into(),
             history_key: None,
+            channel_session: None,
         },
         AgentTurnOrigin::Unknown,
     ] {

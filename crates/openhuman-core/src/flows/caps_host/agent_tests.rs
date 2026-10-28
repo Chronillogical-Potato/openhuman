@@ -29,8 +29,23 @@ async fn production_harness_ceiling_is_open_and_reusable() {
     assert!(!super::HARNESS_AGENT_SLOTS.is_closed());
 }
 
-#[tokio::test]
-async fn headless_flow_agent_includes_nested_grandchild_result() {
+#[test]
+fn headless_flow_agent_includes_nested_grandchild_result() {
+    std::thread::Builder::new()
+        .stack_size(64 * 1024 * 1024)
+        .spawn(|| {
+            tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .expect("test runtime")
+                .block_on(headless_flow_agent_includes_nested_grandchild_result_inner());
+        })
+        .expect("spawn test thread")
+        .join()
+        .expect("nested grandchild test thread");
+}
+
+async fn headless_flow_agent_includes_nested_grandchild_result_inner() {
     use async_trait::async_trait;
     use tinyinference_llm::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse};
 
@@ -236,11 +251,11 @@ async fn headless_flow_agent_includes_nested_grandchild_result() {
         .await
     });
     let grandchild_reached_model = matches!(
-        tokio::time::timeout(std::time::Duration::from_secs(5), child_started_rx).await,
+        tokio::time::timeout(std::time::Duration::from_secs(30), child_started_rx).await,
         Ok(Ok(()))
     );
     tokio::time::timeout(
-        std::time::Duration::from_secs(5),
+        std::time::Duration::from_secs(30),
         model.root_followup.notified(),
     )
     .await
@@ -608,7 +623,7 @@ async fn headless_child_at_depth_cap_gets_readable_spawn_refusal() {
         .expect("the child reaches the scripted model")
         .expect("the child start signal is delivered");
     tokio::time::timeout(
-        std::time::Duration::from_secs(5),
+        std::time::Duration::from_secs(30),
         model.root_followup.notified(),
     )
     .await

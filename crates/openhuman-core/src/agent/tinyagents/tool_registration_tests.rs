@@ -258,6 +258,7 @@ async fn shared_adapter_scopes_tool_execution_to_the_run_origin() {
             reply_target: "room".into(),
             message_id: "message".into(),
             history_key: None,
+            channel_session: None,
         },
     );
     let run = host.into_tinyagents(RunConfig::new("origin-observer"));

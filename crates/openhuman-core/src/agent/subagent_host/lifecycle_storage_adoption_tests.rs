@@ -249,7 +249,9 @@ async fn a_detached_driver_uses_its_carried_actor_for_lifecycle_commits() {
         .unwrap()
         .unwrap()
         .unwrap();
-    let alice_dispatch = CoreContext::scope(alice, async {
+    // The persistence holds its actor weakly, so both contexts stay owned here
+    // until the reads finish.
+    let alice_dispatch = CoreContext::scope(alice.clone(), async {
         crate::core::runtime::DispatchCtx::ambient()
     })
     .await;
@@ -262,12 +264,15 @@ async fn a_detached_driver_uses_its_carried_actor_for_lifecycle_commits() {
         .unwrap()
         .expect("detached lifecycle write committed in its carried actor scope");
     assert_eq!(durable.output, "detached actor result");
-    let bob_dispatch =
-        CoreContext::scope(bob, async { crate::core::runtime::DispatchCtx::ambient() }).await;
+    let bob_dispatch = CoreContext::scope(bob.clone(), async {
+        crate::core::runtime::DispatchCtx::ambient()
+    })
+    .await;
     let other = super::super::persistence::OpenHumanPersistence::new(checkpoints)
         .with_dispatch(bob_dispatch);
     assert!(other.load_terminal(&key).await.unwrap().is_none());
     drop(bundle);
+    drop((alice, bob));
 }
 
 async fn assert_legacy_terminal_fixture(format: &str) {

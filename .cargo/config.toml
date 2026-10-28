@@ -1,4 +1,12 @@
 # Repo-level Cargo configuration.
+
+# Agent turns can nest large async futures and use 20 MiB worker stacks in
+# production. Rust's test harness otherwise runs each test on a 2 MiB thread,
+# which aborts several orchestration and scheduler tests before their assertions
+# run. Match the test-thread floor to the runtime stack used by those turns.
+[env]
+RUST_MIN_STACK = { value = "20971520", force = false }
+
 #
 # ────────────────────────────────────────────────────────────────────────────
 # Faster linking (OPT-IN)

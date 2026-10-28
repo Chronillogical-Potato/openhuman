@@ -2,8 +2,11 @@
 //!
 //! Before the model runs, [`OpenHumanTurnPrelude::memory_pre_turn`] logs the
 //! user turn and refreshes memory in the background, taking a completed cached
-//! pack immediately (`memory::lifecycle::prefetch::pre_turn`); `MemoryPackMiddleware` then adds the
-//! pack to the turn's requests without persisting it. After the durable
+//! pack immediately (`memory::lifecycle::prefetch::pre_turn`). When the
+//! config binds `[memory] recall_each_turn_ms`, it instead waits up to that
+//! long for the pack recalled for the current message, alongside the rest of
+//! turn setup. `MemoryPackMiddleware` then adds the pack to the turn's
+//! requests without persisting it. After the durable
 //! commit, [`OpenHumanTurnPrelude::memory_post_turn`] logs the reply with its
 //! tool calls. Both run under the session's own config, so a host binding set
 //! on a derived context (`[memory] agent_id` / `root`) is honoured, and both
@@ -26,6 +29,7 @@ use tinyinference_llm::message::Message;
 use super::OpenHumanTurnPrelude;
 use crate::agent::tinyagents::host::OpenHumanRunContext;
 use crate::memory::lifecycle::hooks::{self, MemoryTurn, ToolCallSummary};
+use crate::memory::lifecycle::prefetch::RecallEachTurn;
 use tinymemory_tools::layout::identity::ResolvedIdentity;
 
 /// The memory side of the turn in flight, held from pre-turn to commit.
@@ -106,7 +110,7 @@ impl OpenHumanTurnPrelude {
     }
     /// The config memory runs under: the session's own, else the
     /// workspace's on disk.
-    async fn memory_config(&self) -> Option<Arc<crate::config::Config>> {
+    pub(super) async fn memory_config(&self) -> Option<Arc<crate::config::Config>> {
         if let Some(config) = &self.runtime_config {
             return Some(config.clone());
         }
@@ -120,6 +124,27 @@ impl OpenHumanTurnPrelude {
             log::debug!("[session_host:memory] no config for memory: {error}");
         })
         .ok()
+    }
+
+    /// The identity this session's memory runs as: the host environment's
+    /// (a team member's), narrowed to this agent.
+    pub(super) fn memory_identity(&self, config: &crate::config::Config) -> ResolvedIdentity {
+        let acting = self.host_env.memory_identity.clone().unwrap_or_default();
+        acting
+            .child(&self.agent_definition_id)
+            .resolve(&crate::memory::scope::identity_pins(config))
+    }
+
+    /// Whether this session may read memory at all: a SaaS turn without an
+    /// authenticated profile may not (see `capture_profile_context`).
+    pub(super) fn memory_readable(&self) -> bool {
+        !matches!(
+            capture_profile_context(
+                &self.dispatch_ctx(),
+                crate::profiles::host::host().as_deref(),
+            ),
+            ProfileMemoryContext::Denied
+        )
     }
 
     /// Takes completed memory and queues a user-authored turn's log and recall.
@@ -144,12 +169,7 @@ impl OpenHumanTurnPrelude {
             .clone()?;
         let thread_id = self.thread_id.clone()?;
         let config = self.memory_config().await?;
-        // The identity the turn's run context carries: the host environment's
-        // (a team member's), narrowed to this agent.
-        let acting = self.host_env.memory_identity.clone().unwrap_or_default();
-        let mut identity = acting
-            .child(&self.agent_definition_id)
-            .resolve(&crate::memory::scope::identity_pins(&config));
+        let mut identity = self.memory_identity(&config);
         if self.omit_memory_context {
             identity.recall = false;
         }
@@ -186,7 +206,12 @@ impl OpenHumanTurnPrelude {
                 .as_ref()
                 .and_then(crate::memory::lifecycle::sender::channel_actor),
             memory_channel,
-        );
+            config
+                .memory
+                .recall_each_turn_ms
+                .map(|ms| RecallEachTurn::new(std::time::Duration::from_millis(ms))),
+        )
+        .await;
         Some(Arc::new(MemoryTurn {
             config,
             identity,

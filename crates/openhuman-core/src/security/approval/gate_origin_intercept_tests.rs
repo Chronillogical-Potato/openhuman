@@ -147,6 +147,7 @@ async fn intercept_with_external_channel_origin_persists_and_ttl_denies() {
         reply_target: "tg-chat-1".into(),
         message_id: "msg-1".into(),
         history_key: None,
+        channel_session: None,
     };
 
     let g = gate.clone();

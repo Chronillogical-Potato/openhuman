@@ -119,12 +119,12 @@ fn seed_thread(node: &Node, user: &str) {
 
 /// The pending record a core killed before delivery leaves in `user`'s
 /// completion queue.
-fn leave_undelivered_result(root: &std::path::Path, user: &str) {
+fn leave_undelivered_result(d: &Deployment, user: &str) {
     let id = ProfileId::for_user(user, ProfileIdMode::Raw).unwrap();
-    let workspace = ProfileLayout::new(root, &id).workspace_dir;
-    // The profile's default database, in the profile's own scope: where the
-    // running core keeps (and looks for) its completion queue.
-    let url = openhuman_core::storage::config::default_url(&workspace);
+    let workspace = ProfileLayout::new(&d.root, &id).workspace_dir;
+    // SaaS nodes default to one deployment database with profile-scoped
+    // collections; seed the same backend that ProfileHost reads on restart.
+    let url = format!("sqlite:{}/saas-storage.db", d.tmp.path().display());
     std::fs::create_dir_all(workspace.join(openhuman_core::storage::config::DEFAULT_DIR)).unwrap();
     let backend = openhuman_core::storage::block_on_anyhow(async move {
         Ok(openhuman_core::storage::open(&url).await?)
@@ -173,7 +173,7 @@ fn an_undelivered_subagent_result_reaches_its_own_profile_after_a_restart() {
 
     // The core dies with ann's sub-agent result recorded but undelivered.
     node.kill();
-    leave_undelivered_result(&d.root, OWNER);
+    leave_undelivered_result(&d, OWNER);
 
     // Restart. Opening bob, whose thread has the same id, delivers nothing.
     let node = node_logging(&d, llm.port);

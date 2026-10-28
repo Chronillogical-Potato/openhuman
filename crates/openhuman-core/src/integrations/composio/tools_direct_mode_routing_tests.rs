@@ -144,13 +144,11 @@ async fn execute_tool_per_call_factory_means_no_baked_client() {
     // `OPENHUMAN_WORKSPACE` at a tempdir, and persist the test's
     // `Config` to that tempdir's `config.toml` before invoking the tool.
     use crate::config::TEST_ENV_LOCK;
-    // The scope gate reads the user's scope preference from the connector
-    // module's storage and fails closed when it cannot; give it the memory
-    // backend a booted host has, so the gate answers and dispatch is reached.
-    let _module = crate::integrations::composio::module_client::module_guard().await;
     let _env_guard = TEST_ENV_LOCK.lock().await;
-    // The scope-preference read is served by the connector module out of the
-    // host's installed storage; hold the module with that storage in place.
+    // The scope gate reads the user's scope preference from the connector
+    // module's storage and fails closed when it cannot; hold the module with
+    // that storage in place so the gate answers and dispatch is reached. The
+    // guard is not reentrant: taking it twice self-deadlocks.
     let _module = crate::integrations::composio::module_client::module_guard().await;
 
     let tmp = tempfile::tempdir().unwrap();

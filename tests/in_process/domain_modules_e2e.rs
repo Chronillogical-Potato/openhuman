@@ -19,6 +19,9 @@ use std::sync::Arc;
 use tempfile::{tempdir, TempDir};
 
 struct TestHarness {
+    /// The MCP audit and registry reads run in the TinyMCP module, which
+    /// reaches the host's installed storage backend.
+    _storage: crate::storage_case::Case,
     _tmp: TempDir,
     _guards: Vec<EnvVarGuard>,
     rpc_base: String,
@@ -51,8 +54,11 @@ async fn setup_with_config(memory_config: Option<&str>) -> TestHarness {
         EnvVarGuard::set("OPENHUMAN_MEMORY_EMBED_MODEL", ""),
     ];
 
+    let storage = crate::storage_case::Case::open();
+    storage.install();
     let (addr, join) = serve_rpc().await;
     TestHarness {
+        _storage: storage,
         _tmp: tmp,
         _guards: guards,
         rpc_base: format!("http://{addr}"),
@@ -302,9 +308,15 @@ async fn config_agent_tools_and_threads_mutation_paths_round_trip() {
         json!({}),
     )
     .await;
+    // The harness runs on the legacy single-user layout (the config dir is the
+    // shared root), where the controller refuses rather than hand a caller a
+    // folder that holds every account's data to delete.
     assert!(
-        payload(&data_paths, "get_data_paths").is_object(),
-        "data paths should return an object: {data_paths}"
+        data_paths
+            .pointer("/error/message")
+            .and_then(Value::as_str)
+            .is_some_and(|message| message.contains("legacy data layout")),
+        "data paths on the legacy layout must be refused: {data_paths}"
     );
 
     let diagnostics = rpc(

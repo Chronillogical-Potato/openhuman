@@ -223,6 +223,95 @@ async fn durable_tool_trust_skips_prompt() {
     );
 }
 
+/// "Always allow" on a parked `create_workflow` round-trips: the decided row is
+/// persisted to `autonomy.auto_approve` (what `approval::rpc::approval_decide`
+/// does for `ApproveAlwaysForTool`; the RPC itself reads the process-wide gate,
+/// which tests must not install), and the next `create_workflow` is allowed
+/// without a second prompt.
+#[tokio::test]
+async fn approve_always_for_create_workflow_persists_and_skips_the_next_prompt() {
+    let (gate, dir) = test_gate();
+    let gate = Arc::new(gate);
+    let _env = EnvVarGuard::workspace_async(dir.path()).await;
+    crate::security::live_policy::install(
+        Arc::new(crate::security::SecurityPolicy::default()),
+        dir.path().to_path_buf(),
+        dir.path().to_path_buf(),
+    );
+
+    let intercept = |gate: Arc<ApprovalGate>| {
+        tokio::spawn(async move {
+            turn_origin::with_origin(
+                web_origin(),
+                gate.intercept(
+                    &ApprovalTurnContext::chat(chat_ctx()),
+                    "create_workflow",
+                    "create a workflow",
+                    serde_json::json!({}),
+                ),
+            )
+            .await
+        })
+    };
+
+    let first = intercept(gate.clone());
+    let pending = tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            if let Some(p) = gate
+                .list_pending()
+                .unwrap()
+                .into_iter()
+                .find(|p| p.tool_name == "create_workflow")
+            {
+                break p;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .expect("the first create_workflow must park for approval");
+    let row = gate
+        .decide(&pending.request_id, ApprovalDecision::ApproveAlwaysForTool)
+        .unwrap()
+        .expect("the parked create_workflow row is decided");
+    assert!(matches!(first.await.unwrap(), GateOutcome::Allow));
+    crate::config::ops::add_auto_approve_tool(
+        &crate::core::runtime::DispatchCtx::process_default(),
+        &row.tool_name,
+    )
+    .await
+    .expect("persist the Always-allow choice");
+
+    let saved = crate::config::ops::load_config_with_timeout()
+        .await
+        .unwrap();
+    assert!(
+        saved
+            .autonomy
+            .auto_approve
+            .iter()
+            .any(|tool| tool == "create_workflow"),
+        "Always allow must persist create_workflow to autonomy.auto_approve"
+    );
+
+    let second = tokio::time::timeout(Duration::from_secs(5), intercept(gate.clone()))
+        .await
+        .expect("the second create_workflow must not park for approval")
+        .unwrap();
+    assert!(matches!(second, GateOutcome::Allow));
+    assert!(
+        gate.list_pending().unwrap().is_empty(),
+        "the second create_workflow must not re-prompt"
+    );
+
+    // Leave no allowlisted create_workflow behind for sibling gate tests.
+    crate::security::live_policy::install(
+        Arc::new(crate::security::SecurityPolicy::default()),
+        dir.path().to_path_buf(),
+        dir.path().to_path_buf(),
+    );
+}
+
 /// With `auto_approve_all: true`, a WebChat-origin call resolves to
 /// `Allow` immediately — no pending row is created and the chat context
 /// is never consulted, proving the short-circuit fires above the park.

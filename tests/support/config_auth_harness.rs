@@ -23,8 +23,8 @@ pub use tempfile::{tempdir, TempDir};
 pub use openhuman_core::config::schema::{
     AuditConfig, CapabilityProviderConfig, CapabilityProviderTrustState, DashboardConfig,
     DingTalkConfig, DiscordConfig, EventStreamConfig, IrcConfig, LarkConfig, MatrixConfig,
-    MemoryConfig, ModelHealthConfig, ProxyConfig, ProxyScope, QQConfig, SandboxConfig,
-    SecurityConfig, SlackConfig, TelegramConfig, WebhookConfig, WhatsAppConfig,
+    MemoryConfig, ModelHealthConfig, ProxyConfig, ProxyScope, QQConfig, ResourceLimitsConfig,
+    SandboxConfig, SecurityConfig, SlackConfig, TelegramConfig, WebhookConfig, WhatsAppConfig,
 };
 pub use openhuman_core::config::{
     clear_active_user, default_projects_dir, pre_login_user_dir, read_active_user_id,

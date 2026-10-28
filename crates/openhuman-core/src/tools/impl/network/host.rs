@@ -37,7 +37,9 @@ fn http_limits() -> HttpLimits {
 /// HTML detection and extraction execute in the lazily loaded TinyJuice module.
 #[derive(Debug)]
 struct TinyJuiceHtml {
-    ctx: DispatchCtx,
+    /// Weak: the tool lives in a cached session, and a strong context here
+    /// would pin its tenant (`CoreContext::tenant_in_use`) after the turn.
+    core: Option<std::sync::Weak<crate::core::runtime::CoreContext>>,
 }
 
 #[async_trait::async_trait]
@@ -53,9 +55,12 @@ impl AsyncHtmlExtractor for TinyJuiceHtml {
     }
 
     async fn to_markdown(&self, html: &str) -> anyhow::Result<String> {
-        crate::inference::tokenjuice::extract_html(&self.ctx, html.to_string())
-            .await
-            .map_err(anyhow::Error::msg)
+        crate::inference::tokenjuice::extract_html(
+            &DispatchCtx::from_weak(self.core.as_ref()),
+            html.to_string(),
+        )
+        .await
+        .map_err(anyhow::Error::msg)
     }
 }
 
@@ -245,7 +250,9 @@ pub fn web_fetch_tool(
         max_bytes,
         timeout_secs,
         http_limits(),
-        Arc::new(TinyJuiceHtml { ctx: ctx.clone() }),
+        Arc::new(TinyJuiceHtml {
+            core: ctx.downgrade(),
+        }),
     )
     // Opts into a caller-steered summary; see `tokenjuice::focus`.
     .with_schema_property(SUMMARY_FOCUS_ARG, summary_focus_property())

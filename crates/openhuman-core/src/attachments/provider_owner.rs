@@ -105,15 +105,19 @@ impl MediaSourceResolver<AttachmentAccessScope> for AttachmentModel {
         max_bytes: usize,
         metadata: &MediaSourceMetadata,
     ) -> Result<ResolvedMedia, String> {
-        if (metadata.kind == MediaSourceKind::Url
-            && !source.starts_with("data:")
-            && !source.starts_with("http://")
-            && !source.starts_with("https://"))
-            || (metadata.kind == MediaSourceKind::Untyped
+        // Staged native attachments are opaque host references that
+        // `resolve_block` authorizes against the thread, not URLs to fetch.
+        let staged = source.starts_with("openhuman-staged://");
+        if !staged
+            && ((metadata.kind == MediaSourceKind::Url
                 && !source.starts_with("data:")
-                && source.contains("://")
                 && !source.starts_with("http://")
                 && !source.starts_with("https://"))
+                || (metadata.kind == MediaSourceKind::Untyped
+                    && !source.starts_with("data:")
+                    && source.contains("://")
+                    && !source.starts_with("http://")
+                    && !source.starts_with("https://")))
         {
             return Err("unsupported media URL scheme".into());
         }
@@ -165,7 +169,14 @@ impl MediaSourceResolver<AttachmentAccessScope> for AttachmentModel {
             }
         };
         let Some((resolved_modality, path, mut mime, bytes, recovered)) = self
-            .resolve_block(&block, scope)
+            .resolve_block(
+                &block, scope,
+                // The generic resolver port carries no message index, so staged
+                // attachments committed to this thread stay readable for
+                // history replay; `read_authorized_native_attachment` still
+                // requires the record to be bound to the thread.
+                true,
+            )
             .await
             .map_err(|error| error.to_string())?
         else {

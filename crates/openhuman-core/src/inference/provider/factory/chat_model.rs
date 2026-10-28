@@ -9,6 +9,7 @@ use super::{
     credentials::CredentialAccess,
     local_runtime::try_create_local_runtime_chat_model_from_string,
     provider_for_role,
+    routing::route_with_model,
     subprocess_providers::OpenHumanMcpEndpoint,
     BYOK_INCOMPLETE_SENTINEL, CLAUDE_AGENT_SDK_PREFIX, CLAUDE_AGENT_SDK_PROVIDER,
     PROVIDER_OPENHUMAN,
@@ -41,6 +42,9 @@ pub(crate) struct OpenHumanModelFactory<'a> {
     /// factory actually selected. One-shot probes do not need host attachments.
     pub(crate) attach_host_attachments: bool,
     pub(crate) credentials: super::credentials::RuntimeCredentialSnapshot,
+    /// `[context] summarizer_model`: the model a summarization request calls
+    /// on its own provider route instead of the route's model.
+    pub(crate) summarizer_model: Option<&'a str>,
 }
 
 impl OpenHumanModelFactory<'_> {
@@ -52,17 +56,21 @@ impl OpenHumanModelFactory<'_> {
             .unwrap_or(role)
     }
 
-    fn provider_for(&self, request: &ModelBuildRequest) -> String {
+    pub(super) fn provider_for(&self, request: &ModelBuildRequest) -> String {
         match &request.purpose {
-            ModelPurpose::Primary | ModelPurpose::Summarization => self
-                .primary_provider
-                .map(str::to_owned)
-                .unwrap_or_else(|| provider_for_role(&request.role, self.config)),
+            ModelPurpose::Primary | ModelPurpose::Summarization => {
+                let provider = self
+                    .primary_provider
+                    .map(str::to_owned)
+                    .unwrap_or_else(|| provider_for_role(&request.role, self.config));
+                let summarizes = matches!(request.purpose, ModelPurpose::Summarization);
+                route_with_model(provider, self.summarizer_model.filter(|_| summarizes))
+            }
             ModelPurpose::WorkloadTier(_) => provider_for_role(&request.role, self.config),
         }
     }
 
-    fn injected(&self, request: &ModelBuildRequest) -> Option<Arc<dyn ChatModel<()>>> {
+    pub(super) fn injected(&self, request: &ModelBuildRequest) -> Option<Arc<dyn ChatModel<()>>> {
         let route = request.route.as_deref();
         let host_model = self
             .ctx
@@ -341,6 +349,7 @@ async fn build_one_shot(
         thread_id: None,
         attach_host_attachments: false,
         credentials,
+        summarizer_model: None,
     };
     let request = ModelBuildRequest {
         role: role.to_owned(),

@@ -608,7 +608,8 @@ pub mod web_chat {
     pub use openhuman_core::web_chat::{
         approval_request_event, cancel_chat_scoped, plan_review_request_event,
         publish_web_channel_event, start_chat, subscribe_web_channel_events, unix_epoch_ms,
-        ChatRequestMetadata, GuardrailPayload, StartChatError, WebChannelEvent,
+        ChatRequestMetadata, GuardrailPayload, ScopedWebEvent, StartChatError, WebChannelEvent,
+        WebEventContext,
     };
 }
 

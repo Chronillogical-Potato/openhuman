@@ -378,6 +378,7 @@ async fn run_subagent_tool(
         reply_target: agent_id.to_string(),
         message_id: uuid::Uuid::new_v4().to_string(),
         history_key: None,
+        channel_session: None,
     };
     // Run the subagent one level deeper in the chain, so its own Claude Code
     // turns stamp `child_depth` onto any grandchildren they spawn. The agent

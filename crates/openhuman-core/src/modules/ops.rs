@@ -255,6 +255,13 @@ async fn ensure_loaded_with_storage_callback(
 ) -> Result<(), String> {
     let mut loads = STORAGE_CALLBACK_LOADS.lock().await;
     if let Some((binding, _served)) = loads.get(id) {
+        if matches!(state_of(id), ModuleState::Ready) {
+            // Already serving with this binding: a binding is spent once the
+            // module takes it, so re-presenting it would be refused. The module
+            // is process-wide, so every later workspace's client finds it
+            // already serving.
+            return Ok(());
+        }
         let mut module_config = module_config(config, id).await;
         module_config["storage_callback"] = serde_json::json!(binding.unique_name().as_str());
         return resolver
@@ -407,11 +414,17 @@ impl ModuleAccess for CallbackAccess {
 
     fn ensure_loaded<'a>(&'a self, id: &'a str) -> AccessFuture<'a, Result<(), String>> {
         Box::pin(async move {
-            if needs_storage_callback(id) {
+            let loaded = if needs_storage_callback(id) {
                 ensure_loaded(&self.config, id).await
             } else {
                 self.resolver.ensure_loaded(id).await
+            };
+            // The client collapses this message into a bare "module
+            // unavailable"; keep the reason where an operator can grep it.
+            if let Err(error) = &loaded {
+                tracing::warn!(module = id, %error, "[modules] ensure_loaded refused the module");
             }
+            loaded
         })
     }
 

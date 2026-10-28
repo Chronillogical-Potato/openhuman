@@ -1677,6 +1677,8 @@ const messages: TranslationMap = {
   'chat.flowProposal.openInCanvas': 'Abrir en el lienzo',
   'chat.flowProposal.dismiss': 'Descartar',
   'chat.flowProposal.error': 'No se pudo guardar el flujo de trabajo. Inténtalo de nuevo.',
+  'chat.flowProposal.versionConflict':
+    'Este flujo de trabajo cambió después de crear la propuesta, así que no se sobrescribió. Pide una nueva revisión.',
   'chat.flowProposal.enableError':
     'Flujo de trabajo guardado, pero no se pudo activar. Inténtalo de nuevo o actívalo desde la página de Workflows.',
   'chat.flowProposal.savedConfirmation': 'Guardado',
@@ -3526,6 +3528,21 @@ const messages: TranslationMap = {
   'composer.settings.loadingModels': 'Cargando modelos…',
   'composer.voiceMode': 'Modo de voz',
   'composer.humanMode': 'Modo humano',
+  'voiceNote.record': 'Grabar una nota de voz',
+  'voiceNote.stop': 'Detener la grabación',
+  'voiceNote.discard': 'Descartar nota de voz',
+  'voiceNote.send': 'Enviar nota de voz',
+  'voiceNote.recording': 'Grabando…',
+  'voiceNote.play': 'Reproducir nota de voz',
+  'voiceNote.pause': 'Pausar nota de voz',
+  'voiceNote.seek': 'Desplazarse por la nota de voz',
+  'voiceNote.transcript': 'Transcripción',
+  'voiceNote.noTranscript': 'No hay transcripción disponible',
+  'voiceNote.label': 'Nota de voz {duration}',
+  'voiceNote.micDenied': 'Se denegó el acceso al micrófono o no está disponible.',
+  'voiceNote.transcribeFailed': 'No se pudo transcribir la nota de voz.',
+  'voiceNote.loadFailed': 'No se pudo cargar esta nota de voz.',
+  'voiceNote.sendFailed': 'No se pudo enviar la nota de voz.',
 
   // Sync budget dialog
 

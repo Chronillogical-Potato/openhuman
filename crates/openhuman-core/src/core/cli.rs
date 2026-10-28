@@ -481,8 +481,8 @@ fn run_call_command(args: &[String]) -> Result<()> {
         .block_on(async {
             let headless_agent_chat = crate::core::legacy_aliases::resolve_legacy(&method)
                 == crate::agent_runs::INFERENCE_AGENT_CHAT;
-            if headless_agent_chat {
-                let config = crate::config::Config::load_or_init()
+            let dispatch = if headless_agent_chat {
+                let config = crate::config::load_config_with_timeout()
                     .await
                     .map_err(|error| error.to_string())?;
                 if crate::agent_registry::host_definition::AgentDefinitionRegistry::global()
@@ -493,9 +493,35 @@ fn run_call_command(args: &[String]) -> Result<()> {
                     )
                     .map_err(|error| error.to_string())?;
                 }
-                crate::credentials::seed_api_key_from_env(&config).await;
-            }
-            let dispatch = DispatchCtx::process_default();
+                crate::security::credentials::seed_api_key_from_env(&config).await;
+
+                // A one-shot CLI call does not boot the long-lived server
+                // runtime, but the agent turn still needs a real owner context
+                // for scoped persistence and tools that cross task boundaries.
+                let core = match crate::core::runtime::CoreContext::default_context() {
+                    Some(core) => core,
+                    None => {
+                        let tool_groups = if std::env::var_os("OPENHUMAN_E2E").is_some() {
+                            crate::tools::toolpacks::ToolGroups::advertised()
+                        } else {
+                            crate::tools::toolpacks::ToolGroups::default()
+                        };
+                        crate::core::runtime::CoreContext::init_with_config(
+                            crate::core::types::HostKind::detect_standalone(),
+                            &crate::core::runtime::TokenSource::EnvOrFile,
+                            crate::core::runtime::DomainSet::full(),
+                            tool_groups,
+                            Some(config),
+                        )
+                        .await
+                        .map_err(|error| error.to_string())?
+                        .0
+                    }
+                };
+                DispatchCtx::new(core)
+            } else {
+                DispatchCtx::process_default()
+            };
             let dispatch = if headless_agent_chat {
                 dispatch.with_headless_agent_chat()
             } else {

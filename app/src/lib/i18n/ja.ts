@@ -1896,6 +1896,8 @@ const messages: TranslationMap = {
   'chat.flowProposal.openInCanvas': 'キャンバスで開く',
   'chat.flowProposal.dismiss': '閉じる',
   'chat.flowProposal.error': 'ワークフローを保存できませんでした。もう一度お試しください。',
+  'chat.flowProposal.versionConflict':
+    'この提案の作成後にワークフローが変更されたため、上書きしませんでした。新しい改訂を依頼してください。',
   'chat.flowProposal.enableError':
     'ワークフローは保存されましたが、有効化できませんでした。もう一度お試しいただくか、ワークフローページから有効化してください。',
   // Terminal success state (issue B36): shown once the flow is saved and
@@ -4049,6 +4051,21 @@ const messages: TranslationMap = {
   'composer.settings.loadingModels': 'モデルを読み込み中…',
   'composer.voiceMode': '音声モード',
   'composer.humanMode': 'ヒューマンモード',
+  'voiceNote.record': 'ボイスメモを録音',
+  'voiceNote.stop': '録音を停止',
+  'voiceNote.discard': 'ボイスメモを破棄',
+  'voiceNote.send': 'ボイスメモを送信',
+  'voiceNote.recording': '録音中…',
+  'voiceNote.play': 'ボイスメモを再生',
+  'voiceNote.pause': 'ボイスメモを一時停止',
+  'voiceNote.seek': 'ボイスメモをシーク',
+  'voiceNote.transcript': '文字起こし',
+  'voiceNote.noTranscript': '文字起こしはありません',
+  'voiceNote.label': 'ボイスメモ {duration}',
+  'voiceNote.micDenied': 'マイクへのアクセスが拒否されたか、利用できません。',
+  'voiceNote.transcribeFailed': 'ボイスメモを文字起こしできませんでした。',
+  'voiceNote.loadFailed': 'このボイスメモを読み込めませんでした。',
+  'voiceNote.sendFailed': 'ボイスメモを送信できませんでした。',
   // Sync budget dialog
 
   // Sync confirm dialog

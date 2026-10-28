@@ -193,7 +193,11 @@ pub(in crate::agent::orchestration) fn degrade_to_memory(
     let replacement: Arc<dyn CompletionStore> = Arc::new(InMemoryCompletionStore::new());
     match failed.replace_store_if_current(&previous, replacement) {
         Ok(CompletionStoreReplaceOutcome::Replaced(store)) => {
-            state().stores.insert(scope, store.clone());
+            {
+                let mut st = state();
+                st.degraded_scopes.insert(scope.clone());
+                st.stores.insert(scope, store.clone());
+            }
             log::error!(
                 "[background_completions] degraded to an in-memory queue workspace_dir={}",
                 workspace_dir.display()

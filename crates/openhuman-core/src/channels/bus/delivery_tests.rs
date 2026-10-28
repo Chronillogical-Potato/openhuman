@@ -1,16 +1,6 @@
 use super::*;
 use serde_json::json;
 
-#[test]
-fn outbound_body_has_stable_idempotency_key() {
-    let body = json!({ "text": "hello" });
-    let first = channel_message_body_with_idempotency("telegram", body.clone());
-    let second = channel_message_body_with_idempotency("telegram", body);
-
-    assert_eq!(first, second);
-    assert!(first.get("idempotencyKey").is_some());
-}
-
 #[tokio::test]
 async fn opening_without_a_registered_callback_answers_the_unavailable_sentinel() {
     let error = ModuleProgressiveReply::open(

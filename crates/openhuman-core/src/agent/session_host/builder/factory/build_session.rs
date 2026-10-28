@@ -421,7 +421,7 @@ impl OpenHumanSessionHost {
             .tool_dispatcher(tool_dispatcher)
             .prompt_builder(prompt_builder)
             .config(effective_agent_config)
-            .context_config(config.context.clone())
+            .context_config(config.context.harness.clone())
             .model_name(model_name)
             .model_vision(model_vision)
             .temperature(effective_temperature)

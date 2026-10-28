@@ -49,6 +49,10 @@ path = "src/bin/fleet.rs"
 # (no `http-server`) this target is skipped rather than failing to link.
 required-features = ["http-server", "bin-tools"]
 
+[[example]]
+name = "thread_wire_schema"
+path = "../../examples/thread_wire_schema.rs"
+
 # The benchmark and profiling binaries (`library-profile`, `rss-bench`,
 # `tool-search-bench`, `tool-dialect-bench`) and their driver scripts live in
 # tinyhumansai/openhuman-benchmarks (`profile/`), which builds them against a
@@ -92,9 +96,9 @@ path = "../../tests/tinydocs_linked_e2e.rs"
 required-features = ["linked-modules", "documents"]
 
 [[test]]
-name = "inbound_linked_e2e"
-path = "../../tests/inbound_linked_e2e.rs"
-required-features = ["linked-modules", "inbound-queues"]
+name = "inbound_module_e2e"
+path = "../../tests/inbound_module_e2e.rs"
+required-features = ["modules", "inbound-queues", "e2e-test-support"]
 
 [[test]]
 name = "tinysearch_module_e2e"
@@ -163,6 +167,12 @@ name = "storage_scope_e2e"
 path = "../../tests/storage_scope_e2e.rs"
 
 [[test]]
+name = "native_channel_session_restart_e2e"
+path = "../../tests/native_channel_session_restart_e2e.rs"
+# Boots the CLI's real native Telegram listener via a compiled TinyBus artifact.
+required-features = ["modules", "inference", "channels", "storage-sqlite"]
+
+[[test]]
 # Its own binary: two agents on one backend keep cron jobs and flows apart.
 name = "storage_agent_scopes_e2e"
 path = "../../tests/storage_agent_scopes_e2e.rs"
@@ -228,6 +238,14 @@ required-features = ["voice", "http-server"]
 name = "json_rpc_flows_e2e"
 path = "../../tests/json_rpc_flows_e2e.rs"
 required-features = ["voice", "http-server"]
+
+[[test]]
+# Chat → orchestrator → async workflow_builder → delivered proposal → saves.
+# Its own binary: it initialises the bus and the default core context, which
+# are process-wide.
+name = "json_rpc_flows_builder_chat_e2e"
+path = "../../tests/json_rpc_flows_builder_chat_e2e.rs"
+required-features = ["flows", "http-server"]
 
 [[test]]
 name = "json_rpc_mcp_e2e"
@@ -497,11 +515,12 @@ tinyagents-harness = { path = "../../vendor/tinyagents/crates/tinyagents-harness
 tinyagents-definition = { path = "../../vendor/tinyagents/crates/tinyagents-definition" }
 tinyagents-session = { path = "../../vendor/tinyagents/crates/tinyagents-session", features = ["testkit"] }
 tinydocs-bus = { path = "../../vendor/tinydocs/crates/tinydocs-bus" }
-# `inbound_linked_e2e` names the ingest dispositions from the contract.
+# `inbound_module_e2e` loads the staged TinyEventQueues release and names its
+# ingest dispositions from the contract.
 tinyeventqueues-bus = { path = "../../vendor/tinyeventqueues/crates/tinyeventqueues-bus" }
 tinysearch-bus = { path = "../../vendor/tinysearch/crates/tinysearch-bus" }
 tinybus = { path = "../../vendor/tinybus/crates/tinybus", default-features = false, features = ["macros", "uds"] }
-tinychannels = { version = "0.1", features = ["relay-websocket", "email"] }
+tinychannels = { version = "0.1", features = ["email"] }
 tinyinference-core = { path = "../../vendor/tinyagents/vendor/tinyinference/crates/tinyinference-core" }
 tinyinference-local = { path = "../../vendor/tinyagents/vendor/tinyinference/crates/tinyinference-local" }
 tinyinference-voice = { path = "../../vendor/tinyagents/vendor/tinyinference/crates/tinyinference-voice" }

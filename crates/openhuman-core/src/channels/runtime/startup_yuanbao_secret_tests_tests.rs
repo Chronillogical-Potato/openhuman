@@ -1,8 +1,8 @@
 use super::*;
-use crate::channels::providers::yuanbao::YuanbaoConfig;
-use crate::credentials::AuthService;
+use crate::security::credentials::AuthService;
 use std::collections::HashMap;
 use tempfile::tempdir;
+use tinychannels_bus::config::YuanbaoConfig;
 
 fn isolated_config() -> (tempfile::TempDir, Config) {
     let tmp = tempdir().expect("tempdir");
@@ -13,8 +13,8 @@ fn isolated_config() -> (tempfile::TempDir, Config) {
     (tmp, config)
 }
 
-#[tokio::test]
-async fn loads_app_secret_from_credentials_when_toml_empty() {
+#[test]
+fn loads_app_secret_from_credentials_when_toml_empty() {
     let (_tmp, config) = isolated_config();
     // Pre-write the credentials the same way `connect_channel` does:
     // metadata under the `channel:yuanbao:api_key` provider key.
@@ -23,7 +23,6 @@ async fn loads_app_secret_from_credentials_when_toml_empty() {
     metadata.insert("app_key".to_string(), "ak".to_string());
     metadata.insert("app_secret".to_string(), "from-credentials".to_string());
     auth.store_provider_token("channel:yuanbao:api_key", "default", "", metadata, true)
-        .await
         .expect("store credentials");
 
     let yb = YuanbaoConfig {
@@ -31,12 +30,12 @@ async fn loads_app_secret_from_credentials_when_toml_empty() {
         app_secret: String::new(),
         ..Default::default()
     };
-    let resolved = resolve_yuanbao_app_secret(yb, &config).await;
+    let resolved = resolve_yuanbao_app_secret(yb, &config);
     assert_eq!(resolved.app_secret, "from-credentials");
 }
 
-#[tokio::test]
-async fn preserves_existing_toml_secret_without_consulting_store() {
+#[test]
+fn preserves_existing_toml_secret_without_consulting_store() {
     // No credentials in the store at all — resolver must still leave
     // the TOML-supplied secret untouched.
     let (_tmp, config) = isolated_config();
@@ -45,26 +44,26 @@ async fn preserves_existing_toml_secret_without_consulting_store() {
         app_secret: "from-toml".into(),
         ..Default::default()
     };
-    let resolved = resolve_yuanbao_app_secret(yb, &config).await;
+    let resolved = resolve_yuanbao_app_secret(yb, &config);
     assert_eq!(resolved.app_secret, "from-toml");
 }
 
-#[tokio::test]
-async fn returns_empty_secret_when_neither_toml_nor_credentials_have_one() {
+#[test]
+fn returns_empty_secret_when_neither_toml_nor_credentials_have_one() {
     let (_tmp, config) = isolated_config();
     let yb = YuanbaoConfig {
         app_key: "ak".into(),
         app_secret: String::new(),
         ..Default::default()
     };
-    let resolved = resolve_yuanbao_app_secret(yb, &config).await;
+    let resolved = resolve_yuanbao_app_secret(yb, &config);
     // Surfaces empty so the downstream `YuanbaoChannel::new` validate()
     // step can fail clearly, instead of attempting auth with a stale value.
     assert_eq!(resolved.app_secret, "");
 }
 
-#[tokio::test]
-async fn skips_hydration_when_stored_profile_has_different_app_key() {
+#[test]
+fn skips_hydration_when_stored_profile_has_different_app_key() {
     // Reproduces the stale-secret hazard: user changed `app_key` in
     // `config.toml` (e.g. swapped to a different bot) but the
     // credentials store still has the old key's profile. The resolver
@@ -78,7 +77,6 @@ async fn skips_hydration_when_stored_profile_has_different_app_key() {
         "old-key-secret-do-not-use".to_string(),
     );
     auth.store_provider_token("channel:yuanbao:api_key", "default", "", metadata, true)
-        .await
         .expect("store credentials");
 
     let yb = YuanbaoConfig {
@@ -86,7 +84,7 @@ async fn skips_hydration_when_stored_profile_has_different_app_key() {
         app_secret: String::new(),
         ..Default::default()
     };
-    let resolved = resolve_yuanbao_app_secret(yb, &config).await;
+    let resolved = resolve_yuanbao_app_secret(yb, &config);
     assert_eq!(
         resolved.app_secret, "",
         "stale profile keyed to OLD-KEY must not hydrate NEW-KEY's secret",

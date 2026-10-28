@@ -175,7 +175,6 @@ tinyinference-voice = { path = "../../vendor/tinyagents/vendor/tinyinference/cra
 # crates. After cloning: `git submodule update --init --recursive vendor/`.
 tinytools = { path = "../../vendor/tinyagents/vendor/tinytools/crates/tinytools" }
 tinytools-agent = { path = "../../vendor/tinyagents/vendor/tinytools/crates/tinytools-agent" }
-tinytools-std = { path = "../../vendor/tinyagents/vendor/tinytools/crates/tinytools-std" }
 
 
 # TinyMemory (https://github.com/tinyhumansai/tinymemory), three crates:
@@ -356,7 +355,7 @@ url = "2"
 tempfile = "3"
 fs2 = "0.4"
 # Streams the layout-migration archive (`storage::layout::archive`), a `.tar.zst`.
-zstd = "0.13"
+zstd = "0.14"
 # The scheduler gate's battery/AC probe (`platform::llm_gate::signals`),
 # behind the `scheduler-gate` feature. CPU sampling uses `sysinfo` above.
 starship-battery = { version = "0.12", optional = true }
@@ -486,6 +485,10 @@ tokio-tungstenite = { version = "0.29", default-features = false, features = ["c
 rustix = { version = "1.1", features = ["fs"] }
 
 [dev-dependencies]
+# Lib tests always link the SQLite driver, so the durable-storage test helpers
+# (`storage::test_support::sqlite_backend`, persistent workspace defaults)
+# compile under the default (contributor) feature set too.
+tinystoragedrivers = { git = "https://github.com/tinyhumansai/tinystoragedrivers", rev = "f05fbd230c2c403c8dcdef57316fa55265379039", default-features = false, features = ["sqlite"] }
 tinystoragedrivers-testkit = { git = "https://github.com/tinyhumansai/tinystoragedrivers", rev = "f05fbd230c2c403c8dcdef57316fa55265379039" }
 tinyagents-session = { path = "../../vendor/tinyagents/crates/tinyagents-session", features = ["storage-drivers", "testkit"] }
 # Legacy TinyChannels provider/runtime fixtures remain available to tests only;

@@ -130,3 +130,5 @@ tower = { version = "0.5", default-features = false }
 # Same spelling as embed's, tinyhumans' and cli's dev-dependency, so the dev
 # graphs unify and `cargo test -p openhuman-rpc` reuses their core build.
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+engineioxide = "0.15"
+socketioxide = { version = "0.15", features = ["extensions", "__test_harness"] }

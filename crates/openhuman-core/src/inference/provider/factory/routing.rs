@@ -223,6 +223,26 @@ pub(super) async fn route_has_usable_credentials(resolved: &str, config: &Config
     false
 }
 
+/// `provider` with its model replaced by `model`, when one is given: the same
+/// provider (and so the same credentials, endpoint and route temperature)
+/// serving another model. A provider string with no model of its own (a
+/// routing sentinel such as `cloud`, or the managed backend's bare
+/// `openhuman`) is returned as is; those routes take the model from the
+/// request's pin instead.
+pub(super) fn route_with_model(provider: String, model: Option<&str>) -> String {
+    use tinyinference_providers::route::{ProviderRoute, RouteKind};
+    let Some(model) = model else {
+        return provider;
+    };
+    match ProviderRoute::parse(&provider) {
+        Some(route) if route.kind() != RouteKind::Sentinel => match route.temperature {
+            Some(temperature) => format!("{}:{model}@{temperature}", route.provider),
+            None => format!("{}:{model}", route.provider),
+        },
+        _ => provider,
+    }
+}
+
 #[cfg(test)]
 #[path = "routing_tests.rs"]
 mod routing_tests;

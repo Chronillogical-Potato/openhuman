@@ -223,12 +223,14 @@ pub(crate) fn runtime_context(
     dispatch: &DispatchCtx,
     config: &Config,
     parts: ChannelTurnParts,
-    channels_by_name: Arc<HashMap<String, Arc<dyn crate::channels::Channel>>>,
+    channels_by_name: Arc<HashMap<String, Arc<crate::channels::runtime::ChannelHandle>>>,
+    module_objects: Arc<HashMap<String, tinybus::module::ModuleObjectClient>>,
     message_timeout_secs: u64,
 ) -> ChannelRuntimeContext {
     ChannelRuntimeContext {
         relay_thread: None,
         channels_by_name,
+        module_objects,
         turn_model_source: None,
         default_provider: Arc::new(parts.provider_name),
         tools_registry: parts.tools_registry,
@@ -236,7 +238,6 @@ pub(crate) fn runtime_context(
         model: Arc::new(parts.model),
         temperature: config.default_temperature,
         max_tool_iterations: config.agent.max_tool_iterations,
-        conversation_histories: Arc::new(Mutex::new(HashMap::new())),
         turn_model_source_cache: Arc::new(Mutex::new(HashMap::new())),
         route_overrides: Arc::new(Mutex::new(HashMap::new())),
         api_url: config.api_url.clone(),

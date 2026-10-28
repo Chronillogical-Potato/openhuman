@@ -607,3 +607,6 @@ async fn a_sub_agents_route_success_does_not_clear_the_leads_slot() {
 
 #[path = "turn_models_native_tests.rs"]
 mod native_tests;
+
+#[path = "turn_models_summarizer_tests.rs"]
+mod summarizer_tests;

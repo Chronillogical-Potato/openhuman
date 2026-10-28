@@ -13,6 +13,7 @@ fn external() -> AgentTurnOrigin {
         reply_target: "42".into(),
         message_id: "m1".into(),
         history_key: Some("telegram_alice".into()),
+        channel_session: None,
     }
 }
 

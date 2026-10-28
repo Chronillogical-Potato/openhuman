@@ -1,8 +1,8 @@
 use super::*;
-use crate::channels::email_channel::EmailConfig;
-use crate::credentials::AuthService;
+use crate::security::credentials::AuthService;
 use std::collections::HashMap;
 use tempfile::tempdir;
+use tinychannels_bus::config::EmailConfig;
 
 use crate::channels::credentials::resolve_email_password;
 fn isolated_config() -> (tempfile::TempDir, Config) {
@@ -14,55 +14,54 @@ fn isolated_config() -> (tempfile::TempDir, Config) {
     (tmp, config)
 }
 
-async fn store_email_creds(config: &Config, username: &str, password: &str) {
+fn store_email_creds(config: &Config, username: &str, password: &str) {
     let auth = AuthService::from_config(config);
     let mut metadata = HashMap::new();
     metadata.insert("username".to_string(), username.to_string());
     metadata.insert("password".to_string(), password.to_string());
     auth.store_provider_token("channel:email:api_key", "default", "", metadata, true)
-        .await
         .expect("store credentials");
 }
 
-#[tokio::test]
-async fn loads_password_from_credentials_when_toml_empty() {
+#[test]
+fn loads_password_from_credentials_when_toml_empty() {
     let (_tmp, config) = isolated_config();
-    store_email_creds(&config, "me@example.com", "from-credentials").await;
+    store_email_creds(&config, "me@example.com", "from-credentials");
 
     let cfg = EmailConfig {
         username: "me@example.com".into(),
         password: String::new(),
         ..EmailConfig::default()
     };
-    let resolved = resolve_email_password(cfg, &config).await;
+    let resolved = resolve_email_password(cfg, &config);
     assert_eq!(resolved.password, "from-credentials");
 }
 
-#[tokio::test]
-async fn preserves_existing_toml_password_without_consulting_store() {
+#[test]
+fn preserves_existing_toml_password_without_consulting_store() {
     let (_tmp, config) = isolated_config();
     let cfg = EmailConfig {
         username: "me@example.com".into(),
         password: "from-toml".into(),
         ..EmailConfig::default()
     };
-    let resolved = resolve_email_password(cfg, &config).await;
+    let resolved = resolve_email_password(cfg, &config);
     assert_eq!(resolved.password, "from-toml");
 }
 
-#[tokio::test]
-async fn skips_hydration_when_stored_profile_has_different_username() {
+#[test]
+fn skips_hydration_when_stored_profile_has_different_username() {
     // User changed `username` in config.toml; the stored profile is for the
     // old account. The resolver must not graft the old password onto it.
     let (_tmp, config) = isolated_config();
-    store_email_creds(&config, "old@example.com", "old-password-do-not-use").await;
+    store_email_creds(&config, "old@example.com", "old-password-do-not-use");
 
     let cfg = EmailConfig {
         username: "new@example.com".into(),
         password: String::new(),
         ..EmailConfig::default()
     };
-    let resolved = resolve_email_password(cfg, &config).await;
+    let resolved = resolve_email_password(cfg, &config);
     assert_eq!(
         resolved.password, "",
         "stale profile for old username must not hydrate the new account",

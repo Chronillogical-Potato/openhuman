@@ -65,6 +65,7 @@ fn seed_legacy_thread_transcript(workspace_dir: &Path, stem: &str, thread_id: &s
         updated: "2026-09-20T15:36:32Z".into(),
         turn_count: rows.len() / 2,
         prefix_message_count: None,
+        prefix_reset: false,
         input_tokens: 0,
         output_tokens: 0,
         cached_input_tokens: 0,

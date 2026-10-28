@@ -833,7 +833,7 @@ async fn run_typed_mode(
     // Surface this run's token/cost totals so the parent turn can roll them
     // into the session-level meters and the global cost tracker. The caller's
     // explicit host carrier owns the ledger; no Tokio task scope is involved.
-    let mut usage = crate::agent::subagent_host::types::SubagentUsage {
+    let mut usage = tinyagents_harness::progress::SubagentUsage {
         input_tokens: agg_usage.input_tokens,
         output_tokens: agg_usage.output_tokens,
         cached_input_tokens: agg_usage.cached_input_tokens,

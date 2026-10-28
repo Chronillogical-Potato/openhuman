@@ -153,6 +153,27 @@ async fn run_uses_the_explicit_core_context_and_preserves_markdown_options() {
         .is_some_and(|md| md.contains("status")));
 }
 
+/// The trusted durable-session identity a channel turn carries. Jobs created
+/// from a channel conversation record it; a turn without one has no
+/// conversation to bind a job to.
+fn channel_session(reply_target: &str) -> tinyflows_bus::schedule::ChannelSessionIdentity {
+    tinyflows_bus::schedule::ChannelSessionIdentity {
+        tenant_key: "profile:alice".into(),
+        agent_id: "orchestrator".into(),
+        session_key: format!("main:telegram:bot-a:dm:{reply_target}"),
+        provider: "telegram".into(),
+        account_id: Some("telegram:bot-a".into()),
+        conversation: tinyflows_bus::schedule::ChannelConversationIdentity {
+            kind: "dm".into(),
+            id: reply_target.into(),
+            scope_id: None,
+            parent_id: None,
+            thread_id: None,
+            topic_id: None,
+        },
+    }
+}
+
 #[tokio::test]
 async fn add_uses_the_explicit_channel_origin_without_ambient_turn_state() {
     let tmp = tempfile::TempDir::new().unwrap();
@@ -173,6 +194,7 @@ async fn add_uses_the_explicit_channel_origin_without_ambient_turn_state() {
         reply_target: "42".into(),
         message_id: "message-1".into(),
         history_key: Some("telegram-alice-42".into()),
+        channel_session: Some(channel_session("42")),
     };
     let mut run = OpenHumanRunContext::new();
     run.origin = Some(origin);
@@ -204,6 +226,7 @@ async fn add_uses_the_explicit_channel_origin_without_ambient_turn_state() {
             history_key: "telegram-alice-42".into(),
             sender: Some("alice".into()),
             thread_id: None,
+            channel_session: Some(Box::new(channel_session("42"))),
         })
     );
     assert_eq!(jobs[0].delivery.mode, "origin");

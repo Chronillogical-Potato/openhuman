@@ -805,7 +805,7 @@ dependencies = [
  "cap-primitives",
  "cap-std",
  "io-lifetimes 3.0.1",
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -822,7 +822,7 @@ dependencies = [
  "maybe-owned",
  "rustix 1.1.5",
  "rustix-linux-procfs",
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
  "winx",
 ]
 
@@ -1584,7 +1584,7 @@ dependencies = [
  "libc",
  "option-ext",
  "redox_users 0.5.3",
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -1842,7 +1842,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -2852,7 +2852,7 @@ dependencies = [
  "tokio",
  "tower-service",
  "tracing",
- "windows-registry 0.6.1",
+ "windows-registry 0.5.3",
 ]
 
 [[package]]
@@ -3929,7 +3929,7 @@ dependencies = [
  "png 0.18.1",
  "serde",
  "thiserror 2.0.20",
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -4058,7 +4058,7 @@ version = "0.50.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7957b9740744892f114936ab4a57b3f487491bbeafaf8083688b16841a4240e5"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -4525,7 +4525,7 @@ dependencies = [
 
 [[package]]
 name = "openhuman"
-version = "0.64.18"
+version = "0.64.20"
 dependencies = [
  "aho-corasick",
  "anyhow",
@@ -4619,7 +4619,6 @@ dependencies = [
  "tinystoragedrivers-types",
  "tinytools 0.6.0",
  "tinytools-agent",
- "tinytools-std",
  "tinyvoice-bus",
  "tinywallet-bus",
  "tokio",
@@ -4637,12 +4636,12 @@ dependencies = [
  "windows-sys 0.61.2",
  "zeroize",
  "zip 2.6.1",
- "zstd 0.13.3",
+ "zstd",
 ]
 
 [[package]]
 name = "openhuman-app"
-version = "0.64.18"
+version = "0.64.20"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4685,7 +4684,7 @@ dependencies = [
 
 [[package]]
 name = "openhuman-embed"
-version = "0.64.18"
+version = "0.64.20"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4711,7 +4710,6 @@ dependencies = [
  "tinymemory-api",
  "tinymemory-tools",
  "tinytools 0.6.0",
- "tinytools-std",
  "tokio",
  "tokio-stream",
  "url",
@@ -4720,7 +4718,7 @@ dependencies = [
 
 [[package]]
 name = "openhuman-rpc"
-version = "0.64.18"
+version = "0.64.20"
 dependencies = [
  "anyhow",
  "axum",
@@ -4753,7 +4751,7 @@ dependencies = [
 
 [[package]]
 name = "openhuman-tinyhumans"
-version = "0.64.18"
+version = "0.64.20"
 dependencies = [
  "aes-gcm",
  "anyhow",
@@ -5400,7 +5398,7 @@ dependencies = [
  "once_cell",
  "socket2",
  "tracing",
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -5864,7 +5862,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys 0.12.1",
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -5962,7 +5960,7 @@ dependencies = [
  "security-framework 3.7.0",
  "security-framework-sys",
  "webpki-root-certs",
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -6638,7 +6636,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c3d1e2c7f27f8d4cb10542a02c49005dbd6e93095799d6f3be745fae9f8fedd4"
 dependencies = [
  "libc",
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -7453,7 +7451,7 @@ dependencies = [
  "getrandom 0.3.4",
  "once_cell",
  "rustix 1.1.5",
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -7546,7 +7544,7 @@ dependencies = [
 
 [[package]]
 name = "tiny-artifacts"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -8394,7 +8392,7 @@ dependencies = [
  "tinystoragedrivers-types",
  "tokio",
  "url",
- "zstd 0.14.3",
+ "zstd",
 ]
 
 [[package]]
@@ -8414,7 +8412,7 @@ dependencies = [
  "tinystoragedrivers-connect",
  "tinystoragedrivers-types",
  "tokio",
- "zstd 0.14.3",
+ "zstd",
 ]
 
 [[package]]
@@ -8539,30 +8537,6 @@ version = "0.6.0"
 dependencies = [
  "async-trait",
  "tinytools 0.6.0",
-]
-
-[[package]]
-name = "tinytools-std"
-version = "0.6.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "base64 0.23.1",
- "fs2",
- "futures-util",
- "glob",
- "libc",
- "log",
- "parking_lot",
- "regex",
- "reqwest 0.12.28",
- "rustix 1.1.5",
- "serde_json",
- "sha2 0.11.0",
- "tinytools 0.6.0",
- "tokio",
- "tracing",
- "walkdir",
 ]
 
 [[package]]
@@ -8982,7 +8956,7 @@ dependencies = [
  "png 0.18.1",
  "serde",
  "thiserror 2.0.20",
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -9095,7 +9069,7 @@ checksum = "f2f6fb2847f6742cd76af783a2a2c49e9375d0a111c7bef6f71cd9e738c72d6e"
 dependencies = [
  "memoffset",
  "tempfile",
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -10682,29 +10656,11 @@ dependencies = [
 
 [[package]]
 name = "zstd"
-version = "0.13.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e91ee311a569c327171651566e07972200e76fcfe2242a4fa446149a3881c08a"
-dependencies = [
- "zstd-safe 7.3.0",
-]
-
-[[package]]
-name = "zstd"
 version = "0.14.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "db3ae9bf90af6e40197bef767eeefc46ad6397420fe873830bd85e5fbbfb3c70"
 dependencies = [
- "zstd-safe 8.2.0",
-]
-
-[[package]]
-name = "zstd-safe"
-version = "7.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "64d80649ab6db9d9f6f9c80a40becd948eda4714a0a5ac8c4d157a32231c7882"
-dependencies = [
- "zstd-sys",
+ "zstd-safe",
 ]
 
 [[package]]

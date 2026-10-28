@@ -1,0 +1,36 @@
+//! Credential management for app session and provider auth profiles.
+
+pub mod api_key;
+pub mod bus;
+mod core;
+pub mod credential_ref;
+pub(crate) mod embedding_scope;
+pub mod http_creds;
+pub mod identity;
+pub mod jwt;
+pub mod openai_oauth;
+pub mod ops;
+pub mod profiles;
+pub mod responses;
+mod schemas;
+pub mod sentry_scope;
+pub mod session_support;
+pub mod tools;
+
+pub use core::*;
+pub use credential_ref::{CredentialRef, CredentialRefError, CredentialRefScheme, ResolvedSecret};
+pub use http_creds::{
+    HttpCredential, HttpCredentialScheme, HttpCredentialSummary, HttpCredentialsStore,
+};
+pub use jwt::user_id_from_profile_payload;
+pub use ops as rpc;
+pub use ops::*;
+pub use profiles::{AuthProfile, AuthProfileKind, TokenSet};
+// Direct-mode (BYO Composio API key) credential helpers.
+pub use ops::{
+    clear_composio_api_key, get_composio_api_key, store_composio_api_key, COMPOSIO_DIRECT_PROVIDER,
+};
+pub use schemas::{
+    all_controller_schemas as all_credentials_controller_schemas,
+    all_registered_controllers as all_credentials_registered_controllers,
+};

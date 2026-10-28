@@ -56,12 +56,16 @@ pub enum AgentTurnOrigin {
         sender_name: Option<String>,
         reply_target: String,
         message_id: String,
-        /// The channel runtime's conversation-history key for this chat, set only by
-        /// the channel processor (the one place that owns `conversation_histories`).
+        /// The channel runtime's legacy conversation key for this chat, set only by
+        /// the channel processor. It is attribution data, not durable session authority.
         /// `None` for ExternalChannel-labelled turns that are not a channel
         /// conversation (MCP server callers, triage, voice), so scheduling can tell a
         /// real chat from those.
         history_key: Option<String>,
+        /// Trusted host-derived channel session identity captured from the
+        /// prepared inbound envelope. Absent on non-conversation channel
+        /// origins; legacy history keys remain attribution only.
+        channel_session: Option<tinyflows_bus::schedule::ChannelSessionIdentity>,
     },
     /// Internal automation the user explicitly authorized (cron job the
     /// user created, internal background job on local data). `source`

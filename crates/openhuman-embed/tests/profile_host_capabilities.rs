@@ -49,14 +49,28 @@ impl Tool for TenantTool {
         let thread = context
             .and_then(tinytools::ToolRunContext::thread_id)
             .expect("every hosted tool has its durable conversation key");
-        let expected = match openhuman_embed::current_turn_origin().unwrap() {
-            openhuman_embed::AgentTurnOrigin::WebChat { thread_id, .. } => thread_id,
+        match openhuman_embed::current_turn_origin().unwrap() {
+            openhuman_embed::AgentTurnOrigin::WebChat { thread_id, .. } => {
+                assert_eq!(thread, thread_id);
+            }
+            // A channel turn's durable conversation key is the tenant-scoped
+            // session key the channel module derived for the exact sender and
+            // conversation.
             openhuman_embed::AgentTurnOrigin::ExternalChannel { .. } => {
-                "channel:telegram/sender/chat".to_owned()
+                for segment in [
+                    "|namespace=p4:main|",
+                    "|channel=p8:telegram|",
+                    "|conversation=p4:chat|",
+                    "|participant=p6:sender",
+                ] {
+                    assert!(
+                        thread.contains(segment),
+                        "{segment} missing from {thread:?}"
+                    );
+                }
             }
             other => panic!("unexpected origin {other:?}"),
-        };
-        assert_eq!(thread, expected);
+        }
         self.execute(args).await
     }
     async fn execute(&self, _: Value) -> anyhow::Result<ToolResult> {
@@ -336,7 +350,7 @@ async fn scenario() {
         tokio::time::timeout(Duration::from_secs(30), async {
             loop {
                 let event = events.recv().await.unwrap();
-                if event.event == "channel_outbound" {
+                if event.event_name() == "channel_outbound" {
                     break;
                 }
             }
@@ -353,15 +367,21 @@ async fn scenario() {
             "tenant_probe:bob"
         ]
     );
-    assert_eq!(
-        *sessions.lock().unwrap(),
-        [
-            ("alice".into(), Some("t1".into())),
-            ("bob".into(), Some("t1".into())),
-            ("alice".into(), Some("channel:telegram/sender/chat".into())),
-            ("bob".into(), Some("channel:telegram/sender/chat".into())),
-        ]
-    );
+    let recorded = sessions.lock().unwrap().clone();
+    assert_eq!(recorded.len(), 4, "{recorded:?}");
+    assert_eq!(recorded[0], ("alice".into(), Some("t1".into())));
+    assert_eq!(recorded[1], ("bob".into(), Some("t1".into())));
+    // A relayed channel turn runs under the tenant-scoped session key the
+    // channel module derived for the sender and conversation.
+    for (index, profile) in [(2, "alice"), (3, "bob")] {
+        let (recorded_profile, key) = &recorded[index];
+        assert_eq!(recorded_profile, profile);
+        let key = key.as_deref().expect("a relayed turn has a session key");
+        assert!(
+            key.contains("|channel=p8:telegram|") && key.contains("|participant=p6:sender"),
+            "{key:?}"
+        );
+    }
     let executions_before_denied_turn = calls.lock().unwrap().len();
     assert!(
         handles[0]
@@ -499,7 +519,7 @@ async fn scenario() {
             .accepted
     );
     tokio::time::timeout(Duration::from_secs(30), async {
-        while events.recv().await.unwrap().event != "channel_outbound" {}
+        while events.recv().await.unwrap().event_name() != "channel_outbound" {}
     })
     .await
     .unwrap();
@@ -517,12 +537,15 @@ async fn scenario() {
     );
     {
         let reopened_sessions = sessions.lock().unwrap();
-        assert_eq!(
-            &reopened_sessions[reopened_sessions.len() - 2..],
-            [
-                ("alice".into(), Some("t1".into())),
-                ("alice".into(), Some("channel:telegram/sender/chat".into()))
-            ]
+        let tail = &reopened_sessions[reopened_sessions.len() - 2..];
+        assert_eq!(tail[0], ("alice".into(), Some("t1".into())));
+        let (profile, key) = &tail[1];
+        assert_eq!(profile, "alice");
+        assert!(
+            key.as_deref()
+                .is_some_and(|key| key.contains("|channel=p8:telegram|")
+                    && key.contains("|participant=p6:sender")),
+            "{key:?}"
         );
     }
     handles.insert(0, reopened);

@@ -185,14 +185,14 @@ fn tool_declarations_match_the_released_module_contract() {
 #[test]
 fn the_module_registry_pins_the_released_hosts_artifact_set() {
     let record = crate::modules::registry::find("tinyhosts").expect("registered module");
-    assert_eq!(record.version, "0.4.3");
+    assert_eq!(record.version, "0.4.5");
     assert_eq!(record.assets.len(), 17);
     assert!(record.assets.iter().all(|asset| {
-        asset.archive.starts_with("tinyhosts-0.4.3-") && asset.sha256.len() == 64
+        asset.archive.starts_with("tinyhosts-0.4.5-") && asset.sha256.len() == 64
     }));
     assert_eq!(
         record.asset_for("ubuntu-24.04-x86_64").unwrap().sha256,
-        "70da542ec03e90485c84b8ef1f75867b15f09292ac941d3a457be8bec410f6bc"
+        "62e71cd7c5e0f414d7059f96d4b62bfb952e8aab6c7ae3d716f93da3b7e96791"
     );
 }
 

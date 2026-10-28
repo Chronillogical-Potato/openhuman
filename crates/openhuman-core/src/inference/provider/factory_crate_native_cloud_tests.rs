@@ -33,6 +33,7 @@ async fn build_native_factory_model(
         thread_id: None,
         attach_host_attachments: false,
         credentials: super::credentials::RuntimeCredentialSnapshot::default(),
+        summarizer_model: None,
     };
     let request = ModelBuildRequest {
         role: "chat".to_owned(),

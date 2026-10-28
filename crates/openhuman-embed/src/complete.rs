@@ -731,7 +731,7 @@ impl Completer {
         if request.model.trim().is_empty() || base_url.is_empty() || api_key.is_empty() {
             return Err(CoreError::InvalidRoute { method: COMPLETE });
         }
-        if !tinytools_std::url_guard::is_safe_endpoint_for_bearer(base_url) {
+        if !crate::security::is_safe_endpoint_for_bearer(base_url) {
             return Err(CoreError::InsecureRoute {
                 method: COMPLETE,
                 endpoint: sanitize_url_for_display(base_url),

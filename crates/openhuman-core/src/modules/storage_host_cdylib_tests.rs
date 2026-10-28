@@ -547,7 +547,7 @@ async fn a_blob_over_the_inline_cap_is_refused_and_stores_nothing() {
     let rig = rig("tinyjuice").await;
     let small: Value = rig
         .probe
-        .call("PutBlob", ("tinyjuice_ccr/small", 1024usize))
+        .call("PutBlob", ("juice/ccr/small", 1024usize))
         .await
         .unwrap();
     assert!(
@@ -560,7 +560,7 @@ async fn a_blob_over_the_inline_cap_is_refused_and_stores_nothing() {
     // `an_inline_blob_no_frame_can_carry_fails_fast_instead_of_hanging`.)
     let big: Value = rig
         .probe
-        .call("PutBlob", ("tinyjuice_ccr/over-cap", 2usize * 1024 * 1024))
+        .call("PutBlob", ("juice/ccr/over-cap", 2usize * 1024 * 1024))
         .await
         .unwrap();
     assert!(
@@ -570,14 +570,14 @@ async fn a_blob_over_the_inline_cap_is_refused_and_stores_nothing() {
     let handle = rig.backend.for_scope(&rig.scope("tinyjuice")).unwrap();
     assert!(handle
         .blobs()
-        .head("tinyjuice_ccr/over-cap")
+        .head("juice/ccr/over-cap")
         .await
         .unwrap()
         .is_none());
     // The refusal does not take the module's connection down with it.
     let after: Value = rig
         .probe
-        .call("PutBlob", ("tinyjuice_ccr/after", 2048usize))
+        .call("PutBlob", ("juice/ccr/after", 2048usize))
         .await
         .unwrap();
     assert!(

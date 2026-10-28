@@ -204,6 +204,23 @@ async fn setup() -> Harness {
         EnvVarGuard::set("OPENHUMAN_MEMORY_EMBED_STRICT", "false"),
     ];
 
+    // The cancel path resolves the dispatch's owner scope from the process's
+    // default core context. A real host always boots one; without it the
+    // outcome depends on whether an earlier test in the same process happened
+    // to build it (nextest runs each test in its own process).
+    openhuman_core::core::bus::init().await.expect("init event bus");
+    openhuman_core::core::runtime::CoreContext::init_with_config(
+        openhuman_core::core::types::HostKind::Library,
+        &openhuman_core::core::runtime::TokenSource::Fixed(std::sync::Arc::new(
+            TEST_RPC_TOKEN.to_string(),
+        )),
+        openhuman_core::core::runtime::DomainSet::full(),
+        openhuman_core::tools::toolpacks::ToolGroups::none(),
+        None,
+    )
+    .await
+    .expect("boot the default core context");
+
     let (addr, token, join) = serve_rpc().await;
     Harness {
         _tmp: tmp,
@@ -226,7 +243,7 @@ fn str_at<'a>(value: &'a Value, pointer: &str) -> &'a str {
 /// The background-tasks drawer's Cancel control remains available; the old
 /// steer RPC is no longer part of the surface.
 #[tokio::test]
-async fn subagent_steer_is_method_not_found_and_cancel_remains_available() {
+async fn subagent_steer_is_method_not_found_and_cancel_requires_a_task_id() {
     let _lock = env_lock_async().await;
     let h = setup().await;
 
@@ -236,9 +253,12 @@ async fn subagent_steer_is_method_not_found_and_cancel_remains_available() {
     assert_eq!(unknown, "unknown method: openhuman.subagent_steer");
 
     let cancel = h
-        .ok(3505, "openhuman.subagent_cancel", json!({ "taskId": "sub-not-running" }))
+        .err(3505, "openhuman.subagent_cancel", json!({}))
         .await;
-    assert_eq!(cancel.get("cancelled").and_then(Value::as_bool), Some(false));
+    assert!(
+        cancel.starts_with("missing required param 'taskId'"),
+        "the registered cancel controller validates taskId: {cancel}"
+    );
 
     h.join.abort();
 }

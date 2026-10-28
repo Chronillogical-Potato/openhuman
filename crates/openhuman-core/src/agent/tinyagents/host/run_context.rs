@@ -230,6 +230,12 @@ pub struct OpenHumanRunContext {
     pub(crate) headless_descendant_owner: Option<String>,
     /// Current-turn attachment placeholders forwarded to vision delegates.
     pub attachment_placeholders: Arc<Vec<String>>,
+    /// Opaque native media refs issued for this exact root channel turn.
+    pub(crate) native_staged_parts: Vec<tinychannels_bus::ContentPart>,
+    /// Final-owner cleanup state for root native refs; children never inherit it.
+    pub(crate) native_staged_lease: Option<crate::threads::attachments::NativeStagedLease>,
+    /// Provider message identity for durable post-commit claims.
+    pub(crate) native_message_id: Option<String>,
     /// Dispatch guard shared by synchronous delegates in this run.
     pub dispatch: Option<Arc<TurnDispatchState>>,
     /// Optional task recency restriction for integration tools.

@@ -342,14 +342,14 @@ pub enum DomainEvent {
         /// `workspace_dir` does not match their own workspace binding.
         workspace_dir: std::path::PathBuf,
     },
-    /// A reaction event was received from a channel transport.
+    /// Retired legacy reaction callback payload, retained as an Events 1.x wire tombstone.
     ChannelReactionReceived {
         channel: String,
         sender: String,
         target_message_id: String,
         emoji: String,
     },
-    /// A reaction update was sent to a channel transport.
+    /// Retired legacy reaction callback payload, retained as an Events 1.x wire tombstone.
     ChannelReactionSent {
         channel: String,
         target_message_id: String,
@@ -376,10 +376,7 @@ pub enum DomainEvent {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         tenant: Option<crate::core::runtime::Tenant>,
     },
-
-    /// A proactive message (morning briefing, welcome, cron output, etc.)
-    /// needs to be delivered to the user. The channels module routes it to
-    /// the user's active channel.
+    /// A proactive message requested for user delivery.
     ProactiveMessageRequested {
         /// Identifies the source (e.g. `"cron:morning_briefing"`, `"cron:welcome"`).
         source: String,
@@ -387,6 +384,9 @@ pub enum DomainEvent {
         message: String,
         /// Optional job name for display/threading purposes.
         job_name: Option<String>,
+        /// The originating tenant; event subscribers execute outside the publisher task.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        tenant: Option<crate::core::runtime::Tenant>,
     },
     /// A host-owned system cron job came due (a `flow`-type row whose command
     /// is `system:<job>`, see `cron::system_jobs`). The owning domain runs it.

@@ -220,7 +220,10 @@ pub struct LegacyUiBridge {
     source_roots: tiny_artifacts::FileRoots,
     file_store: Option<Arc<dyn FileStore>>,
     chat: Option<ApprovalChatContext>,
-    ctx: crate::core::runtime::DispatchCtx,
+    /// Weak: the bridge lives in tools a cached chat session keeps, and a
+    /// strong context would pin the tenant after its turn
+    /// (`CoreContext::tenant_in_use`), so its profile slot is never freed.
+    core: Option<std::sync::Weak<crate::core::runtime::CoreContext>>,
 }
 
 impl LegacyUiBridge {
@@ -240,15 +243,19 @@ impl LegacyUiBridge {
             source_roots,
             file_store,
             chat: chat.cloned(),
-            ctx: ctx.clone(),
+            core: ctx.downgrade(),
         }
+    }
+
+    fn ctx(&self) -> crate::core::runtime::DispatchCtx {
+        crate::core::runtime::DispatchCtx::from_weak(self.core.as_ref())
     }
 
     /// Put the newest version in the files folder under the artifact's id and
     /// mark it ready: the content for text kinds, a copy of the file for file
     /// kinds (unless the file already is the one the artifact owns).
     pub(crate) async fn show_newest(&self, record: &ArtifactRecord) -> anyhow::Result<()> {
-        self.ctx.enter(self.show_newest_in_scope(record)).await
+        self.ctx().enter(self.show_newest_in_scope(record)).await
     }
 
     async fn show_newest_in_scope(&self, record: &ArtifactRecord) -> anyhow::Result<()> {
@@ -376,7 +383,7 @@ fn same_file(a: &Path, b: &Path) -> bool {
 #[async_trait]
 impl ArtifactObserver for LegacyUiBridge {
     async fn on_event(&self, event: &ArtifactEvent) -> anyhow::Result<()> {
-        self.ctx
+        self.ctx()
             .enter(async {
                 let id = &event.record.id;
                 match event.kind {

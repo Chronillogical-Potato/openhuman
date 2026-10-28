@@ -1663,6 +1663,8 @@ const messages: TranslationMap = {
   'chat.flowProposal.openInCanvas': 'Buka di kanvas',
   'chat.flowProposal.dismiss': 'Abaikan',
   'chat.flowProposal.error': 'Alur kerja tidak dapat disimpan. Silakan coba lagi.',
+  'chat.flowProposal.versionConflict':
+    'Alur kerja ini berubah setelah usulan dibuat, jadi tidak ditimpa. Minta revisi baru.',
   'chat.flowProposal.enableError':
     'Alur kerja disimpan, tetapi tidak dapat diaktifkan. Coba lagi, atau aktifkan dari halaman Workflows.',
   'chat.flowProposal.savedConfirmation': 'Tersimpan',
@@ -3485,6 +3487,21 @@ const messages: TranslationMap = {
   'composer.settings.loadingModels': 'Memuat model…',
   'composer.voiceMode': 'Mode suara',
   'composer.humanMode': 'Mode manusia',
+  'voiceNote.record': 'Rekam pesan suara',
+  'voiceNote.stop': 'Hentikan perekaman',
+  'voiceNote.discard': 'Buang pesan suara',
+  'voiceNote.send': 'Kirim pesan suara',
+  'voiceNote.recording': 'Merekam…',
+  'voiceNote.play': 'Putar pesan suara',
+  'voiceNote.pause': 'Jeda pesan suara',
+  'voiceNote.seek': 'Geser pesan suara',
+  'voiceNote.transcript': 'Transkrip',
+  'voiceNote.noTranscript': 'Transkrip tidak tersedia',
+  'voiceNote.label': 'Pesan suara {duration}',
+  'voiceNote.micDenied': 'Akses mikrofon ditolak atau tidak tersedia.',
+  'voiceNote.transcribeFailed': 'Tidak dapat mentranskripsikan pesan suara.',
+  'voiceNote.loadFailed': 'Tidak dapat memuat pesan suara ini.',
+  'voiceNote.sendFailed': 'Tidak dapat mengirim pesan suara.',
 
   // Sync budget dialog
 

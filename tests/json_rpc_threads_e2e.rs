@@ -1037,7 +1037,13 @@ async fn json_rpc_threads_transcript_get_projects_and_paginates() {
     let _api_url_guard = EnvVarGuard::unset("OPENHUMAN_API_URL");
 
     let thread_id = "thr_transcript_e2e";
-    let root_stem = "1000_orchestrator";
+    // The importer files a transcript by the session key and agent component
+    // its stem carries (`<session>.<agent>`); a bare legacy stem lands in the
+    // default agent, which is not where the thread API looks.
+    let root_stem = tinyagents_session::transcript::session_stem(
+        &tinyagents_session::transcript::SessionRef::scoped(thread_id, "orchestrator"),
+    );
+    let root_stem = root_stem.as_str();
     // A full turn: system scaffolding (dropped), user with injected datetime
     // prefix, assistant tool-calling step (reasoning + tool_calls), tool result,
     // final assistant answer.
@@ -1062,6 +1068,33 @@ async fn json_rpc_threads_transcript_get_projects_and_paginates() {
         &[
             r#"{"role":"assistant","content":"sub work done","provider":"anthropic","model":"claude-x","usage":{"input":5,"output":3,"cached_input":0,"cost_usd":0.0},"ts":"2026-07-21T09:10:00Z","iteration":1}"#,
         ],
+    );
+
+    // The host imports classic workspace transcripts during runtime boot.
+    // This test builds the router directly, so import the seeded records before
+    // asking the storage-backed thread API to read them.
+    let config = openhuman_core::config::Config::load_or_init()
+        .await
+        .expect("load test config");
+    assert_eq!(config.workspace_dir, workspace);
+    let mut config = config;
+    config.agent.chat_agent_id = Some("orchestrator".into());
+    config.save().await.expect("save test chat agent");
+    openhuman_core::agent_registry::host_definition::AgentDefinitionRegistry::init_global_builtins(
+    )
+    .expect("initialize built-in agent definitions");
+    let backend = openhuman_core::storage::local::backend_for(&config.workspace_dir)
+        .expect("open test workspace storage");
+    let reports = openhuman_core::storage::import::sessions::run_with(&backend, &config);
+    assert!(
+        matches!(
+            reports.first().map(|report| &report.outcome),
+            Some(Ok(openhuman_core::storage::import::Outcome::Imported {
+                found: 2,
+                written: 2
+            }))
+        ),
+        "import classic session transcripts: {reports:?}"
     );
 
     let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;

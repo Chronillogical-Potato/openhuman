@@ -264,11 +264,22 @@ impl SessionHostBuilder {
         );
         let mut subagent_tool_ceiling_names = self.subagent_tool_ceiling_names.unwrap_or_default();
         if channel_policy_session.has_restrictions() {
-            let policy_allowed: std::collections::HashSet<String> = tool_specs
+            let mut policy_allowed: std::collections::HashSet<String> = tool_specs
                 .iter()
                 .filter(|spec| channel_policy_session.is_allowed(&spec.name))
                 .map(|spec| spec.name.clone())
                 .collect();
+            // Packed tools are the owning specialist's belt, not this agent's:
+            // they are absent from `tool_specs` (reached through `use_skill` or a
+            // hand-off), so a ceiling taken from that list alone would strip a
+            // child of its own tools (`skill_setup` could not search or install).
+            // The child builds its own policy session, which still applies the
+            // channel's permission levels to them.
+            policy_allowed.extend(
+                crate::tools::toolpacks::all_packed_tool_names()
+                    .into_iter()
+                    .map(str::to_owned),
+            );
             if subagent_tool_ceiling_names.is_empty() {
                 subagent_tool_ceiling_names = policy_allowed;
             } else {

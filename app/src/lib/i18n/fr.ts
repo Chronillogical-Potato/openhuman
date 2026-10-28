@@ -1685,6 +1685,8 @@ const messages: TranslationMap = {
   'chat.flowProposal.openInCanvas': 'Ouvrir dans le canevas',
   'chat.flowProposal.dismiss': 'Ignorer',
   'chat.flowProposal.error': "Impossible d'enregistrer le workflow. Veuillez réessayer.",
+  'chat.flowProposal.versionConflict':
+    "Ce workflow a été modifié après la proposition, il n'a donc pas été écrasé. Demandez une nouvelle révision.",
   'chat.flowProposal.enableError':
     "Workflow enregistré, mais impossible de l'activer. Réessayez, ou activez-le depuis la page Workflows.",
   'chat.flowProposal.savedConfirmation': 'Enregistré',
@@ -3540,6 +3542,21 @@ const messages: TranslationMap = {
   'composer.settings.loadingModels': 'Chargement des modèles…',
   'composer.voiceMode': 'Mode vocal',
   'composer.humanMode': 'Mode humain',
+  'voiceNote.record': 'Enregistrer un message vocal',
+  'voiceNote.stop': 'Arrêter l’enregistrement',
+  'voiceNote.discard': 'Supprimer le message vocal',
+  'voiceNote.send': 'Envoyer le message vocal',
+  'voiceNote.recording': 'Enregistrement…',
+  'voiceNote.play': 'Lire le message vocal',
+  'voiceNote.pause': 'Mettre le message vocal en pause',
+  'voiceNote.seek': 'Parcourir le message vocal',
+  'voiceNote.transcript': 'Transcription',
+  'voiceNote.noTranscript': 'Aucune transcription disponible',
+  'voiceNote.label': 'Message vocal {duration}',
+  'voiceNote.micDenied': 'L’accès au microphone a été refusé ou est indisponible.',
+  'voiceNote.transcribeFailed': 'Impossible de transcrire le message vocal.',
+  'voiceNote.loadFailed': 'Impossible de charger ce message vocal.',
+  'voiceNote.sendFailed': 'Impossible d’envoyer le message vocal.',
 
   // Sync budget dialog
 

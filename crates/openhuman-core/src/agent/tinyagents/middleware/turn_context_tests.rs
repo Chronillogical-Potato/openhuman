@@ -13,6 +13,7 @@ async fn attachment_scope_is_request_local_and_contains_only_typed_authority() {
             reply_target: "room".into(),
             message_id: "message".into(),
             history_key: None,
+            channel_session: None,
         },
     );
     data.workspace = Some(tinytools::WorkspaceDescriptor::new(root.clone()));

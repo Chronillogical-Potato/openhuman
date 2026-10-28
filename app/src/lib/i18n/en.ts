@@ -1899,6 +1899,8 @@ const en: TranslationMap = {
   'chat.flowProposal.openInCanvas': 'Open in canvas',
   'chat.flowProposal.dismiss': 'Dismiss',
   'chat.flowProposal.error': 'Could not save the workflow. Please try again.',
+  'chat.flowProposal.versionConflict':
+    'This workflow changed after the proposal was made, so it was not overwritten. Ask for a new revision.',
   'chat.flowProposal.enableError':
     'Workflow saved, but could not enable it. Try again, or enable it from the Workflows page.',
   // Terminal success state (issue B36): shown once the flow is saved and
@@ -4019,6 +4021,21 @@ const en: TranslationMap = {
   'composer.settings.loadingModels': 'Loading models…',
   'composer.voiceMode': 'Voice mode',
   'composer.humanMode': 'Human mode',
+  'voiceNote.record': 'Record a voice note',
+  'voiceNote.stop': 'Stop recording',
+  'voiceNote.discard': 'Discard voice note',
+  'voiceNote.send': 'Send voice note',
+  'voiceNote.recording': 'Recording…',
+  'voiceNote.play': 'Play voice note',
+  'voiceNote.pause': 'Pause voice note',
+  'voiceNote.seek': 'Seek in voice note',
+  'voiceNote.transcript': 'Transcript',
+  'voiceNote.noTranscript': 'No transcript available',
+  'voiceNote.label': 'Voice note {duration}',
+  'voiceNote.micDenied': 'Microphone access was denied or is unavailable.',
+  'voiceNote.transcribeFailed': 'Could not transcribe the voice note.',
+  'voiceNote.loadFailed': 'Could not load this voice note.',
+  'voiceNote.sendFailed': 'Could not send the voice note.',
   // Sync budget dialog
 
   // Sync confirm dialog
