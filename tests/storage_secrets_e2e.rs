@@ -51,7 +51,6 @@ async fn a_configured_backend_holds_keyring_and_credential_secrets() {
         .unwrap();
     secret_storage::set("legacy-user", "old_token", "old-value")
         .unwrap();
-    let profiles_file = std::fs::read(state.join("auth-profiles.json")).unwrap();
     let http_file = std::fs::read(state.join("http-credentials.json")).unwrap();
 
     let before: std::collections::HashMap<&str, Option<Vec<u8>>> =
@@ -108,11 +107,10 @@ async fn a_configured_backend_holds_keyring_and_credential_secrets() {
     assert!(http.get("github").await.unwrap().is_some());
     assert!(http.get("legacy-http").await.unwrap().is_some());
 
-    // The legacy files are left untouched by the backend path.
-    assert_eq!(
-        std::fs::read(state.join("auth-profiles.json")).unwrap(),
-        profiles_file
-    );
+    // The profile document is kept in its encrypted local store; the HTTP
+    // credential compatibility file remains untouched by the configured
+    // secret backend path.
+    assert!(state.join("auth-profiles/secrets.enc").exists());
     assert_eq!(
         std::fs::read(state.join("http-credentials.json")).unwrap(),
         http_file

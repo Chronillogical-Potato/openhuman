@@ -1112,7 +1112,7 @@ async fn credentials_profile_store_public_api_persists_updates_and_recovers_bad_
     let state_dir = tmp.path().join("profiles");
     let store = AuthProfilesStore::new(&state_dir, true);
 
-    assert_eq!(store.path(), state_dir.join("auth-profiles.json"));
+    assert_eq!(store.path(), state_dir.join("auth-profiles/secrets.enc"));
     let empty = store.load().await.expect("empty store load");
     assert!(empty.profiles.is_empty());
 
