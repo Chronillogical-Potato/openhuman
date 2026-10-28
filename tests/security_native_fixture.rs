@@ -326,9 +326,8 @@ async fn native_fixture_approves_a_parked_request_round_trip() {
     config.action_dir = scratch.path().join("action");
     config.action_dir_override = Some(config.action_dir.clone());
     config.save().await.expect("save fixture config");
-    openhuman_core::core::auth::init_rpc_token_with_value(TOKEN).expect("install RPC token");
     openhuman_core::security::secret_storage::init_workspace(scratch.path());
-    let router = openhuman_rpc::server::build_core_http_router(false);
+    let (port, shutdown, server) = start_desktop_fixture(config.clone()).await;
     client(&config).await.expect("released module loads");
     let gate = ApprovalGate::init_global(config, "session-security-native-approval-fixture");
     let parked = {
@@ -356,7 +355,7 @@ async fn native_fixture_approves_a_parked_request_round_trip() {
     };
     let mut pending = Value::Null;
     for _ in 0..200 {
-        pending = rpc(&router, "openhuman.approval_list_pending", json!({})).await;
+        pending = rpc_http(port, "openhuman.approval_list_pending", json!({})).await;
         if rpc_result(&pending)
             .as_array()
             .is_some_and(|rows| !rows.is_empty())
@@ -375,8 +374,8 @@ async fn native_fixture_approves_a_parked_request_round_trip() {
             )
         });
     let request_id = row["request_id"].as_str().expect("approval request id");
-    let decision = rpc(
-        &router,
+    let decision = rpc_http(
+        port,
         "openhuman.approval_decide",
         json!({
             "request_id": request_id,
@@ -392,4 +391,9 @@ async fn native_fixture_approves_a_parked_request_round_trip() {
         parked.await.expect("parked caller"),
         GateOutcome::Allow
     ));
+    shutdown.cancel();
+    server
+        .await
+        .expect("desktop server task")
+        .expect("desktop server shuts down cleanly");
 }
