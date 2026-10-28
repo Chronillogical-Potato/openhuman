@@ -35,12 +35,12 @@ fn recognizes_source_and_release_artifacts_for_configured_modules() {
 #[test]
 fn defers_tinysecurity_artifacts_until_host_callback_admission() {
     for artifact in [
-        "/modules/libtinysecurity.so",
         "/modules/libtinysecurity_module.so",
-        "/modules/tinysecurity_module.dll",
+        "/modules/libtinysecurity_module_module.so",
+        "/modules/tinysecurity_module_module.dll",
     ] {
         assert!(
-            should_defer_to_host_callback(&PathBuf::from(artifact)),
+            is_skipped(&PathBuf::from(artifact), &configured_module_lib_stems()),
             "{artifact} must wait for TinySecurity's host callback binding"
         );
     }
