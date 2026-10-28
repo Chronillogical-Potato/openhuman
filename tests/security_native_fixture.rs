@@ -398,7 +398,9 @@ fn native_fixture_approves_a_parked_request_round_trip() {
         openhuman_core::security::secret_storage::init_workspace(scratch.path());
         let (port, shutdown, server) = start_desktop_fixture(config.clone()).await;
         eprintln!("native-fixture: desktop fixture started");
+        eprintln!("native-fixture: initialize approval gate");
         let gate = ApprovalGate::init_global(config, "session-security-native-approval-fixture");
+        eprintln!("native-fixture: approval gate initialized");
         let parked = {
             let gate = gate.clone();
             tokio::spawn(async move {
@@ -422,6 +424,7 @@ fn native_fixture_approves_a_parked_request_round_trip() {
                 .await
             })
         };
+        eprintln!("native-fixture: parked task spawned");
         let mut pending = Value::Null;
         for _ in 0..200 {
             pending = rpc_http(port, "openhuman.approval_list_pending", json!({})).await;
@@ -433,6 +436,7 @@ fn native_fixture_approves_a_parked_request_round_trip() {
             }
             tokio::time::sleep(std::time::Duration::from_millis(25)).await;
         }
+        eprintln!("native-fixture: pending RPC polling completed");
         let row = rpc_result(&pending)
             .as_array()
             .and_then(|rows| rows.first())
