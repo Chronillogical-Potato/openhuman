@@ -388,8 +388,8 @@ impl StorageHost {
     /// The module's binding for `scope`, built on first use and again when the
     /// installed backend changed. The host runs the declared schema here.
     async fn bind(&self, module: &str, scope: Scope) -> Result<Arc<Binding>, BindError> {
-        let backend = backend_choice::for_module(module, &*self.environment)
-            .ok_or(BindError::NoBackend)?;
+        let backend =
+            backend_choice::for_module(module, &*self.environment).ok_or(BindError::NoBackend)?;
         let key = (module.to_string(), scope.as_str().to_string());
         let mut bindings = self.bindings.lock().await;
         if let Some(existing) = bindings.get(&key) {
