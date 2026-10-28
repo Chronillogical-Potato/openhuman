@@ -308,7 +308,7 @@ fn native_fixture_executes_through_the_module_sandbox_plan() {
         config.action_dir = scratch.path().join("action");
         config.action_dir_override = Some(config.action_dir.clone());
         config.save().await.expect("save sandbox fixture config");
-        let (_port, shutdown, server) = start_desktop_fixture().await;
+        let (_port, shutdown, server) = start_desktop_fixture(config.clone()).await;
         let policy = SandboxPolicy {
             backend: SandboxBackendKind::None,
             workspace_root: scratch.path().to_path_buf(),
@@ -389,7 +389,7 @@ fn native_fixture_approves_a_parked_request_round_trip() {
         config.action_dir_override = Some(config.action_dir.clone());
         config.save().await.expect("save fixture config");
         openhuman_core::security::secret_storage::init_workspace(scratch.path());
-        let (port, shutdown, server) = start_desktop_fixture().await;
+        let (port, shutdown, server) = start_desktop_fixture(config.clone()).await;
         let gate = ApprovalGate::init_global(config, "session-security-native-approval-fixture");
         let parked = {
             let gate = gate.clone();
