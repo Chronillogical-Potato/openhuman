@@ -90,6 +90,15 @@ async fn native_fixture_exercises_the_pinned_release_contracts() {
         .expect("the unconditional path floor should answer");
     assert_eq!(floor.protected, vec![true, false]);
 
+    // Browser navigation uses this production URL guard before DNS/connect;
+    // exercise loopback and the cloud metadata address without network access.
+    assert!(tinyagents_harness::url_guard::is_non_global_v4(
+        std::net::Ipv4Addr::LOCALHOST
+    ));
+    assert!(tinyagents_harness::url_guard::is_non_global_v4(
+        std::net::Ipv4Addr::new(169, 254, 169, 254)
+    ));
+
     let command_scope = client
         .register_command_policy(CommandPolicy {
             enabled: true,
