@@ -318,7 +318,7 @@ pub(crate) struct ModuleGuard {
     // next test may take the module. Without the module loader there are no
     // module calls to serve.
     #[cfg(feature = "modules")]
-    _storage: crate::modules::storage_host::TestModuleStorage,
+    _storage: crate::modules::storage_host::test_module::TestModuleStorage,
     _lock: tokio::sync::MutexGuard<'static, ()>,
 }
 
@@ -334,7 +334,7 @@ pub(crate) async fn module_guard() -> ModuleGuard {
     let lock = module_lock_guard().await;
     ModuleGuard {
         #[cfg(feature = "modules")]
-        _storage: crate::modules::storage_host::serve_test_module_storage(
+        _storage: crate::modules::storage_host::test_module::serve_test_module_storage(
             crate::storage::test_support::memory_backend(),
         ),
         _lock: lock,

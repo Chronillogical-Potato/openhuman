@@ -576,56 +576,9 @@ pub(crate) fn current_module_scope(
     module_scope(tenant.profile.as_deref(), module_id)
 }
 
-/// Storage for module calls in unit tests that hold a module lock (the
-/// connector module's `module_guard`). A module call carries no workspace, so
-/// such a test needs a backend; this one is read only here, so it is never
-/// another test's storage the way an installed process slot is (MAIN-57).
 #[cfg(test)]
-static TEST_MODULE_STORAGE: std::sync::Mutex<Option<Arc<dyn StorageBackend>>> =
-    std::sync::Mutex::new(None);
-
-#[cfg(test)]
-fn test_module_storage() -> Option<Arc<dyn StorageBackend>> {
-    TEST_MODULE_STORAGE
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner)
-        .clone()
-}
-
-/// Serve `backend` to module calls until the returned guard drops. Hold the
-/// module's test lock for as long as it lives.
-#[cfg(test)]
-pub(crate) fn serve_test_module_storage(backend: Arc<dyn StorageBackend>) -> TestModuleStorage {
-    let previous = TEST_MODULE_STORAGE
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner)
-        .replace(backend);
-    TestModuleStorage { previous }
-}
-
-/// Withdraw the backend module calls are served, as a storage outage would,
-/// while the guard from [`serve_test_module_storage`] is still held.
-#[cfg(test)]
-pub(crate) fn withdraw_test_module_storage() {
-    *TEST_MODULE_STORAGE
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner) = None;
-}
-
-/// Restores the previous test module storage on drop.
-#[cfg(test)]
-pub(crate) struct TestModuleStorage {
-    previous: Option<Arc<dyn StorageBackend>>,
-}
-
-#[cfg(test)]
-impl Drop for TestModuleStorage {
-    fn drop(&mut self) {
-        *TEST_MODULE_STORAGE
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner) = self.previous.take();
-    }
-}
+#[path = "storage_host_test_module.rs"]
+pub(crate) mod test_module;
 
 /// Production wiring: the broker's name owners, the installed backend, the
 /// host's scope rule and the compiled grants.
@@ -656,7 +609,7 @@ impl Environment for Live {
         // so a module is not the one consumer left with no storage.
         let installed = crate::storage::installed();
         #[cfg(test)]
-        let installed = installed.or_else(test_module_storage);
+        let installed = installed.or_else(test_module::test_module_storage);
         installed.or_else(|| {
             let workspace = crate::core::runtime::DispatchCtx::ambient()
                 .resolved()?
