@@ -15,6 +15,10 @@ use openhuman_core::{
         gate::ApprovalGate, ApprovalChatContext, ApprovalTurnContext, GateOutcome,
     },
 };
+use openhuman_rpc::{
+    embed::{ConfigSource, ServiceSet},
+    host::{desktop_builder, serve_desktop, DesktopOptions, EmbeddedReadySignal},
+};
 use serde_json::{json, Value};
 use std::path::PathBuf;
 use tinysecurity_bus::{
@@ -22,6 +26,7 @@ use tinysecurity_bus::{
     ProtectedPathRequest2, RedactMode,
 };
 use tower::ServiceExt;
+use tokio_util::sync::CancellationToken;
 
 const TOKEN: &str = "security-native-fixture-token";
 
@@ -47,6 +52,53 @@ async fn rpc(router: &Router, method: &str, params: Value) -> Value {
             .expect("response body"),
     )
     .expect("JSON-RPC response")
+}
+
+async fn rpc_http(port: u16, method: &str, params: Value) -> Value {
+    let response = reqwest::Client::new()
+        .post(format!("http://127.0.0.1:{port}/rpc"))
+        .bearer_auth(TOKEN)
+        .json(&json!({"jsonrpc":"2.0","id":1,"method":method,"params":params}))
+        .send()
+        .await
+        .expect("RPC request");
+    assert_eq!(response.status(), reqwest::StatusCode::OK, "{method}");
+    response.json().await.expect("JSON-RPC response")
+}
+
+async fn start_desktop_fixture(config: Config) -> (u16, CancellationToken, tokio::task::JoinHandle<anyhow::Result<()>>) {
+    openhuman_rpc::host::prepare_cli_host();
+    let options = DesktopOptions {
+        host: Some("127.0.0.1".into()),
+        port: Some(0),
+        socketio: false,
+        rpc_token: Some(std::sync::Arc::new(TOKEN.into())),
+    };
+    let services = ServiceSet {
+        rpc_http: true,
+        socketio: false,
+        cron: false,
+        channels: false,
+        login_gated: false,
+        update_scheduler: false,
+        memory_queue: false,
+        skill_catalog_refresh: false,
+        mcp_boot: false,
+        integrations: false,
+        memory_sync: false,
+    };
+    let builder = desktop_builder(&options)
+        .config_source(ConfigSource::Resolved)
+        .config(config)
+        .services(services);
+    let shutdown = CancellationToken::new();
+    let (ready_tx, ready_rx) = tokio::sync::oneshot::channel::<EmbeddedReadySignal>();
+    let server = tokio::spawn(serve_desktop(builder, shutdown.clone(), ready_tx));
+    let ready = tokio::time::timeout(std::time::Duration::from_secs(120), ready_rx)
+        .await
+        .expect("desktop host ready signal")
+        .expect("desktop host ready channel");
+    (ready.port, shutdown, server)
 }
 
 fn rpc_result(response: &Value) -> &Value {
