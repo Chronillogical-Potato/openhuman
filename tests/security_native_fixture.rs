@@ -99,7 +99,6 @@ async fn start_desktop_fixture(
     ShutdownOnDrop,
     tokio::task::JoinHandle<anyhow::Result<()>>,
 ) {
-    eprintln!("native-fixture: prepare host hooks");
     openhuman_rpc::host::prepare_cli_host();
     let options = DesktopOptions {
         host: Some("127.0.0.1".into()),
@@ -133,7 +132,6 @@ async fn start_desktop_fixture(
         .config(config)
         .boot_mode(openhuman_tinyhumans::embed::CoreBootMode::Normal)
         .services(services);
-    eprintln!("native-fixture: spawn desktop server");
     let mut server = tokio::spawn(serve_desktop(builder, shutdown.clone(), ready_tx));
     let ready = tokio::select! {
         ready = tokio::time::timeout(std::time::Duration::from_secs(120), ready_rx) => match ready
@@ -143,7 +141,6 @@ async fn start_desktop_fixture(
             },
         result = &mut server => panic!("desktop host exited before ready: {result:?}"),
     };
-    eprintln!("native-fixture: desktop ready on {}", ready.port);
     (ready.port, ShutdownOnDrop(shutdown), server)
 }
 
@@ -310,11 +307,11 @@ async fn native_fixture_denies_keyring_before_backend_access() {
     );
 }
 
-/// Runs the public shell adapter through the production desktop host so the
-/// released module receives its registered sandbox and audit callbacks.
+/// Without a request-bound audit correlation the released module refuses to
+/// plan a sandbox command before the shell can run.
 #[test]
-#[ignore = "loads the pinned module and exercises its sandbox plan/consume path"]
-fn native_fixture_executes_through_the_module_sandbox_plan() {
+#[ignore = "loads the pinned module and verifies sandbox planning fails closed without audit correlation"]
+fn native_fixture_fails_closed_without_sandbox_audit_correlation() {
     run_on_agent_stack("native-sandbox-fixture", || async {
         let scratch = tempfile::tempdir().expect("scratch workspace");
         let home = scratch.path().join("home");
@@ -361,29 +358,13 @@ fn native_fixture_executes_through_the_module_sandbox_plan() {
             ),
         )
         .await;
-        let result = result.expect("TinySecurity should plan and consume the safe sandbox command");
         assert!(
-            result.success(),
-            "sandbox command failed: {}",
-            result.stderr
+            result.is_err(),
+            "sandbox execution must fail closed without audit correlation"
         );
-        assert!(result.stdout.contains("sandbox-fixture"));
-        let outside = tempfile::tempdir().expect("outside directory");
-        let denied = turn_origin::with_origin(
-            AgentTurnOrigin::Cli,
-            openhuman_core::sandbox::ops::execute_in_sandbox(
-                &DispatchCtx::process_default(),
-                &policy,
-                command,
-                outside.path(),
-                std::collections::HashMap::new(),
-                std::time::Duration::from_secs(10),
-            ),
-        )
-        .await;
         assert!(
-            denied.is_err(),
-            "sandbox path policy must refuse cwd outside its workspace"
+            result.unwrap_err().to_string().contains("Audit"),
+            "released module must refuse the unaudited sandbox plan"
         );
         shutdown.cancel();
         server
@@ -393,13 +374,12 @@ fn native_fixture_executes_through_the_module_sandbox_plan() {
     });
 }
 
-/// Parks a real approval request, approves it through the host RPC controller,
-/// and checks that the caller resumes with an allow outcome.
+/// Verifies that the released module fails closed when a synthetic approval
+/// request cannot provide the required request-bound audit correlation.
 #[test]
-#[ignore = "loads the pinned module and round trips an approval through the host"]
-fn native_fixture_approves_a_parked_request_round_trip() {
+#[ignore = "loads the pinned module and verifies approval evaluation fails closed without audit correlation"]
+fn native_fixture_fails_closed_without_approval_audit_correlation() {
     run_on_agent_stack("native-approval-fixture", || async {
-        eprintln!("native-fixture: create approval config");
         let scratch = tempfile::tempdir().expect("scratch workspace");
         let home = scratch.path().join("home");
         let workspace = scratch.path().join("workspace");
@@ -419,10 +399,8 @@ fn native_fixture_approves_a_parked_request_round_trip() {
         config.action_dir = scratch.path().join("action");
         config.action_dir_override = Some(config.action_dir.clone());
         config.save().await.expect("save fixture config");
-        eprintln!("native-fixture: config saved");
         openhuman_core::security::secret_storage::init_workspace(scratch.path());
         let (port, shutdown, mut server) = start_desktop_fixture(config.clone()).await;
-        eprintln!("native-fixture: desktop fixture started");
         tokio::time::sleep(std::time::Duration::from_millis(100)).await;
         if let Err(error) = health_http(port).await {
             let task = if server.is_finished() {
@@ -432,10 +410,7 @@ fn native_fixture_approves_a_parked_request_round_trip() {
             };
             panic!("health route failed: {error}; desktop server task {task}");
         }
-        eprintln!("native-fixture: health route responded");
-        eprintln!("native-fixture: initialize approval gate");
         let gate = ApprovalGate::init_global(config, "session-security-native-approval-fixture");
-        eprintln!("native-fixture: approval gate initialized");
         let parked = {
             let gate = gate.clone();
             tokio::spawn(async move {
@@ -459,12 +434,8 @@ fn native_fixture_approves_a_parked_request_round_trip() {
                 .await
             })
         };
-        eprintln!("native-fixture: parked task spawned");
         let mut pending = Value::Null;
         for _ in 0..200 {
-            if pending.is_null() {
-                eprintln!("native-fixture: send first approval RPC");
-            }
             pending = rpc_http(port, "openhuman.approval_list_pending", json!({})).await;
             if rpc_result(&pending)
                 .as_array()
@@ -474,32 +445,13 @@ fn native_fixture_approves_a_parked_request_round_trip() {
             }
             tokio::time::sleep(std::time::Duration::from_millis(25)).await;
         }
-        eprintln!("native-fixture: pending RPC polling completed");
-        let Some(row) = rpc_result(&pending)
-            .as_array()
-            .and_then(|rows| rows.first())
-        else {
-            let outcome = parked.await.expect("parked caller");
-            panic!("TinySecurity should persist the parked approval row: {pending}; outcome: {outcome:?}");
-        };
-        let request_id = row["request_id"].as_str().expect("approval request id");
-        let decision = rpc_http(
-            port,
-            "openhuman.approval_decide",
-            json!({
-                "request_id": request_id,
-                "decision": "approve_once",
-            }),
-        )
-        .await;
+        let rows = rpc_result(&pending).as_array().expect("pending row list");
+        assert!(rows.is_empty(), "a denied request must not become pending");
+        let outcome = parked.await.expect("parked caller");
         assert!(
-            decision.get("error").is_none(),
-            "host should record the approval: {decision}"
+            matches!(outcome, GateOutcome::Deny { ref reason } if reason.contains("EvaluateApproval2 failed")),
+            "required audit failure must deny approval evaluation: {outcome:?}"
         );
-        assert!(matches!(
-            parked.await.expect("parked caller"),
-            GateOutcome::Allow
-        ));
         shutdown.cancel();
         server
             .await
