@@ -160,10 +160,11 @@ async fn native_fixture_denies_keyring_before_backend_access() {
     openhuman_core::core::auth::init_rpc_token_with_value(TOKEN).expect("install RPC token");
     let router = openhuman_rpc::server::build_core_http_router(false);
     let (tx, rx) = tokio::sync::oneshot::channel();
-    let tx = std::sync::Mutex::new(Some(tx));
+    let tx = std::sync::Arc::new(std::sync::Mutex::new(Some(tx)));
     let _subscription = openhuman_core::core::bus::BUS.get()
         .expect("RPC router initializes the event bus")
         .on("security-native-keyring", move |event| {
+        let tx = std::sync::Arc::clone(&tx);
         async move {
             if let openhuman_core::core::events::DomainEvent::KeyringAccessApprovalRequested(request) = event {
                 if let Some(tx) = tx.lock().expect("event sender mutex").take() {
