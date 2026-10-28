@@ -106,7 +106,6 @@ async fn native_fixture_exercises_the_pinned_release_contracts() {
     let keyring = client
         .keyring_access2(tinysecurity_bus::KeyringRequest2 {
             caller: tinysecurity_bus::CallerContext {
-                user: "fixture-user".to_owned(),
                 agent: "fixture-agent".to_owned(),
                 ..Default::default()
             },
