@@ -183,6 +183,12 @@ async fn native_fixture_denies_keyring_before_backend_access() {
 
     let mut config = Config::default();
     config.modules.enabled = true;
+    config.workspace_dir = scratch.path().to_path_buf();
+    config.config_path = scratch.path().join("config.toml");
+    config.action_dir = scratch.path().join("action");
+    config.action_dir_override = Some(config.action_dir.clone());
+    config.save().await.expect("save keyring fixture config");
+    openhuman_core::security::secret_storage::init_workspace(scratch.path());
     let client = client(&config).await.expect("released module loads");
     let pending = tokio::spawn(async move {
         client.keyring_access2(tinysecurity_bus::KeyringRequest2 {
