@@ -358,6 +358,7 @@ async fn seed_session_token() {
             HashMap::from([("user_id".to_string(), "worker-b-user".to_string())]),
             true,
         )
+        .await
         .expect("seed session token");
 }
 

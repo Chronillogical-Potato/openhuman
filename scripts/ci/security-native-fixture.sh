@@ -5,6 +5,7 @@ set -euo pipefail
 # registry digest. The fixture is intentionally isolated from ordinary tests.
 export OPENHUMAN_TEST_SECURITY_FIXTURE_DIR="${OPENHUMAN_TEST_SECURITY_FIXTURE_DIR:-$HOME/.cache/openhuman-security-fixtures}"
 mkdir -p "$OPENHUMAN_TEST_SECURITY_FIXTURE_DIR"
+chmod 700 "$OPENHUMAN_TEST_SECURITY_FIXTURE_DIR"
 
 host_key="${OH_MODULE_HOST_KEY:-}"
 if [ -z "$host_key" ]; then
@@ -50,8 +51,8 @@ export OPENHUMAN_MODULE_PATH="$module_dir${OPENHUMAN_MODULE_PATH:+:$OPENHUMAN_MO
 core_features="$(scripts/ci/product-features.sh | sed 's/,os-keyring//' | sed 's/,security-module//')"
 
 security_pin="$(git -C vendor/tinysecurity rev-parse HEAD)"
-release_source="$(git -C vendor/tinysecurity rev-parse b62ad69ce28bc3178ad91e12f3074f21007055c4)"
-printf 'TinySecurity fork pin: %s\nPublished v0.17.1 source: %s\n' "$security_pin" "$release_source"
+release_source="$(git -C vendor/tinysecurity rev-parse 5a45177b818e32465307cfe4ba60121bb77c4364)"
+printf 'TinySecurity fork pin: %s\nPublished v0.18.2 source: %s\n' "$security_pin" "$release_source"
 git -C vendor/tinysecurity merge-base --is-ancestor "$release_source" "$security_pin"
 
 # Prove the library builds without the new gate before exercising it enabled.
@@ -61,5 +62,35 @@ bash scripts/ci-cancel-aware.sh cargo check --manifest-path Cargo.toml -p openhu
 bash scripts/ci-cancel-aware.sh cargo test --manifest-path Cargo.toml -p openhuman-cli \
   --test security_native_fixture --no-default-features \
   --features "$core_features,security-module" \
-  native_fixture_loads_the_pinned_release_and_reads_policy_info \
+  native_fixture_exercises_the_pinned_release_contracts \
+  -- --ignored --exact --nocapture
+
+# Corrupt a copy only after validating the official archive checksum. The
+# explicit fixture path is a test-only module source override.
+tampered_dir="$OPENHUMAN_TEST_SECURITY_FIXTURE_DIR/tinysecurity-tampered"
+cp -R "$module_dir" "$tampered_dir"
+module_library="$(find "$tampered_dir" -type f \( -name '*.so' -o -name '*.dylib' -o -name '*.dll' \) -print -quit)"
+test -n "$module_library"
+printf '\n' >> "$module_library"
+OPENHUMAN_MODULE_PATH="$tampered_dir" bash scripts/ci-cancel-aware.sh cargo test \
+  --manifest-path Cargo.toml -p openhuman-cli --test security_native_fixture \
+  --no-default-features --features "$core_features,security-module" \
+  native_fixture_rejects_a_tampered_module -- --ignored --exact --nocapture
+
+bash scripts/ci-cancel-aware.sh cargo test --manifest-path Cargo.toml -p openhuman-cli \
+  --test security_native_fixture --no-default-features \
+  --features "$core_features,security-module" \
+  native_fixture_denies_keyring_before_backend_access \
+  -- --ignored --exact --nocapture
+
+bash scripts/ci-cancel-aware.sh cargo test --manifest-path Cargo.toml -p openhuman-cli \
+  --test security_native_fixture --no-default-features \
+  --features "$core_features,security-module" \
+  native_fixture_fails_closed_without_sandbox_audit_correlation \
+  -- --ignored --exact --nocapture
+
+bash scripts/ci-cancel-aware.sh cargo test --manifest-path Cargo.toml -p openhuman-cli \
+  --test security_native_fixture --no-default-features \
+  --features "$core_features,security-module" \
+  native_fixture_fails_closed_without_approval_audit_correlation \
   -- --ignored --exact --nocapture

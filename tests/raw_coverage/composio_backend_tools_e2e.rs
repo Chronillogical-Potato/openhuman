@@ -102,7 +102,7 @@ async fn setup_config() -> Harness {
     }
 }
 
-fn store_session_token(config: &Config) {
+async fn store_session_token(config: &Config) {
     AuthService::from_config(config)
         .store_provider_token(
             APP_SESSION_PROVIDER,
@@ -111,6 +111,7 @@ fn store_session_token(config: &Config) {
             HashMap::new(),
             true,
         )
+        .await
         .expect("store app session token");
 }
 
@@ -127,7 +128,7 @@ async fn round20_backend_agent_tools_cover_markdown_filtering_and_errors() {
     let mut harness = setup_config().await;
     harness.config.api_url = Some(base);
     harness.config.save().await.expect("save backend config");
-    store_session_token(&harness.config);
+    store_session_token(&harness.config).await;
 
     let config = Arc::new(harness.config.clone());
     let list_toolkits = ComposioListToolkitsTool::new(config.clone());
@@ -228,7 +229,7 @@ async fn round20_composio_ops_cover_authorize_scopes() {
     let mut harness = setup_config().await;
     harness.config.api_url = Some(base);
     harness.config.save().await.expect("save backend config");
-    store_session_token(&harness.config);
+    store_session_token(&harness.config).await;
 
     let legacy_extra = composio_authorize(
         &openhuman_core::core::runtime::DispatchCtx::host_default(),

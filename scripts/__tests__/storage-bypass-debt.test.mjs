@@ -389,3 +389,55 @@ test("a unique unchanged writer may move during a module split", () => {
     /Core baseline growth forbidden/,
   );
 });
+
+test("a unique extension writer survives a heavy rewrite move Git misses", () => {
+  const root = mkdtempSync(join(tmpdir(), "storage-debt-rewrite-move-"));
+  const git = (...args) => execFileSync("git", args, {
+    cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"],
+  });
+  const oldPath = "crates/openhuman-embed/src/credentials/profiles.rs";
+  const newPath = "crates/openhuman-embed/src/profiles.rs";
+  const source = "tokio::fs::write(path, bytes);\n";
+  const old = { ...row, path: oldPath };
+  const moved = { ...old, path: newPath };
+  const scanner = { scan, withoutAllowed: (_, x) => x, isTestFile: () => false, CURATED_VENDOR_ROOTS: [] };
+  try {
+    git("init", "-b", "main");
+    git("config", "user.name", "Test");
+    git("config", "user.email", "test@example.invalid");
+    mkdirSync(join(root, oldPath, ".."), { recursive: true });
+    mkdirSync(join(root, "scripts/ci"), { recursive: true });
+    writeFileSync(join(root, oldPath), source);
+    writeFileSync(join(root, "scripts/ci/storage-bypass-baseline.json"), "[]\n");
+    writeFileSync(join(root, "scripts/ci/storage-bypass-extension.json"), JSON.stringify([old]));
+    git("add", ".");
+    git("commit", "-m", "original extension writer");
+    git("update-ref", "refs/remotes/upstream/main", "HEAD");
+    git("update-ref", `refs/remotes/origin/${process.env.GITHUB_BASE_REF || "main"}`, "HEAD");
+    git("switch", "-c", "move");
+    rmSync(join(root, oldPath));
+    writeFileSync(join(root, newPath), [
+      "// substantially rewritten module layout",
+      "// Git should see a delete and add rather than a rename.",
+      "pub fn persist_profile() {",
+      source.trimEnd(),
+      "}",
+      "// additional unrelated implementation lines",
+    ].join("\n") + "\n");
+    git("add", "-A");
+    const changes = git("diff", "--cached", "--name-status", "--find-renames=50%", "HEAD");
+    assert.match(changes, /^D\t/);
+    assert.match(changes, /\nA\t/);
+    assert.doesNotMatch(changes, /^R\d*\t/m);
+
+    const previous = historicalFindings(root, scanner);
+    assert.deepEqual(validateCoverageDebt([moved], [], [moved], previous), []);
+    const copied = { ...moved, path: "crates/openhuman-embed/src/copied.rs" };
+    assert.match(
+      validateCoverageDebt([old, copied], [], [old, copied], previous).join("\n"),
+      /Extension growth forbidden/,
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});

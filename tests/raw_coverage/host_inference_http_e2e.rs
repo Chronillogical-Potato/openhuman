@@ -104,7 +104,7 @@ async fn http_models_and_chat_use_mocked_ollama_without_real_runtime() {
 
     let _workspace = EnvVarGuard::set("OPENHUMAN_WORKSPACE", config.config_path.parent().unwrap());
     let _ollama_base = EnvVarGuard::set("OPENHUMAN_OLLAMA_BASE_URL", &base);
-    store_app_session(&config);
+    store_app_session(&config).await;
 
     let app = http::router().with_state(AppState {
         core_version: "round23-test".to_string(),
@@ -352,7 +352,7 @@ fn temp_config(tmp: &TempDir) -> Config {
     config
 }
 
-fn store_app_session(config: &Config) {
+async fn store_app_session(config: &Config) {
     AuthService::from_config(config)
         .store_provider_token(
             APP_SESSION_PROVIDER,
@@ -361,6 +361,7 @@ fn store_app_session(config: &Config) {
             HashMap::new(),
             true,
         )
+        .await
         .expect("store app session");
 }
 

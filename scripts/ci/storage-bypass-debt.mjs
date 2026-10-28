@@ -90,8 +90,42 @@ export function validateCoverageDebt(findings, baseline, extension, history) {
     const oldExtension =
       history.extension === null ? null : new Set(history.extension.map(key));
     const oldSites = new Set(history.findings.map(key));
+    const movedExtension = new Set();
+    if (oldExtension) {
+      for (const record of extension) {
+        if (oldExtension.has(key(record))) continue;
+        const sameSite = (candidate) =>
+          candidate.rule === record.rule &&
+          candidate.text === record.text &&
+          candidate.occurrence === record.occurrence;
+        const previous = history.extension.filter(
+          (candidate) =>
+            sameSite(candidate) &&
+            !actual.has(key(candidate)) &&
+            history.changedPaths?.has(candidate.path),
+        );
+        const current = findings.filter(
+          (candidate) =>
+            sameSite(candidate) &&
+            history.changedPaths?.has(candidate.path),
+        );
+        if (
+          previous.length === 1 &&
+          current.length === 1 &&
+          previous[0].path !== record.path &&
+          current[0].path === record.path &&
+          history.changedPaths?.has(record.path)
+        ) {
+          movedExtension.add(key(record));
+        }
+      }
+    }
     for (const record of extension) {
-      if (oldExtension && !oldExtension.has(key(record)))
+      if (
+        oldExtension &&
+        !oldExtension.has(key(record)) &&
+        !movedExtension.has(key(record))
+      )
         errors.push(
           `Extension growth forbidden: ${record.path}: ${record.text}`,
         );

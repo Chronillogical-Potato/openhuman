@@ -5856,6 +5856,7 @@ dependencies = [
 name = "openhuman-cli"
 version = "0.64.18"
 dependencies = [
+ "aes-gcm",
  "anyhow",
  "async-trait",
  "axum",
@@ -5900,6 +5901,7 @@ dependencies = [
  "tinymcp-bus",
  "tinymemory-tools",
  "tinysearch-bus",
+ "tinysecurity-bus",
  "tinystoragedrivers",
  "tinystoragedrivers-api",
  "tinystoragedrivers-testkit",
@@ -10563,7 +10565,7 @@ dependencies = [
 
 [[package]]
 name = "tinysecurity-bus"
-version = "0.18.2"
+version = "0.18.3"
 dependencies = [
  "serde",
  "thiserror 2.0.21",

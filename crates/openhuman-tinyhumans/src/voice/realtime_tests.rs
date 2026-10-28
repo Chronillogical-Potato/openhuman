@@ -106,6 +106,7 @@ async fn mint_signed_url_authenticates_with_the_api_key() {
         ..Config::default()
     };
     openhuman_embed::__host::credentials::api_key::store_api_key(&config, "tiny_test_voice")
+        .await
         .unwrap();
 
     let out = mint_voice_agent_signed_url(&config)

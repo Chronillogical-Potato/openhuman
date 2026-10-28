@@ -1,58 +1,22 @@
-# sandbox
+# Sandbox host adapter
 
-OpenHuman routes command execution and retains its existing shell, flow,
-environment allowlist, and RPC surfaces. TinySecurity owns sandbox planning,
-approval, admission, and single-use plan consumption. TinyBox owns native jail
-facts and process execution.
+OpenHuman owns command-execution orchestration and the existing `sandbox.*`
+RPC surface. TinySecurity owns sandbox planning, admission and single-use plan
+consumption. TinyBox owns native jail facts and process execution.
 
-## Command execution
+The host builds a plan request from trusted command, environment, runtime and
+caller facts, asks TinySecurity for a plan, then passes the admitted artifact to
+the selected TinyBox executor. A missing module, refused plan or failed
+consumption denies execution. OpenHuman maps the module results to the existing
+`None`, `Local` or `Docker` routing and status contracts; it does not duplicate
+the protected-path or credential-root policy.
 
-The host translates the command, working directory, environment overrides,
-runtime mode, and caller scope into a TinySecurity `Plan2` request. The plan
-reply is the authority for backend selection and the native jail contract.
-OpenHuman maps that reply to the existing `None`, `Local`, or `Docker`
-executor, applies the existing component, config, and
-`OPENHUMAN_SANDBOX` switches (the sandbox cannot be disabled for SaaS), and
-consumes the plan immediately before starting the process. A refused,
-unavailable, or unconsumable plan fails closed.
+The host keeps the `SANDBOX_ENV_PASSTHROUGH` allowlist, configuration switches,
+status RPC, and executor lifecycle. The sandbox cannot be disabled for SaaS.
+Local grants for stdio MCP servers use the same TinySecurity floor and TinyBox
+admission path.
 
-The host retains the `SANDBOX_ENV_PASSTHROUGH` allowlist. Caller overrides are
-forwarded through the existing TinyBox adapter. `sandbox.*` RPC method names,
-status fields, mode routing, and `is_remote` behavior remain stable.
-
-## Native jail and grants
-
-Backend reporting reads TinyBox `JailStatus`; OpenHuman does not probe or name
-host jail implementations. The `sandbox.status` response preserves its
-existing fields and reports an unavailable provider as `unavailable`.
-
-TinySecurity supplies protected-path and credential-root policy to the
-TinyBox local-grant resolver. TinyBox returns admitted grants, which OpenHuman
-maps into the sandbox policy without a second host-owned protected-path floor.
-The Plan2 jail artifact, including `deny_read`, is passed directly to TinyBox
-at launch.
-
-When Plan2 refuses host-network access for approval, the host submits the exact
-request to `EvaluateSandboxApproval2` with a separate audit correlation and a
-generic summary. No approval claim is available at this launch boundary, so the
-host then asks TinySecurity for a new plan with networking disabled; it never
-treats the pending approval as permission for the current command.
-
-The `ResolveLocalGrants` adapter remains for stdio MCP servers, which build a
-TinyMCP jail from `[runtime.local_jail]` grants. It supplies the same
-TinySecurity floor to TinyBox and maps the admitted paths; it does not
-re-evaluate the returned grants in OpenHuman.
-
-## Layout
-
-- `ops/exec.rs` composes Plan2 planning, policy mapping, consumption, and the
-  existing executor routing.
-- `ops/policy.rs` retains host switches and backend status adapters.
-- `policy.rs` maps agent mode and runtime facts to routing preferences.
-- `spawn_plan/` maps host command facts and caller scope to TinySecurity.
-- `native_jail.rs`, `local_grants.rs`, and `docker.rs` adapt TinyBox calls.
-- `schemas.rs` preserves the `sandbox.*` RPC surface.
-
-The settings surface remains in `config/ops/sandbox.rs`. Module internals and
-their policy decisions are tested in TinySecurity and TinyBox; OpenHuman tests
-the mapping, routing, switches, and module seams.
+See [Privacy and security](../../../../docs/gitbooks/en/features/privacy-and-security.md)
+for the product boundary. Policy behavior belongs in TinySecurity and native
+execution behavior belongs in TinyBox; OpenHuman tests only its mapping,
+routing, callbacks and module seams.

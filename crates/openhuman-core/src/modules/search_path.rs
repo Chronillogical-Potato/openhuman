@@ -14,7 +14,7 @@ use tinybus::module::{ModuleHost, ModuleInfo};
 /// TinyBus's generic search-path loader, which initializes them with `{}`.
 /// Leave those artifacts for the configured load below.
 pub fn configured_module_lib_stems() -> Vec<String> {
-    ["tinymcp", "tinyeventqueues"]
+    ["tinymcp", "tinyeventqueues", "tinysecurity"]
         .into_iter()
         .filter_map(super::registry::find)
         .flat_map(|record| {
@@ -27,6 +27,29 @@ pub fn configured_module_lib_stems() -> Vec<String> {
             ]
         })
         .collect()
+}
+
+/// Modules whose first admission must include a retained host callback
+/// binding. Their search-path artifacts remain available to the normal
+/// `ensure_loaded` path, which installs that binding before loading.
+fn callback_bound_module_lib_stems() -> Vec<String> {
+    ["tinysecurity"]
+        .into_iter()
+        .filter_map(super::registry::find)
+        .flat_map(|record| {
+            let stem = record.source.lib_name.to_string();
+            [
+                stem.clone(),
+                format!("lib{stem}"),
+                format!("{stem}_module"),
+                format!("lib{stem}_module"),
+            ]
+        })
+        .collect()
+}
+
+fn should_defer_to_host_callback(path: &Path) -> bool {
+    is_skipped(path, &callback_bound_module_lib_stems())
 }
 
 fn module_id_for_artifact(path: &Path) -> Option<&'static str> {
@@ -61,8 +84,10 @@ where
 {
     let disabled = skip.to_vec();
     let configured = configured_module_lib_stems();
+    let callback_bound = callback_bound_module_lib_stems();
     let mut skip = disabled.clone();
     skip.extend(configured.iter().cloned());
+    skip.extend(callback_bound.iter().cloned());
     skip.sort();
     skip.dedup();
     if skip.is_empty() {
@@ -86,6 +111,10 @@ where
         for file in files {
             if is_skipped(&file, &disabled) {
                 log::debug!("[modules] search-path artifact skipped: component disabled");
+                continue;
+            }
+            if is_skipped(&file, &callback_bound) {
+                log::debug!("[modules] callback-bound module deferred until requested");
                 continue;
             }
             if is_skipped(&file, &configured) {

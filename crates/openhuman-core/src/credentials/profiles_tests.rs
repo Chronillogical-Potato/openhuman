@@ -8,6 +8,14 @@ use tempfile::TempDir;
 /// that has since exited.
 const SYNTHETIC_DEAD_PID: u32 = i32::MAX as u32;
 
+#[test]
+fn missing_profile_store_uses_a_stable_snapshot_version() {
+    assert_eq!(
+        PersistedAuthProfiles::default().updated_at,
+        "1970-01-01T00:00:00+00:00"
+    );
+}
+
 #[path = "profiles_behavior_tests.rs"]
 mod behavior_tests;
 #[path = "profiles_keychain_error_tests.rs"]
