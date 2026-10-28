@@ -32,6 +32,7 @@ fn build_native_factory_model(
         egress,
         thread_id: None,
         attach_host_attachments: false,
+        host_controls: None,
         summarizer_model: None,
     };
     let request = ModelBuildRequest {
