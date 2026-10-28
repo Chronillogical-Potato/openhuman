@@ -18,7 +18,7 @@ async fn rpc(router: &Router, method: &str, params: Value) -> Value {
             .uri("/rpc")
             .header("content-type", "application/json")
             .header("authorization", format!("Bearer {TOKEN}"))
-            .body(Body::from(json!({"jsonrpc":"2.0","id":1,"method":method,"params":params}.to_string()))
+            .body(Body::from(json!({"jsonrpc":"2.0","id":1,"method":method,"params":params}.to_string())))
             .expect("valid request"),
     ).await.expect("router response");
     assert_eq!(response.status(), StatusCode::OK, "{method}");
