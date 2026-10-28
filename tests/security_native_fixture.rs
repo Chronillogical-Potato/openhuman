@@ -316,7 +316,7 @@ async fn native_fixture_approves_a_parked_request_round_trip() {
     let row = rpc_result(&pending)
         .as_array()
         .and_then(|rows| rows.first())
-        .expect("TinySecurity should persist the parked approval row");
+        .unwrap_or_else(|| panic!("TinySecurity should persist the parked approval row: {pending}"));
     let request_id = row["request_id"].as_str().expect("approval request id");
     let decision = rpc(
         &router,
