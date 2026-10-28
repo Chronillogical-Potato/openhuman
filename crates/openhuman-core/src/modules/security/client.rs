@@ -67,17 +67,11 @@ impl SecurityProxy {
             Self::Callback(proxy) => proxy
                 .call_confidential(member, args)
                 .await
-                .map_err(|error| {
-                    eprintln!("native fixture TinySecurity bus error: {error:?}");
-                    "security module call failed".to_owned()
-                }),
+                .map_err(|_| "security module call failed".to_owned()),
             Self::Module(proxy) => proxy
                 .call_confidential(member, args)
                 .await
-                .map_err(|error| {
-                    eprintln!("native fixture TinySecurity bus error: {error:?}");
-                    "security module call failed".to_owned()
-                }),
+                .map_err(|_| "security module call failed".to_owned()),
         }
     }
 
