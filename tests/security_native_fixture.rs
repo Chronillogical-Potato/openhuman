@@ -46,8 +46,17 @@ fn rpc_result(response: &Value) -> &Value {
 #[tokio::test]
 #[ignore = "downloads and loads the pinned native TinySecurity release"]
 async fn native_fixture_exercises_the_pinned_release_contracts() {
+    let scratch = tempfile::tempdir().expect("scratch workspace");
+    std::env::set_var("OPENHUMAN_WORKSPACE", scratch.path());
+    std::env::set_var("OPENHUMAN_KEYRING_BACKEND", "file");
     let mut config = Config::default();
     config.modules.enabled = true;
+    config.workspace_dir = scratch.path().to_path_buf();
+    config.config_path = scratch.path().join("config.toml");
+    config.action_dir = scratch.path().join("action");
+    config.action_dir_override = Some(config.action_dir.clone());
+    config.save().await.expect("save fixture config");
+    openhuman_core::security::secret_storage::init_workspace(scratch.path());
 
     let client = client(&config)
         .await
