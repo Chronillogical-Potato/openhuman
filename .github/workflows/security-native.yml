@@ -1,6 +1,7 @@
 name: Security native fixture
 
 on:
+  workflow_call: {}
   pull_request:
     branches: [main, release, "epic/**"]
     paths:

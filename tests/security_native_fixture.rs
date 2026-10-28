@@ -118,3 +118,16 @@ async fn native_fixture_exercises_the_pinned_release_contracts() {
         .await;
     assert!(keyring.is_err(), "keyring access without host consent must fail closed");
 }
+
+/// A corrupted library presented through the explicit test override must never
+/// produce a usable client. This second process is invoked by the fixture script.
+#[tokio::test]
+#[ignore = "loads a deliberately corrupted copy of the pinned native module"]
+async fn native_fixture_rejects_a_tampered_module() {
+    let mut config = Config::default();
+    config.modules.enabled = true;
+    assert!(
+        client(&config).await.is_err(),
+        "tampered TinySecurity must fail closed during module admission"
+    );
+}

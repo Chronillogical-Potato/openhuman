@@ -63,3 +63,15 @@ bash scripts/ci-cancel-aware.sh cargo test --manifest-path Cargo.toml -p openhum
   --features "$core_features,security-module" \
   native_fixture_exercises_the_pinned_release_contracts \
   -- --ignored --exact --nocapture
+
+# Corrupt a copy only after validating the official archive checksum. The
+# explicit fixture path is a test-only module source override.
+tampered_dir="$OPENHUMAN_TEST_SECURITY_FIXTURE_DIR/tinysecurity-tampered"
+cp -R "$module_dir" "$tampered_dir"
+module_library="$(find "$tampered_dir" -type f \( -name '*.so' -o -name '*.dylib' -o -name '*.dll' \) -print -quit)"
+test -n "$module_library"
+printf '\n' >> "$module_library"
+OPENHUMAN_MODULE_PATH="$tampered_dir" bash scripts/ci-cancel-aware.sh cargo test \
+  --manifest-path Cargo.toml -p openhuman-cli --test security_native_fixture \
+  --no-default-features --features "$core_features,security-module" \
+  native_fixture_rejects_a_tampered_module -- --ignored --exact --nocapture
