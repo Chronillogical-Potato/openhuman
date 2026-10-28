@@ -61,7 +61,10 @@ where
 }
 
 async fn rpc_http(port: u16, method: &str, params: Value) -> Value {
-    let response = reqwest::Client::new()
+    let response = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(5))
+        .build()
+        .expect("build RPC client")
         .post(format!("http://127.0.0.1:{port}/rpc"))
         .bearer_auth(TOKEN)
         .json(&json!({"jsonrpc":"2.0","id":1,"method":method,"params":params}))
@@ -427,6 +430,9 @@ fn native_fixture_approves_a_parked_request_round_trip() {
         eprintln!("native-fixture: parked task spawned");
         let mut pending = Value::Null;
         for _ in 0..200 {
+            if pending.is_null() {
+                eprintln!("native-fixture: send first approval RPC");
+            }
             pending = rpc_http(port, "openhuman.approval_list_pending", json!({})).await;
             if rpc_result(&pending)
                 .as_array()
