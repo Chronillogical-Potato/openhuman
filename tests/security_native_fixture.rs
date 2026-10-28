@@ -75,7 +75,7 @@ async fn native_fixture_exercises_the_pinned_release_contracts() {
     let path_result = client
         .check_paths2(PathBatchRequest2 {
             policy_id: path_scope,
-            kind: PathCheckKind::Protected,
+            kind: PathCheckKind::StringAllowed,
             paths: vec![PathBuf::from("../outside"), PathBuf::from("ordinary.txt")],
         })
         .await
