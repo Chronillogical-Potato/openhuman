@@ -49,8 +49,7 @@ async fn a_configured_backend_holds_keyring_and_credential_secrets() {
         .upsert(&HttpCredential::bearer("legacy-http", "ghp-legacy"))
         .await
         .unwrap();
-    secret_storage::set("legacy-user", "old_token", "old-value")
-        .unwrap();
+    secret_storage::set("legacy-user", "old_token", "old-value").unwrap();
     let http_file = std::fs::read(state.join("http-credentials.json")).unwrap();
 
     let before: std::collections::HashMap<&str, Option<Vec<u8>>> =
@@ -61,8 +60,7 @@ async fn a_configured_backend_holds_keyring_and_credential_secrets() {
 
     case.install();
 
-    secret_storage::set("user-1", "api_token", "tok-123")
-        .unwrap();
+    secret_storage::set("user-1", "api_token", "tok-123").unwrap();
     assert_eq!(
         secret_storage::get("user-1", "api_token")
             .unwrap()
