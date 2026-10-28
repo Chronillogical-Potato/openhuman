@@ -212,11 +212,11 @@ async fn native_fixture_denies_keyring_before_backend_access() {
     );
 }
 
-/// Runs a harmless shell command through the public host adapter so the
-/// released module plans and consumes a sandbox operation on every CI OS.
+/// The standalone harness has no request-bound audit callback; the public
+/// host adapter must fail closed instead of launching without one.
 #[tokio::test]
-#[ignore = "loads the pinned module and exercises the sandbox plan/consume path"]
-async fn native_fixture_executes_through_the_module_sandbox_plan() {
+#[ignore = "loads the pinned module and verifies sandbox planning fails closed without audit binding"]
+async fn native_fixture_fails_closed_without_sandbox_audit_binding() {
     let scratch = tempfile::tempdir().expect("scratch workspace");
     std::env::set_var("OPENHUMAN_WORKSPACE", scratch.path());
     std::env::set_var("OPENHUMAN_ACTION_DIR", scratch.path());
@@ -240,11 +240,7 @@ async fn native_fixture_executes_through_the_module_sandbox_plan() {
         env_passthrough: vec![],
         docker_overrides: None,
     };
-    let command = if cfg!(windows) {
-        "echo sandbox-fixture"
-    } else {
-        "echo sandbox-fixture"
-    };
+    let command = "echo sandbox-fixture";
     let result = turn_origin::with_origin(
         AgentTurnOrigin::Cli,
         openhuman_core::sandbox::ops::execute_in_sandbox(
@@ -256,30 +252,9 @@ async fn native_fixture_executes_through_the_module_sandbox_plan() {
             std::time::Duration::from_secs(10),
         ),
     )
-    .await
-    .expect("TinySecurity should plan and consume the safe sandbox command");
     assert!(
-        result.success(),
-        "sandbox command failed: {}",
-        result.stderr
-    );
-    assert!(result.stdout.contains("sandbox-fixture"));
-    let outside = tempfile::tempdir().expect("outside directory");
-    let denied = turn_origin::with_origin(
-        AgentTurnOrigin::Cli,
-        openhuman_core::sandbox::ops::execute_in_sandbox(
-            &DispatchCtx::process_default(),
-            &policy,
-            command,
-            outside.path(),
-            std::collections::HashMap::new(),
-            std::time::Duration::from_secs(10),
-        ),
-    )
-    .await;
-    assert!(
-        denied.is_err(),
-        "sandbox path policy must refuse a working directory outside its workspace"
+        result.is_err(),
+        "sandbox execution must fail closed without a request-bound audit callback"
     );
 }
 
