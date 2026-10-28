@@ -64,7 +64,9 @@ pub async fn rpc_handler(
     ctx: Option<Extension<DispatchCtx>>,
     Json(req): Json<RpcRequest>,
 ) -> Response {
-    let ctx = ctx.map_or_else(DispatchCtx::unbound, |Extension(ctx)| ctx);
+    let ctx = ctx
+        .map_or_else(DispatchCtx::unbound, |Extension(ctx)| ctx)
+        .with_authenticated_user_controller();
     let id = req.id.clone();
     let method = req.method.clone();
     let started = std::time::Instant::now();

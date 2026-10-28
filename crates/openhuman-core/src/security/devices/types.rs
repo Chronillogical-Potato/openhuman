@@ -20,8 +20,13 @@ pub struct PairedDevice {
     pub peer_online: Option<bool>,
     /// True once `devices_revoke` has been called.
     pub revoked: bool,
-    /// Encrypted core identity used only by the device tunnel after a restart.
-    /// Never included in controller/RPC serialization.
+    /// TinySecurity owner id used for module-side revoke and recovery.
+    /// Missing on legacy rows until import reconciliation succeeds.
+    #[serde(skip)]
+    pub(crate) pairing_id: Option<String>,
+    /// Legacy encrypted core identity retained only as an import source for
+    /// pre-TinySecurity device rows. New pairings keep identity ciphertext in
+    /// TinySecurity's own persistence record.
     #[serde(skip)]
     pub(crate) core_private_key_encrypted: Option<String>,
 }
@@ -37,11 +42,17 @@ pub struct PairingSession {
     pub channel_id: String,
     /// Base64url pairing token (single-use, TTL'd, hashed at rest on backend).
     pub pairing_token: String,
-    /// Base64url-encoded X25519 public key generated for this pairing.
-    pub core_pubkey: String,
-    /// Encrypted long-term identity to persist with the paired row on success.
+    /// Host-minted socket nonce bound by TinySecurity Begin and the first frame.
     #[serde(skip)]
-    pub(crate) core_private_key_encrypted: String,
+    pub(crate) connection_nonce: String,
+    /// Base64url-encoded X25519 public key returned by TinySecurity.
+    pub core_pubkey: String,
+    /// TinySecurity owner receipt consumed by the next authenticated handshake.
+    #[serde(skip)]
+    pub(crate) pairing_receipt: String,
+    /// User supplied label retained until the module confirms enrollment.
+    #[serde(skip)]
+    pub(crate) label: String,
     /// Optional LAN URL for the direct HTTP fast path.
     pub rpc_url: Option<String>,
     /// ISO 8601 timestamp when the pairing token expires.
@@ -73,4 +84,10 @@ pub struct ListDevicesResponse {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RevokeDeviceResponse {
     pub success: bool,
+}
+
+/// Summary of an explicit one-time legacy device import.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImportLegacyResponse {
+    pub imported: usize,
 }

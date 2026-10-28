@@ -76,6 +76,10 @@ fn to_device(stored: &Versioned<Value>) -> PairedDevice {
             .map(ms_rfc3339),
         peer_online: None,
         revoked: doc.get("revoked").and_then(Value::as_bool).unwrap_or(false),
+        pairing_id: doc
+            .get("pairing_id")
+            .and_then(Value::as_str)
+            .map(str::to_string),
         core_private_key_encrypted: doc
             .get("core_private_key_encrypted")
             .and_then(Value::as_str)
@@ -100,11 +104,29 @@ impl Docs {
         device_pubkey: &str,
         core_session_token_hash: &str,
     ) -> Result<PairedDevice> {
-        self.insert_device_with_key(
+        self.insert_device_with_pairing_id(
             channel_id,
             label,
             device_pubkey,
             core_session_token_hash,
+            None,
+        )
+    }
+
+    pub(super) fn insert_device_with_pairing_id(
+        &self,
+        channel_id: &str,
+        label: &str,
+        device_pubkey: &str,
+        core_session_token_hash: &str,
+        pairing_id: Option<&str>,
+    ) -> Result<PairedDevice> {
+        self.insert_device_with_metadata(
+            channel_id,
+            label,
+            device_pubkey,
+            core_session_token_hash,
+            pairing_id,
             None,
         )
     }
@@ -117,11 +139,31 @@ impl Docs {
         core_session_token_hash: &str,
         core_private_key_encrypted: Option<&str>,
     ) -> Result<PairedDevice> {
+        self.insert_device_with_metadata(
+            channel_id,
+            label,
+            device_pubkey,
+            core_session_token_hash,
+            None,
+            core_private_key_encrypted,
+        )
+    }
+
+    fn insert_device_with_metadata(
+        &self,
+        channel_id: &str,
+        label: &str,
+        device_pubkey: &str,
+        core_session_token_hash: &str,
+        pairing_id: Option<&str>,
+        core_private_key_encrypted: Option<&str>,
+    ) -> Result<PairedDevice> {
         let id = key_of(channel_id)?;
         let doc = json!({
             "label": label,
             "device_pubkey": device_pubkey,
             "core_session_token_hash": core_session_token_hash,
+            "pairing_id": pairing_id,
             "core_private_key_encrypted": core_private_key_encrypted,
             "created_ms": Utc::now().timestamp_millis(),
             "revoked": false,
@@ -187,6 +229,35 @@ impl Docs {
                 .iter()
                 .map(to_device)
                 .collect())
+        })
+    }
+
+    pub(super) fn list_devices_for_legacy_import(&self) -> Result<Vec<PairedDevice>> {
+        self.0.run(|docs| async move {
+            let query = Query::all().sort(Sort::asc("created_ms"));
+            Ok(docs
+                .query_all(DEVICES, &query)
+                .await?
+                .iter()
+                .map(to_device)
+                .collect())
+        })
+    }
+
+    pub(super) fn set_pairing_id(&self, channel_id: &str, pairing_id: &str) -> Result<bool> {
+        let id = key_of(channel_id)?;
+        let pairing_id = pairing_id.to_owned();
+        self.0.run(move |docs| async move {
+            let updated = compare_and_swap(&docs, DEVICES, &id, |doc| {
+                let mut next = doc.clone();
+                next["pairing_id"] = json!(pairing_id);
+                if let Some(fields) = next.as_object_mut() {
+                    fields.remove("core_private_key_encrypted");
+                }
+                Some(next)
+            })
+            .await?;
+            Ok(updated.is_some())
         })
     }
 }

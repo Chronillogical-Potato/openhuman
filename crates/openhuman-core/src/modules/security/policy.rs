@@ -155,6 +155,7 @@ pub(crate) fn module_config_for_secret_scope(
     consumer_id: String,
     target_backend_id: String,
     legacy_backend_id: String,
+    pairing_backend_id: String,
 ) -> Result<tinysecurity_bus::ModuleConfig, &'static str> {
     use tinysecurity_bus::{
         AccessTier, ApprovalScope2, MasterPurpose2, MasterSlotKind2, Origin, SecretBinding2,
@@ -202,13 +203,47 @@ pub(crate) fn module_config_for_secret_scope(
         callback_timeout_ms: AUDIT_CALLBACK_TIMEOUT_MS,
     });
     result.secret_cipher = Some(SecretCipherConfig2 {
-        registration_id,
+        registration_id: registration_id.clone(),
         consumer_id,
         enabled: true,
         slots: 8,
         timeout_ms: AUDIT_CALLBACK_TIMEOUT_MS,
     });
+    let pairing_legacy_backend_id = pairing_legacy_backend_id(&registration_id);
+    result.device = Some(tinysecurity_bus::DeviceConfig2 {
+        scopes: Vec::new(),
+        max_handles: 512,
+        max_in_flight: 32,
+        operations_per_minute: 120,
+        frames_per_minute: 12_000,
+        max_ttl_ms: 300_000,
+        max_message_bytes: 1_048_576,
+        max_bootstrap_nonces: 4096,
+    });
+    result.device_pairing = Some(tinysecurity_bus::DevicePairingConfig2 {
+        scopes: Vec::new(),
+        runtime_scope: Some(tinysecurity_bus::DevicePairingRuntimeScope2 {
+            persistence_backend_id: pairing_backend_id,
+            legacy_device_backend_id: Some(pairing_legacy_backend_id),
+            allowed_origins: vec![Origin::Operator],
+        }),
+        max_pairings: 256,
+        max_pending: 32,
+        max_pending_ttl_ms: 120_000,
+        max_session_ttl_ms: 604_800_000,
+        max_state_bytes: 1_048_576,
+        callback_timeout_ms: AUDIT_CALLBACK_TIMEOUT_MS,
+    });
     Ok(result)
+}
+
+pub(super) fn pairing_legacy_backend_id(registration_id: &str) -> String {
+    use sha2::{Digest, Sha256};
+    format!(
+        "{:x}",
+        Sha256::digest(format!("device-pairing-legacy:{registration_id}").as_bytes())
+    )[..32]
+        .to_owned()
 }
 
 #[cfg(test)]

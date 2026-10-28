@@ -14,6 +14,8 @@ struct SecurityCallbackState {
     consumer_id: String,
     target_backend_id: String,
     legacy_backend_id: String,
+    pairing_backend_id: String,
+    pairing_store: super::device_pairing_store::DevicePairingStore,
     key_path: PathBuf,
 }
 
@@ -34,6 +36,7 @@ impl SecurityCallbackState {
             self.consumer_id.clone(),
             self.target_backend_id.clone(),
             self.legacy_backend_id.clone(),
+            self.pairing_backend_id.clone(),
         )
         .map_err(str::to_owned)?;
         serde_json::to_value(config).map_err(|_| "invalid security module configuration".into())
@@ -154,6 +157,14 @@ fn callback_endpoints() -> Result<Vec<HostCallbackEndpoint>, String> {
                 tinysecurity_bus::callback_names2::SET,
             ],
         )?,
+        endpoint(
+            tinysecurity_bus::callback_names2::DEVICE_PAIRING_HOST,
+            &[
+                tinysecurity_bus::callback_names2::RESOLVE_PAIRING_EVENT,
+                tinysecurity_bus::callback_names2::PERSIST_DEVICE_PAIRING,
+                tinysecurity_bus::callback_names2::LOAD_LEGACY_DEVICE_IDENTITIES,
+            ],
+        )?,
     ])
 }
 
@@ -213,6 +224,7 @@ pub(in crate::modules) async fn ensure_loaded(
     let legacy_backend_id = opaque_id("secret-legacy", &key_path, "file");
     let registration_id = opaque_id("secret-registration", &key_path, "config-user-master");
     let consumer_id = opaque_id("secret-cipher-consumer", &key_path, "config-user-master");
+    let pairing_backend_id = opaque_id("device-pairing-state", &key_path, "encrypted-snapshot");
 
     let runtime = resolver
         .runtime()
@@ -232,6 +244,7 @@ pub(in crate::modules) async fn ensure_loaded(
     let factory_consumer_id = consumer_id.clone();
     let factory_target_backend_id = target_backend_id.clone();
     let factory_legacy_backend_id = legacy_backend_id.clone();
+    let factory_pairing_backend_id = pairing_backend_id.clone();
     let binding = resolver
         .ensure_loaded_with_host_callback_factory(id, move |_attempt| {
             let host = host;
@@ -244,6 +257,7 @@ pub(in crate::modules) async fn ensure_loaded(
             let consumer_id = factory_consumer_id.clone();
             let target_backend_id = factory_target_backend_id.clone();
             let legacy_backend_id = factory_legacy_backend_id.clone();
+            let pairing_backend_id = factory_pairing_backend_id.clone();
             async move {
                 let binding = std::sync::Arc::new(
                     host.prepare_host_callbacks(callback_endpoints()?)
@@ -269,6 +283,12 @@ pub(in crate::modules) async fn ensure_loaded(
                 )
                 .await
                 .map_err(|_| "security callback registration failed".to_owned())?;
+                let pairing_store = super::device_pairing_store::DevicePairingStore::current(
+                    &config,
+                    pairing_backend_id.clone(),
+                    registration_id.clone(),
+                )
+                .map_err(|_| "device pairing persistence unavailable".to_owned())?;
                 let state = std::sync::Arc::new(SecurityCallbackState {
                     binding: std::sync::Arc::clone(&binding),
                     consumer,
@@ -278,8 +298,14 @@ pub(in crate::modules) async fn ensure_loaded(
                     consumer_id,
                     target_backend_id,
                     legacy_backend_id,
+                    pairing_backend_id,
+                    pairing_store,
                     key_path,
                 });
+                super::callbacks::register_pairing_store(
+                    state.scope.scope_id().to_owned(),
+                    state.pairing_store.clone(),
+                );
                 let module_config = state.module_config(&config)?;
                 candidates
                     .lock()
@@ -318,5 +344,19 @@ async fn register_scope(config: &Config, state: &SecurityCallbackState) -> Resul
     state
         .scope
         .ensure_registered_with_callback(config, &proxy, info.generation)
+        .await?;
+    let request = tinysecurity_bus::RegisterDevicePairingScopeRequest2 {
+        approval_scope_id: state.scope.scope_id().to_owned(),
+    };
+    let receipt: tinysecurity_bus::DevicePairingScopeReceipt2 = proxy
+        .call_confidential(
+            tinysecurity_bus::names::methods::REGISTER_DEVICE_PAIRING_SCOPE2,
+            (request,),
+        )
         .await
+        .map_err(|_| "device pairing scope registration failed".to_owned())?;
+    if !receipt.active || receipt.scope_id != state.scope.scope_id() {
+        return Err("device pairing scope registration refused".into());
+    }
+    Ok(())
 }

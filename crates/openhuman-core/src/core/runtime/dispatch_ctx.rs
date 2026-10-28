@@ -16,6 +16,26 @@ use std::sync::Arc;
 
 use super::CoreContext;
 
+/// Trusted source attached by the transport or runtime that started a call.
+///
+/// Turn origin is intentionally separate: a user-authored chat turn may invoke
+/// agent tools, so its origin alone cannot authorize a host-only operation.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum InvocationSource {
+    /// No trusted transport source was attached. This is the default for
+    /// in-process calls and must not authorize user-controller operations.
+    #[default]
+    Untrusted,
+    /// A user controller call accepted by the authenticated RPC endpoint.
+    AuthenticatedUserController,
+    /// Work dispatched by an agent or one of its tools.
+    Agent,
+    /// Host automation such as a scheduled or background action.
+    Automation,
+    /// A trusted server-observed socket event.
+    SocketEvent,
+}
+
 /// The per-call context a controller handler receives.
 ///
 /// Cheap to clone (one `Arc`). It is `unbound` only when no [`CoreContext`]
@@ -25,6 +45,7 @@ use super::CoreContext;
 pub struct DispatchCtx {
     core: Option<Arc<CoreContext>>,
     headless_agent_chat: bool,
+    invocation_source: InvocationSource,
 }
 
 impl DispatchCtx {
@@ -34,6 +55,7 @@ impl DispatchCtx {
         Self {
             core: Some(core),
             headless_agent_chat: false,
+            invocation_source: InvocationSource::Untrusted,
         }
     }
 
@@ -51,6 +73,7 @@ impl DispatchCtx {
         Self {
             core: None,
             headless_agent_chat: false,
+            invocation_source: InvocationSource::Untrusted,
         }
     }
 
@@ -61,6 +84,7 @@ impl DispatchCtx {
         Self {
             core: CoreContext::default_context(),
             headless_agent_chat: false,
+            invocation_source: InvocationSource::Untrusted,
         }
     }
 
@@ -81,6 +105,7 @@ impl DispatchCtx {
         Self {
             core,
             headless_agent_chat: false,
+            invocation_source: InvocationSource::Untrusted,
         }
     }
 
@@ -153,6 +178,7 @@ impl DispatchCtx {
         Self {
             core: CoreContext::scoped_for_turn(),
             headless_agent_chat: false,
+            invocation_source: InvocationSource::Untrusted,
         }
     }
 
@@ -250,6 +276,27 @@ impl DispatchCtx {
         Self::new(base.derive_channel_turn(None, Some(origin)))
     }
 
+    /// Read the immutable source set by the call's trusted transport.
+    pub fn invocation_source(&self) -> InvocationSource {
+        self.invocation_source
+    }
+
+    /// Mark a call accepted by the authenticated JSON-RPC controller boundary.
+    ///
+    /// This is doc-hidden host plumbing. Agent calls and generic in-process
+    /// invocations must use the default `Untrusted` source.
+    #[doc(hidden)]
+    pub fn with_authenticated_user_controller(mut self) -> Self {
+        self.invocation_source = InvocationSource::AuthenticatedUserController;
+        self
+    }
+
+    /// Mark a dispatch created by a server-observed socket event.
+    pub(crate) fn with_socket_event(mut self) -> Self {
+        self.invocation_source = InvocationSource::SocketEvent;
+        self
+    }
+
     /// A non-owning handle on the bound context, for state that outlives the
     /// call (a session, a built turn). The tenant lease is the strong count of
     /// the context ([`CoreContext::tenant_in_use`]), so a long-lived holder
@@ -290,6 +337,7 @@ impl std::fmt::Debug for DispatchCtx {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("DispatchCtx")
             .field("bound", &self.core.is_some())
+            .field("invocation_source", &self.invocation_source)
             .finish()
     }
 }
