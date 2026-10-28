@@ -603,6 +603,15 @@ pub(crate) fn serve_test_module_storage(backend: Arc<dyn StorageBackend>) -> Tes
     TestModuleStorage { previous }
 }
 
+/// Withdraw the backend module calls are served, as a storage outage would,
+/// while the guard from [`serve_test_module_storage`] is still held.
+#[cfg(test)]
+pub(crate) fn withdraw_test_module_storage() {
+    *TEST_MODULE_STORAGE
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner) = None;
+}
+
 /// Restores the previous test module storage on drop.
 #[cfg(test)]
 pub(crate) struct TestModuleStorage {
