@@ -85,7 +85,7 @@ bash scripts/ci-cancel-aware.sh cargo test --manifest-path Cargo.toml -p openhum
 
 bash scripts/ci-cancel-aware.sh cargo test --manifest-path Cargo.toml -p openhuman \
   --lib --no-default-features --features "$core_features,security-module" \
-  modules::security::client_tests::native_fixture_denies_private_browser_dial \
+  modules::security::client::tests::native_fixture_denies_private_browser_dial \
   -- --ignored --exact --nocapture
 
 bash scripts/ci-cancel-aware.sh cargo test --manifest-path Cargo.toml -p openhuman-cli \
