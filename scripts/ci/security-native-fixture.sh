@@ -5,6 +5,7 @@ set -euo pipefail
 # registry digest. The fixture is intentionally isolated from ordinary tests.
 export OPENHUMAN_TEST_SECURITY_FIXTURE_DIR="${OPENHUMAN_TEST_SECURITY_FIXTURE_DIR:-$HOME/.cache/openhuman-security-fixtures}"
 mkdir -p "$OPENHUMAN_TEST_SECURITY_FIXTURE_DIR"
+chmod 700 "$OPENHUMAN_TEST_SECURITY_FIXTURE_DIR"
 
 host_key="${OH_MODULE_HOST_KEY:-}"
 if [ -z "$host_key" ]; then
