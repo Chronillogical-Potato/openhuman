@@ -1,8 +1,3 @@
-use axum::{
-    body::{to_bytes, Body},
-    http::{Request, StatusCode},
-    Router,
-};
 use openhuman_core::{
     config::Config,
     core::runtime::{
@@ -26,32 +21,29 @@ use tinysecurity_bus::{
     ProtectedPathRequest2, RedactMode,
 };
 use tokio_util::sync::CancellationToken;
-use tower::ServiceExt;
 
 const TOKEN: &str = "security-native-fixture-token";
 
-async fn rpc(router: &Router, method: &str, params: Value) -> Value {
-    let body = json!({"jsonrpc":"2.0","id":1,"method":method,"params":params}).to_string();
-    let response = router
-        .clone()
-        .oneshot(
-            Request::builder()
-                .method("POST")
-                .uri("/rpc")
-                .header("content-type", "application/json")
-                .header("authorization", format!("Bearer {TOKEN}"))
-                .body(Body::from(body))
-                .expect("valid request"),
-        )
-        .await
-        .expect("router response");
-    assert_eq!(response.status(), StatusCode::OK, "{method}");
-    serde_json::from_slice(
-        &to_bytes(response.into_body(), 1024 * 1024)
-            .await
-            .expect("response body"),
-    )
-    .expect("JSON-RPC response")
+fn run_on_agent_stack<F, Fut>(name: &str, future_factory: F)
+where
+    F: FnOnce() -> Fut + Send + 'static,
+    Fut: std::future::Future<Output = ()> + Send + 'static,
+{
+    std::thread::Builder::new()
+        .name(name.to_owned())
+        .stack_size(openhuman_core::core::runtime::AGENT_WORKER_STACK_BYTES)
+        .spawn(move || {
+            tokio::runtime::Builder::new_multi_thread()
+                .worker_threads(2)
+                .thread_stack_size(openhuman_core::core::runtime::AGENT_WORKER_STACK_BYTES)
+                .enable_all()
+                .build()
+                .expect("build native fixture runtime")
+                .block_on(future_factory());
+        })
+        .expect("spawn native fixture runtime")
+        .join()
+        .expect("native fixture should not panic");
 }
 
 async fn rpc_http(port: u16, method: &str, params: Value) -> Value {
@@ -267,136 +259,166 @@ async fn native_fixture_denies_keyring_before_backend_access() {
     );
 }
 
-/// The standalone harness has no request-bound audit callback; the public
-/// host adapter must fail closed instead of launching without one.
-#[tokio::test]
-#[ignore = "loads the pinned module and verifies sandbox planning fails closed without audit binding"]
-async fn native_fixture_fails_closed_without_sandbox_audit_binding() {
-    let scratch = tempfile::tempdir().expect("scratch workspace");
-    std::env::set_var("OPENHUMAN_WORKSPACE", scratch.path());
-    std::env::set_var("OPENHUMAN_ACTION_DIR", scratch.path());
-    std::env::set_var("OPENHUMAN_SANDBOX", "off");
-    let mut config = Config::default();
-    config.modules.enabled = true;
-    config.workspace_dir = scratch.path().to_path_buf();
-    config.config_path = scratch.path().join("config.toml");
-    config.action_dir = scratch.path().to_path_buf();
-    config.action_dir_override = Some(config.action_dir.clone());
-    config.save().await.expect("save sandbox fixture config");
-    client(&config).await.expect("released module loads");
-    let policy = SandboxPolicy {
-        backend: SandboxBackendKind::None,
-        workspace_root: scratch.path().to_path_buf(),
-        state_dir: scratch.path().join("state"),
-        read_only_mounts: vec![],
-        read_write_mounts: vec![],
-        allow_network: false,
-        mount_workspace: true,
-        env_passthrough: vec![],
-        docker_overrides: None,
-    };
-    let command = "echo sandbox-fixture";
-    let result = turn_origin::with_origin(
-        AgentTurnOrigin::Cli,
-        openhuman_core::sandbox::ops::execute_in_sandbox(
-            &DispatchCtx::process_default(),
-            &policy,
-            command,
-            scratch.path(),
-            std::collections::HashMap::new(),
-            std::time::Duration::from_secs(10),
-        ),
-    )
-    .await;
-    assert!(
-        result.is_err(),
-        "sandbox execution must fail closed without a request-bound audit callback"
-    );
+/// Runs the public shell adapter through the production desktop host so the
+/// released module receives its registered sandbox and audit callbacks.
+#[test]
+#[ignore = "loads the pinned module and exercises its sandbox plan/consume path"]
+fn native_fixture_executes_through_the_module_sandbox_plan() {
+    run_on_agent_stack("native-sandbox-fixture", || async {
+        let scratch = tempfile::tempdir().expect("scratch workspace");
+        std::env::set_var("OPENHUMAN_WORKSPACE", scratch.path());
+        std::env::set_var("OPENHUMAN_ACTION_DIR", scratch.path());
+        std::env::set_var("OPENHUMAN_SANDBOX", "off");
+        let mut config = Config::default();
+        config.modules.enabled = true;
+        config.workspace_dir = scratch.path().to_path_buf();
+        config.config_path = scratch.path().join("config.toml");
+        config.action_dir = scratch.path().to_path_buf();
+        config.action_dir_override = Some(config.action_dir.clone());
+        config.save().await.expect("save sandbox fixture config");
+        let (_port, shutdown, server) = start_desktop_fixture(config.clone()).await;
+        client(&config).await.expect("released module loads");
+        let policy = SandboxPolicy {
+            backend: SandboxBackendKind::None,
+            workspace_root: scratch.path().to_path_buf(),
+            state_dir: scratch.path().join("state"),
+            read_only_mounts: vec![],
+            read_write_mounts: vec![],
+            allow_network: false,
+            mount_workspace: true,
+            env_passthrough: vec![],
+            docker_overrides: None,
+        };
+        let command = "echo sandbox-fixture";
+        let result = turn_origin::with_origin(
+            AgentTurnOrigin::Cli,
+            openhuman_core::sandbox::ops::execute_in_sandbox(
+                &DispatchCtx::process_default(),
+                &policy,
+                command,
+                scratch.path(),
+                std::collections::HashMap::new(),
+                std::time::Duration::from_secs(10),
+            ),
+        )
+        .await;
+        let result = result.expect("TinySecurity should plan and consume the safe sandbox command");
+        assert!(
+            result.success(),
+            "sandbox command failed: {}",
+            result.stderr
+        );
+        assert!(result.stdout.contains("sandbox-fixture"));
+        let outside = tempfile::tempdir().expect("outside directory");
+        let denied = turn_origin::with_origin(
+            AgentTurnOrigin::Cli,
+            openhuman_core::sandbox::ops::execute_in_sandbox(
+                &DispatchCtx::process_default(),
+                &policy,
+                command,
+                outside.path(),
+                std::collections::HashMap::new(),
+                std::time::Duration::from_secs(10),
+            ),
+        )
+        .await;
+        assert!(
+            denied.is_err(),
+            "sandbox path policy must refuse cwd outside its workspace"
+        );
+        shutdown.cancel();
+        server
+            .await
+            .expect("desktop server task")
+            .expect("desktop server shuts down cleanly");
+    });
 }
 
 /// Parks a real approval request, approves it through the host RPC controller,
 /// and checks that the caller resumes with an allow outcome.
-#[tokio::test]
+#[test]
 #[ignore = "loads the pinned module and round trips an approval through the host"]
-async fn native_fixture_approves_a_parked_request_round_trip() {
-    let scratch = tempfile::tempdir().expect("scratch workspace");
-    std::env::set_var("OPENHUMAN_WORKSPACE", scratch.path());
-    std::env::set_var("OPENHUMAN_KEYRING_BACKEND", "file");
-    let mut config = Config::default();
-    config.modules.enabled = true;
-    config.workspace_dir = scratch.path().to_path_buf();
-    config.config_path = scratch.path().join("config.toml");
-    config.action_dir = scratch.path().join("action");
-    config.action_dir_override = Some(config.action_dir.clone());
-    config.save().await.expect("save fixture config");
-    openhuman_core::security::secret_storage::init_workspace(scratch.path());
-    let (port, shutdown, server) = start_desktop_fixture(config.clone()).await;
-    client(&config).await.expect("released module loads");
-    let gate = ApprovalGate::init_global(config, "session-security-native-approval-fixture");
-    let parked = {
-        let gate = gate.clone();
-        tokio::spawn(async move {
-            turn_origin::with_origin(
-                AgentTurnOrigin::WebChat {
-                    thread_id: "native-fixture-thread".into(),
-                    client_id: "native-fixture-client".into(),
-                    request_id: None,
-                },
-                gate.intercept(
-                    &ApprovalTurnContext::chat(ApprovalChatContext {
+fn native_fixture_approves_a_parked_request_round_trip() {
+    run_on_agent_stack("native-approval-fixture", || async {
+        let scratch = tempfile::tempdir().expect("scratch workspace");
+        std::env::set_var("OPENHUMAN_WORKSPACE", scratch.path());
+        std::env::set_var("OPENHUMAN_KEYRING_BACKEND", "file");
+        let mut config = Config::default();
+        config.modules.enabled = true;
+        config.workspace_dir = scratch.path().to_path_buf();
+        config.config_path = scratch.path().join("config.toml");
+        config.action_dir = scratch.path().join("action");
+        config.action_dir_override = Some(config.action_dir.clone());
+        config.save().await.expect("save fixture config");
+        openhuman_core::security::secret_storage::init_workspace(scratch.path());
+        let (port, shutdown, server) = start_desktop_fixture(config.clone()).await;
+        client(&config).await.expect("released module loads");
+        let gate = ApprovalGate::init_global(config, "session-security-native-approval-fixture");
+        let parked = {
+            let gate = gate.clone();
+            tokio::spawn(async move {
+                turn_origin::with_origin(
+                    AgentTurnOrigin::WebChat {
                         thread_id: "native-fixture-thread".into(),
                         client_id: "native-fixture-client".into(),
                         request_id: None,
-                    }),
-                    "shell",
-                    "run harmless fixture command",
-                    json!({"command":"echo approval-fixture"}),
-                ),
-            )
-            .await
-        })
-    };
-    let mut pending = Value::Null;
-    for _ in 0..200 {
-        pending = rpc_http(port, "openhuman.approval_list_pending", json!({})).await;
-        if rpc_result(&pending)
-            .as_array()
-            .is_some_and(|rows| !rows.is_empty())
-        {
-            break;
+                    },
+                    gate.intercept(
+                        &ApprovalTurnContext::chat(ApprovalChatContext {
+                            thread_id: "native-fixture-thread".into(),
+                            client_id: "native-fixture-client".into(),
+                            request_id: None,
+                        }),
+                        "shell",
+                        "run harmless fixture command",
+                        json!({"command":"echo approval-fixture"}),
+                    ),
+                )
+                .await
+            })
+        };
+        let mut pending = Value::Null;
+        for _ in 0..200 {
+            pending = rpc_http(port, "openhuman.approval_list_pending", json!({})).await;
+            if rpc_result(&pending)
+                .as_array()
+                .is_some_and(|rows| !rows.is_empty())
+            {
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(25)).await;
         }
-        tokio::time::sleep(std::time::Duration::from_millis(25)).await;
-    }
-    let row = rpc_result(&pending)
-        .as_array()
-        .and_then(|rows| rows.first())
-        .unwrap_or_else(|| {
-            panic!(
+        let row = rpc_result(&pending)
+            .as_array()
+            .and_then(|rows| rows.first())
+            .unwrap_or_else(|| {
+                panic!(
                 "TinySecurity should persist the parked approval row: {pending}; task finished: {}",
                 parked.is_finished()
             )
-        });
-    let request_id = row["request_id"].as_str().expect("approval request id");
-    let decision = rpc_http(
-        port,
-        "openhuman.approval_decide",
-        json!({
-            "request_id": request_id,
-            "decision": "approve_once",
-        }),
-    )
-    .await;
-    assert!(
-        decision.get("error").is_none(),
-        "host should record the approval: {decision}"
-    );
-    assert!(matches!(
-        parked.await.expect("parked caller"),
-        GateOutcome::Allow
-    ));
-    shutdown.cancel();
-    server
-        .await
-        .expect("desktop server task")
-        .expect("desktop server shuts down cleanly");
+            });
+        let request_id = row["request_id"].as_str().expect("approval request id");
+        let decision = rpc_http(
+            port,
+            "openhuman.approval_decide",
+            json!({
+                "request_id": request_id,
+                "decision": "approve_once",
+            }),
+        )
+        .await;
+        assert!(
+            decision.get("error").is_none(),
+            "host should record the approval: {decision}"
+        );
+        assert!(matches!(
+            parked.await.expect("parked caller"),
+            GateOutcome::Allow
+        ));
+        shutdown.cancel();
+        server
+            .await
+            .expect("desktop server task")
+            .expect("desktop server shuts down cleanly");
+    });
 }
