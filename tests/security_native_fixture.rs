@@ -392,7 +392,6 @@ fn native_fixture_fails_closed_without_approval_audit_correlation() {
         std::env::set_var("OPENHUMAN_KEYRING_BACKEND", "file");
         let mut config = Config::default();
         config.modules.enabled = true;
-        config.modules.source = openhuman_core::config::schema::ModuleSourceMode::Source;
         config.autonomy.enabled = false;
         config.autonomy.forbidden_paths.clear();
         config.workspace_dir = workspace;
@@ -478,6 +477,7 @@ fn native_fixture_approves_a_parked_request_round_trip_with_patched_module() {
         std::env::set_var("OPENHUMAN_KEYRING_BACKEND", "file");
         let mut config = Config::default();
         config.modules.enabled = true;
+        config.modules.source = openhuman_core::config::schema::ModuleSourceMode::Source;
         config.autonomy.enabled = false;
         config.autonomy.forbidden_paths.clear();
         config.workspace_dir = workspace;
