@@ -495,7 +495,11 @@ fn native_fixture_approves_a_parked_request_round_trip_with_patched_module() {
         let (port, shutdown, server) = start_desktop_fixture(config.clone()).await;
         health_http(port).await.expect("desktop host health");
         let module_list = rpc_http(port, "openhuman.modules_list", json!({})).await;
-        let modules = rpc_result(&module_list).as_array().expect("module list");
+        let module_result = rpc_result(&module_list);
+        let modules = module_result
+            .get("modules")
+            .and_then(Value::as_array)
+            .expect("module list");
         let status = modules
             .iter()
             .find(|module| module["id"] == "tinysecurity")
