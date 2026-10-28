@@ -481,6 +481,7 @@ toml = "1.0"
 tracing = "0.1"
 # The TinyComputer contract, for the live computer-use e2e (`computer_bali_live_e2e`).
 tinycomputer-bus = { path = "../../vendor/tinycomputer/crates/tinycomputer-bus" }
+tinysecurity-bus = { path = "../../vendor/tinysecurity/crates/tinysecurity-bus" }
 # sentry's TestTransport for the observability before_send smoke tests;
 # `default-features = false` keeps actix out of the graph (see the core manifest).
 sentry = { version = "0.47.0", default-features = false, features = ["test"] }
