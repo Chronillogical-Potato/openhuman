@@ -31,19 +31,8 @@ impl Tool for CronAddTool {
     }
 
     fn description(&self) -> &str {
-        "Create a scheduled cron job (shell or agent) with cron/at/every schedules. \
-         Standardizes on device-local timezone unless 'tz' is set. The scheduler polls on an \
-         interval (default 15s, minimum 5s) and does not 'catch up' missed runs.\n\
-         Delivery: an agent job created inside a conversation (web chat or a channel such as \
-         Telegram, Discord, Slack) sends each run's reply back to that same conversation \
-         automatically; do not set `delivery` or copy a reply target for that. Only set \
-         `delivery` to override it (`proactive` for an in-app notification, `none` for silent). \
-         A job created with no conversation defaults to `proactive`. In its scheduled run the \
-         agent's final reply is what gets delivered. Reminders and recurring messages always \
-         deliver. A conditional check must put its condition and \"otherwise reply NO_REPLY\" \
-         in its `prompt`; only such a job can skip a run.\n\
-         Agent jobs must be scheduled at least 5 minutes apart; a tighter cron expression or \
-         every_ms is rejected."
+        "Schedule a job: once (`at`) or repeating (`cron`, `every`; agent jobs \
+         at least 5 minutes apart)."
     }
 
     fn parameters_schema(&self) -> serde_json::Value {
