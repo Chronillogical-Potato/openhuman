@@ -75,3 +75,9 @@ OPENHUMAN_MODULE_PATH="$tampered_dir" bash scripts/ci-cancel-aware.sh cargo test
   --manifest-path Cargo.toml -p openhuman-cli --test security_native_fixture \
   --no-default-features --features "$core_features,security-module" \
   native_fixture_rejects_a_tampered_module -- --ignored --exact --nocapture
+
+bash scripts/ci-cancel-aware.sh cargo test --manifest-path Cargo.toml -p openhuman-cli \
+  --test security_native_fixture --no-default-features \
+  --features "$core_features,security-module" \
+  native_fixture_denies_keyring_before_backend_access \
+  -- --ignored --exact --nocapture
