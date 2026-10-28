@@ -431,10 +431,10 @@ test("a unique extension writer survives a heavy rewrite move Git misses", () =>
     assert.doesNotMatch(changes, /^R\d*\t/m);
 
     const previous = historicalFindings(root, scanner);
-    assert.deepEqual(validateCoverageDebt([moved], [moved], previous), []);
+    assert.deepEqual(validateCoverageDebt([moved], [], [moved], previous), []);
     const copied = { ...moved, path: "crates/openhuman-embed/src/copied.rs" };
     assert.match(
-      validateCoverageDebt([old, copied], [old, copied], previous).join("\n"),
+      validateCoverageDebt([old, copied], [], [old, copied], previous).join("\n"),
       /Extension growth forbidden/,
     );
   } finally {
