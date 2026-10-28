@@ -380,6 +380,7 @@ fn native_fixture_fails_closed_without_sandbox_audit_correlation() {
 #[ignore = "loads the pinned module and verifies approval evaluation fails closed without audit correlation"]
 fn native_fixture_fails_closed_without_approval_audit_correlation() {
     run_on_agent_stack("native-approval-fixture", || async {
+        let private_argument = "approval-callback-private-sentinel";
         let scratch = tempfile::tempdir().expect("scratch workspace");
         let home = scratch.path().join("home");
         let workspace = scratch.path().join("workspace");
@@ -428,7 +429,10 @@ fn native_fixture_fails_closed_without_approval_audit_correlation() {
                         }),
                         "shell",
                         "run harmless fixture command",
-                        json!({"command":"echo approval-fixture"}),
+                        json!({
+                            "command":"echo approval-fixture",
+                            "private_argument": private_argument,
+                        }),
                     ),
                 )
                 .await
@@ -447,6 +451,10 @@ fn native_fixture_fails_closed_without_approval_audit_correlation() {
         }
         let rows = rpc_result(&pending).as_array().expect("pending row list");
         assert!(rows.is_empty(), "a denied request must not become pending");
+        assert!(
+            !pending.to_string().contains(private_argument),
+            "the released module must not reflect request data through the unscoped callback path"
+        );
         let outcome = parked.await.expect("parked caller");
         assert!(
             matches!(outcome, GateOutcome::Deny { ref reason } if reason.contains("EvaluateApproval2 failed")),
