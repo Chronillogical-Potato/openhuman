@@ -286,8 +286,8 @@ name = "security_sandbox_characterization"
 path = "../../tests/security_sandbox_characterization.rs"
 
 [[test]]
-name = "security_crypto_characterization"
-path = "../../tests/security_crypto_characterization.rs"
+name = "security_keyring_fixture"
+path = "../../tests/security_keyring_fixture.rs"
 
 [[test]]
 name = "raw_coverage_all"

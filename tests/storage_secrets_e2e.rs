@@ -26,8 +26,8 @@ fn keyring_workspace() -> &'static std::path::Path {
         .path()
 }
 
-#[test]
-fn a_configured_backend_holds_keyring_and_credential_secrets() {
+#[tokio::test]
+async fn a_configured_backend_holds_keyring_and_credential_secrets() {
     let case = Case::open();
     let workspace = keyring_workspace();
     // Keep any process-backend fallback inside the temp workspace, and give
@@ -43,11 +43,15 @@ fn a_configured_backend_holds_keyring_and_credential_secrets() {
             AuthProfile::new_token("legacy", "default", "sk-legacy".to_string()),
             true,
         )
+        .await
         .unwrap();
     HttpCredentialsStore::new(&state, false)
         .upsert(&HttpCredential::bearer("legacy-http", "ghp-legacy"))
+        .await
         .unwrap();
-    secret_storage::set("legacy-user", "old_token", "old-value").unwrap();
+    secret_storage::set("legacy-user", "old_token", "old-value")
+        .await
+        .unwrap();
     let profiles_file = std::fs::read(state.join("auth-profiles.json")).unwrap();
     let http_file = std::fs::read(state.join("http-credentials.json")).unwrap();
 
@@ -59,16 +63,20 @@ fn a_configured_backend_holds_keyring_and_credential_secrets() {
 
     case.install();
 
-    secret_storage::set("user-1", "api_token", "tok-123").unwrap();
+    secret_storage::set("user-1", "api_token", "tok-123")
+        .await
+        .unwrap();
     assert_eq!(
         secret_storage::get("user-1", "api_token")
+            .await
             .unwrap()
             .as_deref(),
         Some("tok-123")
     );
     assert!(secret_storage::is_available());
-    secret_storage::delete("user-1", "api_token").unwrap();
+    secret_storage::delete("user-1", "api_token").await.unwrap();
     assert!(secret_storage::get("user-1", "api_token")
+        .await
         .unwrap()
         .is_none());
 
@@ -76,12 +84,16 @@ fn a_configured_backend_holds_keyring_and_credential_secrets() {
     // delete removes it from both places so it cannot resurface.
     assert_eq!(
         secret_storage::get("legacy-user", "old_token")
+            .await
             .unwrap()
             .as_deref(),
         Some("old-value")
     );
-    secret_storage::delete("legacy-user", "old_token").unwrap();
+    secret_storage::delete("legacy-user", "old_token")
+        .await
+        .unwrap();
     assert!(secret_storage::get("legacy-user", "old_token")
+        .await
         .unwrap()
         .is_none());
 
@@ -91,16 +103,18 @@ fn a_configured_backend_holds_keyring_and_credential_secrets() {
             AuthProfile::new_token("openai", "default", "sk-test".to_string()),
             true,
         )
+        .await
         .unwrap();
     // The pre-existing profile was adopted, not replaced.
-    let loaded = profiles.load().unwrap();
+    let loaded = profiles.load().await.unwrap();
     assert_eq!(loaded.profiles.len(), 2);
 
     let http = HttpCredentialsStore::new(&state, false);
     http.upsert(&HttpCredential::bearer("github", "ghp-test"))
+        .await
         .unwrap();
-    assert!(http.get("github").unwrap().is_some());
-    assert!(http.get("legacy-http").unwrap().is_some());
+    assert!(http.get("github").await.unwrap().is_some());
+    assert!(http.get("legacy-http").await.unwrap().is_some());
 
     // The legacy files are left untouched by the backend path.
     assert_eq!(
@@ -123,7 +137,7 @@ fn a_configured_backend_holds_keyring_and_credential_secrets() {
 
     // Without a backend the files are back in use.
     assert!(openhuman_core::storage::clear());
-    assert!(http.get("github").unwrap().is_none());
-    assert!(http.get("legacy-http").unwrap().is_some());
-    assert_eq!(profiles.load().unwrap().profiles.len(), 1);
+    assert!(http.get("github").await.unwrap().is_none());
+    assert!(http.get("legacy-http").await.unwrap().is_some());
+    assert_eq!(profiles.load().await.unwrap().profiles.len(), 1);
 }
