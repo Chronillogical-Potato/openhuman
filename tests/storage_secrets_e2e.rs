@@ -125,9 +125,10 @@ async fn a_configured_backend_holds_keyring_and_credential_secrets() {
     let dev = std::fs::read_to_string(workspace.join("dev-keychain.json")).unwrap();
     assert!(!dev.contains("user-1") && !dev.contains("tok-123"), "{dev}");
 
-    // Without a backend the files are back in use.
+    // Clearing the configured backend returns the HTTP store to its legacy
+    // file. Auth profiles have their own encrypted local store and remain.
     assert!(openhuman_core::storage::clear());
     assert!(http.get("github").await.unwrap().is_none());
     assert!(http.get("legacy-http").await.unwrap().is_some());
-    assert_eq!(profiles.load().await.unwrap().profiles.len(), 1);
+    assert_eq!(profiles.load().await.unwrap().profiles.len(), 2);
 }
