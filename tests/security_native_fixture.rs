@@ -329,6 +329,7 @@ fn native_fixture_executes_through_the_module_sandbox_plan() {
         std::env::set_var("OPENHUMAN_SANDBOX", "off");
         let mut config = Config::default();
         config.modules.enabled = true;
+        config.autonomy.enabled = false;
         config.workspace_dir = workspace;
         config.config_path = home.join(".openhuman/config.toml");
         config.action_dir = scratch.path().join("action");
@@ -410,6 +411,7 @@ fn native_fixture_approves_a_parked_request_round_trip() {
         std::env::set_var("OPENHUMAN_KEYRING_BACKEND", "file");
         let mut config = Config::default();
         config.modules.enabled = true;
+        config.autonomy.enabled = false;
         config.workspace_dir = workspace;
         config.config_path = home.join(".openhuman/config.toml");
         config.action_dir = scratch.path().join("action");
