@@ -4,6 +4,7 @@ use openhuman_core::{
     core::runtime::{turn_origin::{self, AgentTurnOrigin}, DispatchCtx},
     modules::security::{client, reinitialize},
     sandbox::types::{SandboxBackendKind, SandboxPolicy},
+    security::approval::{gate::ApprovalGate, ApprovalChatContext, ApprovalTurnContext, GateOutcome},
 };
 use std::path::PathBuf;
 use tinysecurity_bus::{
@@ -30,6 +31,12 @@ async fn rpc(router: &Router, method: &str, params: Value) -> Value {
     assert_eq!(response.status(), StatusCode::OK, "{method}");
     serde_json::from_slice(&to_bytes(response.into_body(), 1024 * 1024).await.expect("response body"))
         .expect("JSON-RPC response")
+}
+
+fn rpc_result(response: &Value) -> &Value {
+    assert!(response.get("error").is_none(), "{response}");
+    let result = &response["result"];
+    if result.get("logs").is_some() { &result["result"] } else { result }
 }
 
 /// Loads the published TinySecurity archive through the compiled registry pin.
@@ -241,4 +248,65 @@ async fn native_fixture_executes_through_the_module_sandbox_plan() {
     .expect("TinySecurity should plan and consume the safe sandbox command");
     assert!(result.success(), "sandbox command failed: {}", result.stderr);
     assert!(result.stdout.contains("sandbox-fixture"));
+}
+
+/// Parks a real approval request, approves it through the host RPC controller,
+/// and checks that the caller resumes with an allow outcome.
+#[tokio::test]
+#[ignore = "loads the pinned module and round trips an approval through the host"]
+async fn native_fixture_approves_a_parked_request_round_trip() {
+    let scratch = tempfile::tempdir().expect("scratch workspace");
+    std::env::set_var("OPENHUMAN_WORKSPACE", scratch.path());
+    std::env::set_var("OPENHUMAN_KEYRING_BACKEND", "file");
+    let mut config = Config::default();
+    config.modules.enabled = true;
+    config.workspace_dir = scratch.path().to_path_buf();
+    config.config_path = scratch.path().join("config.toml");
+    config.action_dir = scratch.path().join("action");
+    config.action_dir_override = Some(config.action_dir.clone());
+    config.save().await.expect("save fixture config");
+    openhuman_core::core::auth::init_rpc_token_with_value(TOKEN).expect("install RPC token");
+    openhuman_core::security::secret_storage::init_workspace(scratch.path());
+    let router = openhuman_rpc::server::build_core_http_router(false);
+    client(&config).await.expect("released module loads");
+    let gate = ApprovalGate::init_global(config, "security-native-approval-fixture");
+    let parked = {
+        let gate = gate.clone();
+        tokio::spawn(async move {
+            turn_origin::with_origin(
+                AgentTurnOrigin::WebChat {
+                    thread_id: "native-fixture-thread".into(),
+                    client_id: "native-fixture-client".into(),
+                    request_id: None,
+                },
+                gate.intercept(
+                    &ApprovalTurnContext::chat(ApprovalChatContext {
+                        thread_id: "native-fixture-thread".into(),
+                        client_id: "native-fixture-client".into(),
+                        request_id: None,
+                    }),
+                    "shell",
+                    "run harmless fixture command",
+                    json!({"command":"echo approval-fixture"}),
+                ),
+            ).await
+        })
+    };
+    let mut pending = Value::Null;
+    for _ in 0..200 {
+        pending = rpc(&router, "openhuman.approval_list_pending", json!({})).await;
+        if rpc_result(&pending).as_array().is_some_and(|rows| !rows.is_empty()) {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(25)).await;
+    }
+    let row = rpc_result(&pending).as_array().and_then(|rows| rows.first())
+        .expect("TinySecurity should persist the parked approval row");
+    let request_id = row["request_id"].as_str().expect("approval request id");
+    let decision = rpc(&router, "openhuman.approval_decide", json!({
+        "request_id": request_id,
+        "decision": "approve_once",
+    })).await;
+    assert!(decision.get("error").is_none(), "host should record the approval: {decision}");
+    assert!(matches!(parked.await.expect("parked caller"), GateOutcome::Allow));
 }
