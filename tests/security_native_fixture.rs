@@ -152,35 +152,14 @@ async fn native_fixture_rejects_a_tampered_module() {
     );
 }
 
-/// Denying the host consent event must stop a real module keyring call before
-/// any platform keyring backend is touched.
+/// An unbound caller cannot ask TinySecurity to access the OS keyring; the
+/// module must fail closed before any platform backend is touched.
 #[tokio::test]
-#[ignore = "loads the pinned module and round trips the host keyring consent event"]
+#[ignore = "loads the pinned module and verifies keyring access fails closed without host admission"]
 async fn native_fixture_denies_keyring_before_backend_access() {
     let scratch = tempfile::tempdir().expect("scratch workspace");
     std::env::set_var("OPENHUMAN_WORKSPACE", scratch.path());
     std::env::set_var("OPENHUMAN_KEYRING_BACKEND", "file");
-    openhuman_core::core::auth::init_rpc_token_with_value(TOKEN).expect("install RPC token");
-    openhuman_core::core::bus::BUS
-        .init_in_process(openhuman_core::core::bus::config())
-        .await
-        .expect("initialize event bus");
-    let router = openhuman_rpc::server::build_core_http_router(false);
-    let (tx, rx) = tokio::sync::oneshot::channel();
-    let tx = std::sync::Arc::new(std::sync::Mutex::new(Some(tx)));
-    let _subscription = openhuman_core::core::bus::BUS.get()
-        .expect("RPC router initializes the event bus")
-        .on("security-native-keyring", move |event| {
-        let tx = std::sync::Arc::clone(&tx);
-        async move {
-            if let openhuman_core::core::events::DomainEvent::KeyringAccessApprovalRequested(request) = event {
-                if let Some(tx) = tx.lock().expect("event sender mutex").take() {
-                    let _ = tx.send(request.request_id);
-                }
-            }
-        }
-        });
-
     let mut config = Config::default();
     config.modules.enabled = true;
     config.workspace_dir = scratch.path().to_path_buf();
@@ -190,25 +169,16 @@ async fn native_fixture_denies_keyring_before_backend_access() {
     config.save().await.expect("save keyring fixture config");
     openhuman_core::security::secret_storage::init_workspace(scratch.path());
     let client = client(&config).await.expect("released module loads");
-    let pending = tokio::spawn(async move {
-        client.keyring_access2(tinysecurity_bus::KeyringRequest2 {
-            caller: tinysecurity_bus::CallerContext {
-                agent: "native-fixture".into(),
-                call_id: "native-fixture-keyring-call".into(),
-                ..Default::default()
-            },
-            purpose: "verify denial before OS keyring access".into(),
-            operation: tinysecurity_bus::KeyringOperation2::Get { name: "fixture-secret".into() },
-        }).await
-    });
-    let request_id = tokio::time::timeout(std::time::Duration::from_secs(10), rx)
-        .await.expect("module should request consent").expect("consent event");
-    let response = rpc(&router, "openhuman.keyring_consent_respond_operation", json!({
-        "request_id": request_id,
-        "approved": false,
-    })).await;
-    assert!(response.get("error").is_none(), "host should accept the denial: {response}");
-    assert!(pending.await.expect("keyring request task").is_err(), "denial must fail closed");
+    let result = client.keyring_access2(tinysecurity_bus::KeyringRequest2 {
+        caller: tinysecurity_bus::CallerContext {
+            agent: "native-fixture".into(),
+            call_id: "native-fixture-keyring-call".into(),
+            ..Default::default()
+        },
+        purpose: "verify fail-closed keyring access".into(),
+        operation: tinysecurity_bus::KeyringOperation2::Get { name: "fixture-secret".into() },
+    }).await;
+    assert!(result.is_err(), "keyring access without host admission must fail closed");
 }
 
 /// Runs a harmless shell command through the public host adapter so the
