@@ -253,7 +253,8 @@ export const SubagentTaskCard: ToolCallMessagePartComponent = ({
   // A failure's output stays on the card. A finished report goes inside the
   // disclosure instead, rendered as markdown with the chat's own renderer:
   // the parent's reply presents the same result, so the card stays a header
-  // row until the user expands it.
+  // row until the user expands it. Its `[n]` markers are the child's, not
+  // the parent turn's sources, so citation linking is off.
   const resultNode =
     resolved.output && state === 'failed' ? (
       <p className="m-0 whitespace-pre-wrap">{resolved.output}</p>
@@ -262,7 +263,7 @@ export const SubagentTaskCard: ToolCallMessagePartComponent = ({
     resolved.output && state === 'done' ? (
       <div data-testid="subagent-report" className="text-sm">
         <TextMessagePartProvider text={resolved.output} isRunning={false}>
-          <MarkdownText />
+          <MarkdownText citations={false} />
         </TextMessagePartProvider>
       </div>
     ) : null;

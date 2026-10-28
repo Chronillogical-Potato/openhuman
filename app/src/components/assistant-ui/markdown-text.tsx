@@ -98,7 +98,14 @@ function transformAssistantUrl(url: string): string {
   return classifyHref(url) === 'workspace' ? '' : transformChatUrl(url);
 }
 
-const MarkdownTextImpl = () => {
+const NO_CITATIONS: readonly CitationSource[] = [];
+
+/**
+ * `citations={false}` renders text that is not this message's own answer (a
+ * sub-agent's report shown on its delegation card): its `[n]` markers refer to
+ * sources the enclosing message does not have, so they stay plain text.
+ */
+const MarkdownTextImpl = ({ citations = true }: { citations?: boolean }) => {
   // Math is GATED, not always-on, and the gate is `hasLatexContent` rather than
   // "contains a $". `remark-math` would otherwise read "$10 vs $20" as an inline
   // formula and eat the prose between them; the signature requires a real LaTeX
@@ -129,7 +136,8 @@ const MarkdownTextImpl = () => {
       return EMPTY_MESSAGE_PARTS;
     }
   });
-  const sources = useMemo(() => sourcePartsToCitations(parts), [parts]);
+  const messageSources = useMemo(() => sourcePartsToCitations(parts), [parts]);
+  const sources = citations ? messageSources : NO_CITATIONS;
 
   const preprocess = (input: string): string => {
     const withCitations = linkifyCitationMarkers(input, sources.length);

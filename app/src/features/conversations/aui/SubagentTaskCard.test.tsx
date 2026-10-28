@@ -11,9 +11,13 @@ vi.mock('../../../components/assistant-ui/elements/task-card.aui', () => ({
 }));
 
 const append = vi.hoisted(() => vi.fn());
+// The enclosing (parent) message's parts, as `MarkdownText` reads them.
+const parentParts = vi.hoisted(() => ({ value: [] as unknown[] }));
 vi.mock('@assistant-ui/react', async importActual => ({
   ...(await importActual<typeof import('@assistant-ui/react')>()),
   useAui: () => ({ thread: { append } }),
+  useAuiState: (selector: (state: unknown) => unknown) =>
+    selector({ message: { parts: parentParts.value } }),
 }));
 
 const dispatch = vi.hoisted(() => vi.fn());
@@ -180,6 +184,41 @@ describe('SubagentTaskCard', () => {
     fireEvent.click(header);
     expect(header).toHaveAttribute('aria-expanded', 'true');
     expect(await screen.findByTestId('subagent-report')).toBeInTheDocument();
+  });
+
+  it("leaves the report's [n] markers as text, not the parent turn's citations", async () => {
+    parentParts.value = [
+      { type: 'source', sourceType: 'url', id: 's1', url: 'https://parent.example/a' },
+    ];
+    try {
+      render(
+        <SubagentTaskCard
+          type="tool-call"
+          toolName="task"
+          toolCallId="sub-citations"
+          args={{} as never}
+          argsText="{}"
+          result={
+            {
+              status: 'complete',
+              activity: { ...activity, status: 'success', output: 'Checked the docs [1].' },
+            } as never
+          }
+          status={{ type: 'complete' }}
+          addResult={() => {}}
+          resume={() => {}}
+          respondToApproval={async () => {}}
+        />
+      );
+      fireEvent.click(screen.getByRole('button', { name: /Delegated to Researcher/i }));
+
+      const report = await screen.findByTestId('subagent-report');
+      await waitFor(() => expect(report.textContent).toContain('Checked the docs [1].'));
+      expect(within(report).queryByRole('button')).toBeNull();
+      expect(report.querySelector('a')).toBeNull();
+    } finally {
+      parentParts.value = [];
+    }
   });
 
   it('renders the awaiting-user reply box and lets the answer through the composer path', async () => {
