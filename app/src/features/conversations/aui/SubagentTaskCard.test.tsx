@@ -70,7 +70,12 @@ describe('SubagentTaskCard', () => {
         toolCallId="sub-1"
         args={{} as never}
         argsText="{}"
-        result={{ status: 'error', activity: { ...activity, status: 'failed' } } as never}
+        result={
+          {
+            status: 'error',
+            activity: { ...activity, status: 'failed', output: 'Validation failed.' },
+          } as never
+        }
         status={{ type: 'complete' }}
         addResult={() => {}}
         resume={() => {}}
@@ -82,9 +87,11 @@ describe('SubagentTaskCard', () => {
       'data-status',
       'failed'
     );
+    // Unlike a completed report, a failure's output is kept on the card.
+    expect(screen.getByText('Validation failed.')).toBeInTheDocument();
   });
 
-  it('keeps completed output and ignores legacy worktree fields', async () => {
+  it('hides a completed report and ignores legacy worktree fields', () => {
     const legacyActivity: SubagentActivity & {
       worktreePath: string;
       changedFiles: string[];
@@ -116,41 +123,18 @@ describe('SubagentTaskCard', () => {
       'data-status',
       'success'
     );
-    expect(await screen.findByText('Research is complete.')).toBeInTheDocument();
+    expect(screen.getByText('Delegated to Researcher')).toBeInTheDocument();
+    expect(screen.queryByText('Research is complete.')).toBeNull();
+    expect(
+      screen.getByTestId('assistant-ui-subagent-call').querySelector('[data-slot="task-card-result"]')
+    ).toBeNull();
+    // The transcript stays one click away.
+    expect(screen.getByRole('button', { name: /Delegated to Researcher/i })).toHaveAttribute(
+      'aria-expanded',
+      'false'
+    );
     expect(screen.queryByTestId('worktree-actions')).toBeNull();
     expect(screen.queryByText(/worker/)).toBeNull();
-  });
-
-  it('renders the completed report as markdown, not literal syntax', async () => {
-    render(
-      <SubagentTaskCard
-        type="tool-call"
-        toolName="task"
-        toolCallId="sub-1"
-        args={{} as never}
-        argsText="{}"
-        result={
-          {
-            status: 'complete',
-            activity: {
-              ...activity,
-              status: 'success',
-              output: '**Answer:** saved the flow.\n\n- trigger updated\n- step 2 shortened',
-            },
-          } as never
-        }
-        status={{ type: 'complete' }}
-        addResult={() => {}}
-        resume={() => {}}
-        respondToApproval={async () => {}}
-      />
-    );
-
-    const strong = await screen.findByText('Answer:');
-    expect(strong.tagName).toBe('STRONG');
-    const items = screen.getAllByRole('listitem').map(li => li.textContent);
-    expect(items).toEqual(['trigger updated', 'step 2 shortened']);
-    expect(screen.queryByText(/\*\*Answer:\*\*/)).toBeNull();
   });
 
   it('renders the awaiting-user reply box and lets the answer through the composer path', async () => {

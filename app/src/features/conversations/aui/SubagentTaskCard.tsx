@@ -19,17 +19,12 @@
  * (`elements/task-card.tsx`) + `utils/task.ts` pieces instead, with those
  * actions supplied explicitly.
  */
-import {
-  TextMessagePartProvider,
-  type ToolCallMessagePartComponent,
-  useAui,
-} from '@assistant-ui/react';
+import { type ToolCallMessagePartComponent, useAui } from '@assistant-ui/react';
 import { useCallback, useState } from 'react';
 
 import { TaskCard, type TaskCardState } from '../../../components/assistant-ui/elements/task-card';
 import { TaskTranscript } from '../../../components/assistant-ui/elements/task-card.aui';
 import { useDisclosure } from '../../../components/assistant-ui/lib/useDisclosure';
-import { MarkdownText } from '../../../components/assistant-ui/markdown-text';
 import { formatElapsed } from '../../../components/assistant-ui/utils/task';
 import { Button } from '../../../components/ui';
 import { useT } from '../../../lib/i18n/I18nContext';
@@ -250,13 +245,13 @@ export const SubagentTaskCard: ToolCallMessagePartComponent = ({
       </div>
     ) : undefined;
 
-  // The child's report is markdown, like any agent reply: render it with the
-  // chat's own renderer (the same provider pattern as `reasoning-panel.tsx`).
+  // A finished delegation's report is not shown: the parent's own reply
+  // presents the same result right after, so the card stays a header row
+  // (its transcript is still one click away). A failure keeps its output,
+  // which nothing else in the thread repeats.
   const resultNode =
-    resolved.output && (state === 'done' || state === 'failed') ? (
-      <TextMessagePartProvider text={resolved.output} isRunning={false}>
-        <MarkdownText />
-      </TextMessagePartProvider>
+    resolved.output && state === 'failed' ? (
+      <p className="m-0 whitespace-pre-wrap">{resolved.output}</p>
     ) : undefined;
 
   // `messages` (the part's own nested transcript, built by `subagentMessages`)
