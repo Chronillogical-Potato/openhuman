@@ -9,7 +9,6 @@ use openhuman_core::{
 use std::path::PathBuf;
 use tinysecurity_bus::{
     CommandAutonomy, CommandClass, CommandExecutionMode, CommandPolicy, CommandRequest,
-    PathAccess, PathPolicy, PathTrustedRoot, PathValidationRequest, PathValidationResult,
     PrivacyCheckRequest2, PrivacyDataClass2, PrivacyMode, ProtectedPathRequest2, RedactMode,
     Verdict,
 };
@@ -92,7 +91,6 @@ async fn native_fixture_exercises_the_pinned_release_contracts() {
         .expect("the unconditional path floor should answer");
     assert_eq!(floor.protected, vec![true, false]);
 
-    let workspace = scratch.path().to_path_buf();
     let command_scope = client
         .register_command_policy(CommandPolicy {
             enabled: true,
@@ -250,6 +248,20 @@ async fn native_fixture_executes_through_the_module_sandbox_plan() {
     .expect("TinySecurity should plan and consume the safe sandbox command");
     assert!(result.success(), "sandbox command failed: {}", result.stderr);
     assert!(result.stdout.contains("sandbox-fixture"));
+    let outside = tempfile::tempdir().expect("outside directory");
+    let denied = turn_origin::with_origin(
+        AgentTurnOrigin::Cli,
+        openhuman_core::sandbox::ops::execute_in_sandbox(
+            &DispatchCtx::process_default(),
+            &policy,
+            command,
+            outside.path(),
+            std::collections::HashMap::new(),
+            std::time::Duration::from_secs(10),
+        ),
+    )
+    .await;
+    assert!(denied.is_err(), "sandbox path policy must refuse a working directory outside its workspace");
 }
 
 /// Parks a real approval request, approves it through the host RPC controller,
