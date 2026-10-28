@@ -18,7 +18,10 @@ impl ApprovalStore {
     ) -> tinybus::Result<tinysecurity_bus::ApprovalLoadResponse2> {
         crate::security::approval::native::callbacks::load(request)
             .await
-            .map_err(tinybus::Error::failed)
+            .map_err(|error| {
+                eprintln!("native fixture ApprovalStore Load failed: {error}");
+                tinybus::Error::failed(error)
+            })
     }
     async fn cas(
         &self,
@@ -26,7 +29,10 @@ impl ApprovalStore {
     ) -> tinybus::Result<tinysecurity_bus::ApprovalCasResponse2> {
         crate::security::approval::native::callbacks::cas(request)
             .await
-            .map_err(tinybus::Error::failed)
+            .map_err(|error| {
+                eprintln!("native fixture ApprovalStore CAS failed: {error}");
+                tinybus::Error::failed(error)
+            })
     }
 }
 
@@ -40,7 +46,10 @@ impl AuditSink {
     ) -> tinybus::Result<tinysecurity_bus::AuditSinkResponse2> {
         crate::security::approval::native::callbacks::append(request)
             .await
-            .map_err(tinybus::Error::failed)
+            .map_err(|error| {
+                eprintln!("native fixture AuditSink Append failed: {error}");
+                tinybus::Error::failed(error)
+            })
     }
 }
 
@@ -54,7 +63,10 @@ impl ApprovalPrompt {
     ) -> tinybus::Result<tinysecurity_bus::ApprovalDeliveryResponse2> {
         crate::security::approval::native::callbacks::prompt(request)
             .await
-            .map_err(tinybus::Error::failed)
+            .map_err(|error| {
+                eprintln!("native fixture ApprovalPrompt failed: {error}");
+                tinybus::Error::failed(error)
+            })
     }
     async fn verify_human(
         &self,
