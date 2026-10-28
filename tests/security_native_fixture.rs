@@ -72,7 +72,9 @@ async fn rpc_http(port: u16, method: &str, params: Value) -> Value {
     response.json().await.expect("JSON-RPC response")
 }
 
-async fn start_desktop_fixture(config: Config) -> (
+async fn start_desktop_fixture(
+    config: Config,
+) -> (
     u16,
     ShutdownOnDrop,
     tokio::task::JoinHandle<anyhow::Result<()>>,
