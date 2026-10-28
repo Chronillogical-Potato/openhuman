@@ -114,4 +114,65 @@ async fn device_pairing_and_frame_calls_reject_unattested_recipients() {
     assert!(fixture.frame.lock().unwrap().is_none());
 }
 
+/// The released module refuses private and metadata IP literals before
+/// resolving or opening a socket. The test performs no network operation.
+#[tokio::test]
+#[ignore = "loads the pinned TinySecurity release to check private browser destinations"]
+async fn native_fixture_denies_private_browser_dial() {
+    let scratch = tempfile::tempdir().expect("scratch workspace");
+    std::env::set_var("OPENHUMAN_WORKSPACE", scratch.path());
+    std::env::set_var("OPENHUMAN_KEYRING_BACKEND", "file");
+    let mut config = crate::config::Config::default();
+    config.modules.enabled = true;
+    config.workspace_dir = scratch.path().to_path_buf();
+    config.config_path = scratch.path().join("config.toml");
+    config.action_dir = scratch.path().join("action");
+    config.action_dir_override = Some(config.action_dir.clone());
+    config.save().await.expect("save fixture config");
+    crate::security::secret_storage::init_workspace(scratch.path());
 
+    let client = client(&config)
+        .await
+        .expect("pinned TinySecurity release loads");
+    let policy_id = client
+        .register_egress_policy(tinysecurity_bus::EgressPolicy {
+            owner: tinysecurity_bus::SubjectScope {
+                user: "native-fixture-user".into(),
+                workspace: "native-fixture-workspace".into(),
+                agent: "native-fixture-agent".into(),
+            },
+            ceiling: tinysecurity_bus::AccessTier::Full,
+            privacy: tinysecurity_bus::PrivacyMode::Standard,
+            destinations: vec![],
+            data_categories: vec![tinysecurity_bus::DataCategory::OpaqueBrowserTraffic],
+            local_capabilities: vec![],
+            validity_ms: 30_000,
+            open_public: true,
+            preflight_transports: vec![tinysecurity_bus::EgressTransport::Browser],
+        })
+        .await
+        .expect("register a host-owned browser policy");
+    let generation = client.policy_info().await.expect("policy info").generation;
+
+    for hostname in ["127.0.0.1", "169.254.169.254"] {
+        let response = client
+            .authorize_browser_dial(tinysecurity_bus::BrowserDialRequest {
+                policy_id: policy_id.clone(),
+                expected_generation: generation,
+                session_id: "native-fixture-browser-session".into(),
+                scheme: "https".into(),
+                hostname: hostname.into(),
+                port: 443,
+            })
+            .await
+            .expect("module should return an SSRF decision");
+        assert!(
+            response.denial.is_some(),
+            "private destination {hostname} must be denied"
+        );
+        assert!(
+            response.authorization.is_none(),
+            "private destination {hostname} must receive no dial grant"
+        );
+    }
+}
