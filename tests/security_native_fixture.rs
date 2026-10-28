@@ -400,7 +400,7 @@ fn native_fixture_fails_closed_without_approval_audit_correlation() {
         config.action_dir_override = Some(config.action_dir.clone());
         config.save().await.expect("save fixture config");
         openhuman_core::security::secret_storage::init_workspace(scratch.path());
-        let (port, shutdown, mut server) = start_desktop_fixture(config.clone()).await;
+        let (port, shutdown, server) = start_desktop_fixture(config.clone()).await;
         tokio::time::sleep(std::time::Duration::from_millis(100)).await;
         if let Err(error) = health_http(port).await {
             let task = if server.is_finished() {
