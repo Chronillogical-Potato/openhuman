@@ -159,6 +159,7 @@ impl ApprovalEngine for NativeEngine {
                 )
                 .await;
             evaluated.map_err(|error| {
+                eprintln!("native approval evaluation error: {error:?}");
                 tracing::warn!(error = %error, "{LOG} the module refused to evaluate the call");
                 unavailable(format!("TinySecurity EvaluateApproval2 failed: {error}"))
             })?
