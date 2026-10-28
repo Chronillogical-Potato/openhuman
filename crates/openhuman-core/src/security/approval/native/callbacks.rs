@@ -24,10 +24,11 @@ const LOG: &str = "[approval::native]";
 
 /// `ApprovalStore2.Load`: the latest rows of one subject.
 pub(crate) async fn load(request: ApprovalLoadRequest2) -> Result<ApprovalLoadResponse2, String> {
+    eprintln!("approval callback diagnostic: Load entered");
     let scope = by_handle(&request.scope)
         .await
-        .ok_or("approval store: unknown subject")?;
-    let records = scope.rows.load(&request.scope).await?;
+        .ok_or_else(|| { eprintln!("approval callback diagnostic: by_handle missed"); "approval store: unknown subject" })?;
+    let records = scope.rows.load(&request.scope).await.map_err(|error| { eprintln!("approval callback diagnostic: rows storage failed: {error}"); error })?;
     tracing::trace!(records = records.len(), "{LOG} store load");
     Ok(ApprovalLoadResponse2 {
         scope: request.scope,
