@@ -11,7 +11,7 @@
 use serde::{Deserialize, Serialize};
 
 pub use tinyagents_harness::config::{CompactionSettings, CompactionStrategy, ContextConfig};
-pub use tinyagents_harness::summarization::ToolRendering;
+use tinyagents_harness::summarization::ToolRendering;
 
 /// The whole `[context]` table: TinyAgents' [`ContextConfig`] and the
 /// compaction summarizer's OpenHuman-side settings.

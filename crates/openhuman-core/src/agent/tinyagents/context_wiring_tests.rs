@@ -158,7 +158,7 @@ async fn a_markers_compaction_sends_no_tool_output_and_caps_the_summary() {
             model: summarizer_model.clone(),
             model_id: "scaledown/summarize".into(),
             settings: crate::config::SummarizerSettings {
-                tool_rendering: crate::config::ToolRendering::Markers,
+                tool_rendering: tinyagents_harness::summarization::ToolRendering::Markers,
                 max_output_tokens: Some(4_000),
             },
         },

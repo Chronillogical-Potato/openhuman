@@ -126,7 +126,6 @@ pub use channels::{
 pub(crate) use cli_overrides::set_cli_inference_overrides;
 pub use context::{
     CompactionSettings, CompactionStrategy, ContextConfig, ContextSettings, SummarizerSettings,
-    ToolRendering,
 };
 pub use cron::CronConfig;
 pub use dashboard::{DashboardConfig, DiagramViewerConfig, EventStreamConfig, ModelHealthConfig};

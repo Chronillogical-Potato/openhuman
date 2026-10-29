@@ -193,8 +193,8 @@ impl Config {
         if let Some(val) = env.get("OPENHUMAN_CONTEXT_SUMMARIZER_TOOL_RENDERING") {
             let rendering = match val.trim().to_ascii_lowercase().as_str() {
                 "" => None,
-                "full" => Some(crate::config::ToolRendering::Full),
-                "markers" => Some(crate::config::ToolRendering::Markers),
+                "full" => Some(tinyagents_harness::summarization::ToolRendering::Full),
+                "markers" => Some(tinyagents_harness::summarization::ToolRendering::Markers),
                 _ => {
                     tracing::warn!(
                         value = %val.trim(),
