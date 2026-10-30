@@ -519,6 +519,7 @@ Two hook surfaces wrap the loop, on opposite ends:
 Stop hooks fire between iterations of the tool-call loop. They're the policy lever for budget caps, rate limits, and custom kill switches. Built-in hooks:
 
 - Budget stop hook: caps cumulative turn cost in USD using the per-iteration cost accumulator.
+- Per-call spend budget: each provider call reserves a conservative bound on the turn's shared ledger before it is sent and settles from measured usage. It is applied beneath attachment rendering, so a photo, sticker or document turn is admitted on its rendered text and the image readout is charged to the same ledger. While a budget is active, models receive image readouts and extracted document text rather than native media.
 - Max-iterations stop hook: caps iteration count from outside the agent's persistent config.
 - Action budget policy: `SecurityPolicy` enforces `config.autonomy.max_actions_per_hour` for side-effecting tool operations. Users can tune it in Settings, Advanced, Agent autonomy, or operators can override it with `OPENHUMAN_MAX_ACTIONS_PER_HOUR`.
 

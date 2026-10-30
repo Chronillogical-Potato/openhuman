@@ -601,3 +601,6 @@ mod native_tests;
 
 #[path = "turn_models_summarizer_tests.rs"]
 mod summarizer_tests;
+
+#[path = "turn_models_budget_media_tests.rs"]
+mod budget_media_tests;
