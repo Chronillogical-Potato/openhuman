@@ -31,9 +31,12 @@ pub(crate) struct TurnModels {
     pub(crate) summarizer_settings: crate::config::SummarizerSettings,
     /// Recovers the primary's original (downcastable) provider error on failure.
     pub(crate) error_slot: tinyinference_llm::model::ModelErrorSlot,
-    /// Native owner set retained so its route and primary error slots are
-    /// applied after host decorators such as the turn budget.
+    /// Native owner set retained so the resolver keeps its route and primary
+    /// error slots.
     pub(crate) native_model_set: Option<tinyagents_harness::host::TurnModelSet<()>>,
+    /// Set when every model here renders attachments above a control slot;
+    /// the turn's spend controls are installed there instead of on top.
+    pub(crate) host_controls: Option<crate::inference::host_controls::HostControlSlot>,
     /// Provider telemetry id (`{provider_id}.{model}` in Langfuse), captured from
     /// the source `Provider` at build time. Carried here (issue #4249, Phase 3 /
     /// Motion A) so the harness turn path no longer reads it off a raw
@@ -163,6 +166,7 @@ async fn build_turn_models_crate(
     let credentials =
         crate::inference::provider::factory::RuntimeCredentialSnapshot::resolve(config).await;
     let configured_summarizer = configured_summarizer_model(config);
+    let host_controls = crate::inference::host_controls::HostControlSlot::default();
     let factory = crate::inference::provider::factory::OpenHumanModelFactory {
         ctx,
         config,
@@ -171,6 +175,7 @@ async fn build_turn_models_crate(
         thread_id,
         attach_host_attachments: true,
         credentials,
+        host_controls: Some(&host_controls),
         summarizer_model: configured_summarizer,
     };
     let opts = tinyagents_harness::host::BuildOpts {
@@ -244,6 +249,7 @@ async fn build_turn_models_crate(
         summarizer_settings: config.context.summarizer_settings(),
         error_slot,
         native_model_set: Some(built),
+        host_controls: Some(host_controls),
         provider_id,
         context_window,
         native_tools,
@@ -492,17 +498,23 @@ impl TurnModelSource {
                             .with_request_temperature(temperature),
                     )
                 };
+            let host_controls = self
+                .attachment_config
+                .as_ref()
+                .map(|_| crate::inference::host_controls::HostControlSlot::default());
             let (primary, summarizer) = match &self.attachment_config {
                 Some(config) => (
-                    crate::attachments::provider::wrap_injected(
+                    crate::attachments::provider::wrap_injected_controlled(
                         &self.dispatch_ctx(),
                         primary,
                         config.clone(),
+                        host_controls.as_ref(),
                     ),
-                    crate::attachments::provider::wrap_injected(
+                    crate::attachments::provider::wrap_injected_controlled(
                         &self.dispatch_ctx(),
                         direct.clone(),
                         config.clone(),
+                        host_controls.as_ref(),
                     ),
                 ),
                 None => (primary, direct.clone()),
@@ -517,6 +529,7 @@ impl TurnModelSource {
                 summarizer_settings: Default::default(),
                 error_slot: Arc::new(std::sync::Mutex::new(None)),
                 native_model_set: None,
+                host_controls,
                 provider_id,
                 context_window,
                 native_tools,
@@ -674,6 +687,7 @@ impl TurnModelSource {
                         &cn.config,
                     )
                     .await,
+                host_controls: None,
                 summarizer_model: None,
             };
             let opts = tinyagents_harness::host::BuildOpts {

@@ -245,6 +245,12 @@ pub(crate) fn instantiate(runtime: &Runtime, spec: AgentSpec) -> Result<AgentInn
         opt_named_belt_into_discovery(&mut definition.tools);
     }
 
+    // `cron` is hidden behind its per-operation tools; a named belt that lists
+    // it means the scheduler, so it names those too.
+    if let tinyagents_definition::ToolScope::Named(names) = &mut definition.tools {
+        openhuman_core::cron::tools::widen_named_scope(names);
+    }
+
     // A named scope is an explicit allowlist: unless it names a spawn tool it
     // cannot reach the inherited built-in sub-agent roster.
     let declares_subagents = !parts.subagents.is_empty();

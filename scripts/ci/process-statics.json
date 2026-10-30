@@ -400,6 +400,16 @@
     "verification": "modules/runtime_tests.rs: the_module_bus_is_a_singleton_and_serves_proxies"
   },
   {
+    "file": "crates/openhuman-core/src/modules/storage_host_backend.rs",
+    "scope": "",
+    "name": "TEST_MODULE_STORAGE",
+    "type": "std::sync::Mutex<Option<Arc<dyn StorageBackend>>>",
+    "count": 1,
+    "category": "A",
+    "reason": "Test-only (cfg(test)): the backend module calls are served while a unit test holds a module lock (composio module_guard), so that test's module storage is never installed in the process slot, where it would be every concurrent test's storage (MAIN-57). Set and restored only under the module's test lock; no tenant state, not compiled into any shipped build.",
+    "verification": "integrations/composio/ops/scope_prefs_tests.rs: a_saved_pref_survives_a_deferred_legacy_migration"
+  },
+  {
     "file": "crates/openhuman-core/src/modules/wallet_backend.rs",
     "scope": "",
     "name": "HANDLERS",

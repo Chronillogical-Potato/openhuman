@@ -30,7 +30,10 @@ impl ProfileHostOptions {
                     "profile tools require a named or host-only scope".into(),
                 ));
             }
-            Some(ToolScopeSpec::Named(names)) => Some(names.into_iter().collect()),
+            Some(ToolScopeSpec::Named(mut names)) => {
+                openhuman_core::cron::tools::widen_named_scope(&mut names);
+                Some(names.into_iter().collect())
+            }
             _ => None,
         };
         if self

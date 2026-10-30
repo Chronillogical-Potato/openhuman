@@ -1,6 +1,7 @@
 //! Ephemeral provider request preparation for durable workspace attachments.
 use super::AttachmentAccessScope;
 use crate::config::Config;
+use crate::inference::host_controls::HostControlSlot;
 use base64::{engine::general_purpose::STANDARD, Engine};
 use std::sync::Arc;
 use tinyinference_llm::{
@@ -19,6 +20,18 @@ pub(crate) async fn wrap(
     config: Arc<Config>,
     model: &str,
     provider: &str,
+) -> Arc<dyn ChatModel<()>> {
+    wrap_controlled(ctx, inner, config, model, provider, None)
+}
+
+/// [`wrap`] with the turn's spend controls placed beneath attachment rendering.
+pub(crate) fn wrap_controlled(
+    ctx: &crate::core::runtime::DispatchCtx,
+    inner: Arc<dyn ChatModel<()>>,
+    config: Arc<Config>,
+    model: &str,
+    provider: &str,
+    controls: Option<&HostControlSlot>,
 ) -> Arc<dyn ChatModel<()>> {
     let mut profile = inner.profile().cloned().unwrap_or_default();
     // Transport profiles describe serialization support, not selected-model facts.
@@ -70,7 +83,7 @@ pub(crate) async fn wrap(
     }
     profile.modalities.image_in |=
         crate::inference::model_context::model_vision_enabled(model, &config);
-    owner::wrap(ctx, inner, config, Some(profile))
+    owner::wrap(ctx, inner, config, Some(profile), controls)
 }
 
 /// Injected models supply their own selected-model facts through ModelProfile.
@@ -80,8 +93,18 @@ pub(crate) fn wrap_injected(
     inner: Arc<dyn ChatModel<()>>,
     config: Arc<Config>,
 ) -> Arc<dyn ChatModel<()>> {
+    wrap_injected_controlled(ctx, inner, config, None)
+}
+
+/// [`wrap_injected`] with the turn's spend controls beneath attachment rendering.
+pub(crate) fn wrap_injected_controlled(
+    ctx: &crate::core::runtime::DispatchCtx,
+    inner: Arc<dyn ChatModel<()>>,
+    config: Arc<Config>,
+    controls: Option<&HostControlSlot>,
+) -> Arc<dyn ChatModel<()>> {
     let profile = inner.profile().cloned();
-    owner::wrap(ctx, inner, config, profile)
+    owner::wrap(ctx, inner, config, profile, controls)
 }
 
 struct AttachmentModel {
@@ -90,6 +113,7 @@ struct AttachmentModel {
     /// must not keep a tenant's context alive.
     core: Option<std::sync::Weak<crate::core::runtime::CoreContext>>,
     fallback_cache: std::sync::Mutex<std::collections::HashMap<String, String>>,
+    controls: Option<HostControlSlot>,
 }
 
 const MAX_HISTORICAL_MEDIA_BLOCKS: usize = 8;

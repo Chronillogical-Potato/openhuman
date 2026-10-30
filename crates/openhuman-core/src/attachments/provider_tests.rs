@@ -254,6 +254,7 @@ async fn derivative_cache_survives_model_recreation_and_invalidates_changed_cont
         config: config.clone(),
         core: None,
         fallback_cache: Mutex::new(Default::default()),
+        controls: None,
     };
     let first = make();
     let scope = super::super::AttachmentAccessScope::default();
@@ -305,6 +306,7 @@ async fn cache_is_not_written_beside_unmanaged_local_files() {
         config: Arc::new(config),
         core: None,
         fallback_cache: Mutex::new(Default::default()),
+        controls: None,
     };
     model
         .save_fallback(

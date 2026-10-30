@@ -25,8 +25,8 @@ fn a_named_scope_admits_the_clock_and_scheduler_but_never_the_shell() {
     runtime().block_on(async {
         tokio::spawn(async {
             let backend = stub_backend().await;
-            // The turn calls `cron` (a deferred tool, so not listed up front)
-            // and then answers.
+            // The turn calls `cron` (deferred, so not listed up front, but run
+            // when called by name) and then answers.
             let model = common::scripted_provider(
                 vec![tool_call_completion("cron", r#"{"action":"list"}"#)],
                 "ok",
@@ -61,7 +61,16 @@ fn a_named_scope_admits_the_clock_and_scheduler_but_never_the_shell() {
 
             let requests = chat_requests(&model).await;
             let offered = tool_names(&requests[0]);
-            for admitted in ["current_time", "resolve_time", "tool_search"] {
+            // Naming `cron` lists the scheduler's per-operation tools.
+            for admitted in [
+                "current_time",
+                "resolve_time",
+                "tool_search",
+                "cron_add",
+                "cron_list",
+                "cron_update",
+                "cron_remove",
+            ] {
                 assert!(
                     offered.iter().any(|name| name == admitted),
                     "{admitted} missing: {offered:?}"

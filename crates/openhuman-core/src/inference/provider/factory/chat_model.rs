@@ -42,6 +42,9 @@ pub(crate) struct OpenHumanModelFactory<'a> {
     /// factory actually selected. One-shot probes do not need host attachments.
     pub(crate) attach_host_attachments: bool,
     pub(crate) credentials: super::credentials::RuntimeCredentialSnapshot,
+    /// Spend controls placed beneath attachment rendering on every model this
+    /// factory builds, filled once the turn is admitted.
+    pub(crate) host_controls: Option<&'a crate::inference::host_controls::HostControlSlot>,
     /// `[context] summarizer_model`: the model a summarization request calls
     /// on its own provider route instead of the route's model.
     pub(crate) summarizer_model: Option<&'a str>,
@@ -349,6 +352,7 @@ async fn build_one_shot(
         thread_id: None,
         attach_host_attachments: false,
         credentials,
+        host_controls: None,
         summarizer_model: None,
     };
     let request = ModelBuildRequest {
@@ -404,18 +408,20 @@ impl ModelFactory<()> for OpenHumanModelFactory<'_> {
         let mut model = with_request_defaults(model, opts);
         if self.attach_host_attachments {
             model = if self.injected(request).is_some() {
-                crate::attachments::provider::wrap_injected(
+                crate::attachments::provider::wrap_injected_controlled(
                     self.ctx,
                     model,
                     Arc::new(self.config.clone()),
+                    self.host_controls,
                 )
             } else {
-                crate::attachments::provider::wrap(
+                crate::attachments::provider::wrap_controlled(
                     self.ctx,
                     model,
                     Arc::new(self.config.clone()),
                     &route.model,
                     &route.provider,
+                    self.host_controls,
                 )
                 .await
             };
