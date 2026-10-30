@@ -371,26 +371,6 @@ async fn build_one_shot(
     Ok((model, route.model))
 }
 
-impl ModelBuildGate for OpenHumanModelFactory<'_> {
-    fn check(&self, request: &ModelBuildRequest) -> tinyagents_harness::Result<()> {
-        // Explicit host model injection is authoritative and has no provider
-        // construction, credential, or egress side effect to gate.
-        if self.injected(request).is_some() {
-            return Ok(());
-        }
-        let provider = self.provider_for(request);
-        enforce_local_only_inference(&request.role, &provider)
-            .map_err(|error| tinyagents_harness::TinyAgentsError::Model(error.to_string()))?;
-        crate::inference::provider::factory::access_gates::verify_provider_session_in_with_snapshot(
-            self.ctx,
-            self.config,
-            &provider,
-            &self.credentials,
-        )
-        .map_err(|error| tinyagents_harness::TinyAgentsError::Model(error.to_string()))
-    }
-}
-
 #[async_trait::async_trait]
 impl ModelFactory<()> for OpenHumanModelFactory<'_> {
     async fn build(

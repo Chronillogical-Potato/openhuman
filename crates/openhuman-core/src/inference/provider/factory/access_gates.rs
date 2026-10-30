@@ -469,7 +469,12 @@ impl tinyagents_harness::host::ModelBuildGate for super::OpenHumanModelFactory<'
         let provider = self.provider_for(request);
         enforce_local_only_inference(&request.role, &provider)
             .map_err(|error| tinyagents_harness::TinyAgentsError::Model(error.to_string()))?;
-        verify_provider_session_in(self.ctx, self.config, &provider)
-            .map_err(|error| tinyagents_harness::TinyAgentsError::Model(error.to_string()))
+        verify_provider_session_in_with_snapshot(
+            self.ctx,
+            self.config,
+            &provider,
+            &self.credentials,
+        )
+        .map_err(|error| tinyagents_harness::TinyAgentsError::Model(error.to_string()))
     }
 }
